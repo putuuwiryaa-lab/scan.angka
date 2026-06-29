@@ -1,15 +1,9 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Racik ACKE",
-  description: "Alat analisa kolom mati AS, COP, Kepala, dan Ekor.",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#08080d",
+  description: "Analisa kolom mati A/C/K/E dari data Supabase",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
