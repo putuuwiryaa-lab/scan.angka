@@ -3,46 +3,50 @@
 import { useEffect, useState } from "react";
 
 type Market = { id: string; name: string | null };
-type KolomStat = {
-  kolom: string;
-  hit: number;
-  lemah: boolean;
-  digitLive: number;
-};
-type EngineResult = {
-  config: { patokanPos: string; patokanN: number; targetPos: string; L: number };
-  jumlahData: number;
-  jumlahBacktest: number;
-  kolom: KolomStat[];
-  deretLive: number[];
-  patokanLiveDraw: string;
-  angkaKuat: number[];
+type ScanItem = {
+  targetPos: string;
+  formula: string;
+  code: string;
   angkaMati: number[];
+  angkaKuat: number[];
+  activeColumns: string;
+  jumlahMati: number;
+};
+type ScanResult = {
+  config: {
+    L: number;
+    targetPos: string;
+    minMati: number;
+    stopScan: number;
+  };
+  totalChecked: number;
+  totalMatched: number;
+  items: ScanItem[];
 };
 
-const POSISI: [string, string][] = [
-  ["A", "As"],
-  ["C", "Cop"],
-  ["K", "Kepala"],
-  ["E", "Ekor"],
+const TREK: [string, string][] = [
+  ["A", "AS"],
+  ["C", "COP"],
+  ["K", "KPL"],
+  ["E", "EKR"],
 ];
+
 const LABEL: Record<string, string> = {
-  A: "As",
-  C: "Cop",
-  K: "Kepala",
-  E: "Ekor",
+  A: "AS",
+  C: "COP",
+  K: "KPL",
+  E: "EKR",
 };
 
 export default function Page() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketId, setMarketId] = useState("");
-  const [patokanPos, setPatokanPos] = useState("A");
-  const [patokanN, setPatokanN] = useState(1);
+  const [rounds, setRounds] = useState(15);
   const [targetPos, setTargetPos] = useState("K");
-  const [L, setL] = useState(15);
-
-  const [result, setResult] = useState<EngineResult | null>(null);
+  const [digitCount, setDigitCount] = useState(1);
+  const [stopScan, setStopScan] = useState(3);
   const [marketName, setMarketName] = useState("");
+  const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,25 +64,41 @@ export default function Page() {
       .catch(() => setError("Gagal memuat daftar pasaran."));
   }, []);
 
-  async function hitung() {
+  async function mulaiScan() {
     setLoading(true);
     setError("");
     setResult(null);
+
     try {
-      const res = await fetch("/api/acke", {
+      const safeRounds = Math.max(1, Math.min(100, Number(rounds) || 15));
+      const safeDigit = Math.max(1, Math.min(4, Number(digitCount) || 1));
+      const safeStop = Math.max(1, Math.min(200, Number(stopScan) || 3));
+
+      setRounds(safeRounds);
+      setDigitCount(safeDigit);
+      setStopScan(safeStop);
+
+      const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marketId, patokanPos, patokanN, targetPos, L }),
+        body: JSON.stringify({
+          marketId,
+          L: safeRounds,
+          targetPos,
+          minMati: safeDigit,
+          stopScan: safeStop,
+        }),
       });
       const d = await res.json();
+
       if (d.error) {
         setError(d.error);
       } else {
-        setResult(d.result);
         setMarketName(d.market ?? "");
+        setResult(d.result);
       }
     } catch {
-      setError("Gagal menghitung. Coba lagi.");
+      setError("Scan gagal. Coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -87,13 +107,13 @@ export default function Page() {
   return (
     <div className="wrap">
       <header>
-        <h1>Racik ACKE</h1>
-        <p>Cari kolom mati As / Cop / Kepala / Ekor dari data keluaran.</p>
+        <h1>Scan Angka</h1>
+        <p>Scanner otomatis rumus ACKE dari data pasaran.</p>
       </header>
 
       <div className="panel">
         <div className="field">
-          <label>Pasaran</label>
+          <label>Pilih Pasaran</label>
           <select value={marketId} onChange={(e) => setMarketId(e.target.value)}>
             {markets.map((m) => (
               <option key={m.id} value={m.id}>
@@ -103,58 +123,54 @@ export default function Page() {
           </select>
         </div>
 
-        <div className="field">
-          <label>Patokan</label>
-          <div className="row two">
-            <select
-              value={patokanPos}
-              onChange={(e) => setPatokanPos(e.target.value)}
-            >
-              {POSISI.map(([v, t]) => (
-                <option key={v} value={v}>
-                  {t} ({v})
-                </option>
-              ))}
-            </select>
-            <select
-              value={patokanN}
-              onChange={(e) => setPatokanN(Number(e.target.value))}
-            >
-              {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  {patokanPos}
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="field">
-          <label>Target & jumlah data</label>
-          <div className="row two">
-            <select
-              value={targetPos}
-              onChange={(e) => setTargetPos(e.target.value)}
-            >
-              {POSISI.map(([v, t]) => (
-                <option key={v} value={v}>
-                  {t} ({v})
-                </option>
-              ))}
-            </select>
+        <div className="row two">
+          <div className="field">
+            <label>Putaran / Data</label>
             <input
               type="number"
               min={1}
               max={100}
-              value={L}
-              onChange={(e) => setL(Number(e.target.value))}
+              value={rounds}
+              onChange={(e) => setRounds(Number(e.target.value))}
+            />
+          </div>
+          <div className="field">
+            <label>Jenis Trek</label>
+            <select value={targetPos} onChange={(e) => setTargetPos(e.target.value)}>
+              {TREK.map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="row two">
+          <div className="field">
+            <label>Jumlah Digit</label>
+            <select value={digitCount} onChange={(e) => setDigitCount(Number(e.target.value))}>
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n} digit
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Stop Scan</label>
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={stopScan}
+              onChange={(e) => setStopScan(Number(e.target.value))}
             />
           </div>
         </div>
 
-        <button className="run" onClick={hitung} disabled={loading || !marketId}>
-          {loading ? "Menghitung..." : "Hitung"}
+        <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>
+          {loading ? "Scanning..." : "Mulai Scan"}
         </button>
 
         {error && <div className="err">{error}</div>}
@@ -163,42 +179,34 @@ export default function Page() {
       {result && (
         <div className="panel">
           <p className="summary">
-            <b>{marketName}</b> &middot; patokan{" "}
-            <b>
-              {result.config.patokanPos}
-              {result.config.patokanN}
-            </b>{" "}
-            &rarr; target <b>{LABEL[result.config.targetPos]}</b> &middot;{" "}
-            {result.jumlahBacktest} data &middot; deret dari{" "}
-            <b>{result.patokanLiveDraw}</b>
+            <b>{marketName}</b> &middot; target <b>{LABEL[result.config.targetPos]}</b> &middot; L{result.config.L} &middot; cek {result.totalChecked} rumus
           </p>
 
-          <div className="grid">
-            {result.kolom.map((k) => (
-              <div
-                key={k.kolom}
-                className={`cell ${k.lemah ? "mati" : "kuat"}`}
-              >
-                <span className="col">{k.kolom}</span>
-                <span className="dig">{k.digitLive}</span>
-                <span className="hits">{k.hit}x</span>
+          <div className="scan-list">
+            {result.items.length === 0 && (
+              <div className="scan-empty">Tidak ada rumus lolos.</div>
+            )}
+
+            {result.items.map((item, index) => (
+              <div className="scan-item" key={`${item.targetPos}-${item.formula}-${index}`}>
+                <div className="scan-top">
+                  <span className="scan-no">#{index + 1}</span>
+                  <span className="scan-formula">{item.formula}</span>
+                  <span className="scan-target">{LABEL[item.targetPos]}</span>
+                </div>
+                <div className="scan-body">
+                  <div>
+                    <span className="scan-label">Mati</span>
+                    <b className="dead-num">{item.angkaMati.join(" ")}</b>
+                  </div>
+                  <div>
+                    <span className="scan-label">Kolom Aktif</span>
+                    <b>{item.activeColumns || "-"}</b>
+                  </div>
+                </div>
+                <div className="scan-code">{item.code}</div>
               </div>
             ))}
-          </div>
-
-          <div className="verdict">
-            <div className="box mati">
-              <span className="k">Mati {LABEL[result.config.targetPos]}</span>
-              <div className="nums">
-                {result.angkaMati.length
-                  ? result.angkaMati.join(" ")
-                  : "(tidak ada)"}
-              </div>
-            </div>
-            <div className="box kuat">
-              <span className="k">Kuat {LABEL[result.config.targetPos]}</span>
-              <div className="nums">{result.angkaKuat.join(" ")}</div>
-            </div>
           </div>
         </div>
       )}
