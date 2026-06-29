@@ -30,7 +30,6 @@ const TREK: [TrekChoice, string][] = [
   ["ai_2d_belakang", "AI 2D Belakang"],
   ["bbfs_2d_belakang", "BBFS 2D Belakang"],
 ];
-const POS_CHOICES = ["A", "C", "K", "E"];
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
@@ -205,7 +204,7 @@ export default function Page() {
   }
 
   function pilihTrek(value: TrekChoice) {
-    if (POS_CHOICES.includes(value)) {
+    if (value === "A" || value === "C" || value === "K" || value === "E") {
       setScanMode("posisi");
       setTargetPos(value);
     } else {
