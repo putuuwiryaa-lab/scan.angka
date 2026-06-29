@@ -35,6 +35,16 @@ function marketTitle(market: Market) {
   return market.name ?? market.id;
 }
 
+function cleanDigits(value: string, maxLength = 3) {
+  return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function clampTextNumber(value: string, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
 function rowResult(item: ScanItem, row: ScanRow) {
   return pickColumns(item.activeColumns, row.deret);
 }
@@ -48,10 +58,10 @@ export default function Page() {
   const [marketId, setMarketId] = useState("");
   const [marketQuery, setMarketQuery] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
-  const [rounds, setRounds] = useState(15);
+  const [rounds, setRounds] = useState("15");
   const [targetPos, setTargetPos] = useState("K");
-  const [digitCount, setDigitCount] = useState(3);
-  const [stopScan, setStopScan] = useState(3);
+  const [digitCount, setDigitCount] = useState(7);
+  const [stopScan, setStopScan] = useState("1");
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
@@ -99,12 +109,12 @@ export default function Page() {
     setResult(null);
     setViewItem(null);
     try {
-      const safeRounds = Math.max(1, Math.min(100, Number(rounds) || 15));
-      const safeDigit = Math.max(1, Math.min(10, Number(digitCount) || 3));
-      const safeStop = Math.max(1, Math.min(200, Number(stopScan) || 3));
-      setRounds(safeRounds);
+      const safeRounds = clampTextNumber(rounds, 15, 1, 100);
+      const safeDigit = Math.max(1, Math.min(10, Number(digitCount) || 7));
+      const safeStop = clampTextNumber(stopScan, 1, 1, 200);
+      setRounds(String(safeRounds));
       setDigitCount(safeDigit);
-      setStopScan(safeStop);
+      setStopScan(String(safeStop));
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,7 +146,6 @@ export default function Page() {
           <button className="market-select" type="button" onClick={bukaMarket}>
             <span className="market-dot" />
             <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
-            <em>⌄</em>
           </button>
           {marketOpen && (
             <div className="market-menu">
@@ -164,7 +173,12 @@ export default function Page() {
         <div className="row two">
           <div className="field">
             <label>Putaran / Data</label>
-            <input type="number" min={1} max={100} value={rounds} onChange={(e) => setRounds(Number(e.target.value))} />
+            <input
+              inputMode="numeric"
+              value={rounds}
+              onChange={(e) => setRounds(cleanDigits(e.target.value, 3))}
+              onBlur={() => setRounds(String(clampTextNumber(rounds, 15, 1, 100)))}
+            />
           </div>
           <div className="field">
             <label>Jenis Trek</label>
@@ -183,7 +197,12 @@ export default function Page() {
           </div>
           <div className="field">
             <label>Stop Scan</label>
-            <input type="number" min={1} max={200} value={stopScan} onChange={(e) => setStopScan(Number(e.target.value))} />
+            <input
+              inputMode="numeric"
+              value={stopScan}
+              onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
+              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))}
+            />
           </div>
         </div>
 
