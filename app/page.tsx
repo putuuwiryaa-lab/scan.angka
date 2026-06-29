@@ -17,6 +17,7 @@ type ScanResult = {
   totalMatched: number;
   items: ScanItem[];
 };
+type FrequencyRow = { digit: number; count: number };
 
 const TREK: [string, string][] = [["A", "As"], ["C", "Cop"], ["K", "Kepala"], ["E", "Ekor"]];
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
@@ -62,6 +63,19 @@ function formatSyncTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
+}
+
+function buildFrequencies(items: ScanItem[]): FrequencyRow[] {
+  const counts = Array.from({ length: 10 }, () => 0);
+  for (const item of items) {
+    const uniqueDigits = new Set(item.angkaHidup.filter((digit) => digit >= 0 && digit <= 9));
+    uniqueDigits.forEach((digit) => {
+      counts[digit] += 1;
+    });
+  }
+  return counts
+    .map((count, digit) => ({ digit, count }))
+    .sort((a, b) => b.count - a.count || a.digit - b.digit);
 }
 
 function rowResultDigits(item: ScanItem, row: ScanRow) {
@@ -116,6 +130,7 @@ export default function Page() {
     return markets.filter((m) => marketTitle(m).toLowerCase().includes(query)).slice(0, 30);
   }, [markets, marketQuery]);
   const syncText = useMemo(() => formatSyncTime(syncUpdatedAt), [syncUpdatedAt]);
+  const frequencies = useMemo(() => result ? buildFrequencies(result.items) : [], [result]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
 
@@ -345,6 +360,24 @@ export default function Page() {
               </div>
             ))}
           </div>
+
+          {result.items.length > 0 && (
+            <div className="frequency-block">
+              <div className="frequency-head">
+                <b>Frekuensi</b>
+                <span>{result.items.length} rumus</span>
+              </div>
+              <p>Kemunculan digit dari hasil scan.</p>
+              <div className="frequency-grid">
+                {frequencies.map((item) => (
+                  <div className={item.count === 0 ? "frequency-item muted" : "frequency-item"} key={item.digit}>
+                    <b>{item.digit}</b>
+                    <span>{item.count}x</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
