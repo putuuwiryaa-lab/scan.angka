@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
-type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; deret: number[] };
+type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; targetDigits?: number[]; deret: number[] };
 type ScanItem = {
   targetPos: string;
+  scanMode: ScanMode;
   formula: string;
   angkaHidup: number[];
   activeColumns: string;
   result: { rows: ScanRow[]; patokanLiveDraw: string; latestDraw: string; deretLive: number[] };
 };
 type ScanResult = {
-  config: { L: number; targetPos: string; digitCount: number; stopScan: number };
+  config: { L: number; targetPos: string; digitCount: number; stopScan: number; scanMode: ScanMode };
   totalChecked: number;
   totalMatched: number;
   items: ScanItem[];
@@ -23,6 +25,11 @@ const TREK: [string, string][] = [["A", "As"], ["C", "Cop"], ["K", "Kepala"], ["
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
+const MODE_LABEL: Record<ScanMode, string> = {
+  posisi: "Trek Posisi",
+  ai_2d_belakang: "AI 2D Belakang",
+  bbfs_2d_belakang: "BBFS 2D Belakang",
+};
 const COLS = "ABCDEFGHIJ";
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -78,10 +85,15 @@ function buildFrequencies(items: ScanItem[]): FrequencyRow[] {
     .sort((a, b) => b.count - a.count || a.digit - b.digit);
 }
 
+function targetDigits(row: ScanRow) {
+  return row.targetDigits?.length ? row.targetDigits : [row.targetDigit];
+}
+
 function rowResultDigits(item: ScanItem, row: ScanRow) {
+  const targets = targetDigits(row);
   return pickColumns(item.activeColumns, row.deret).map((digit) => ({
     digit,
-    hit: digit === row.targetDigit,
+    hit: targets.includes(digit),
   }));
 }
 
@@ -93,10 +105,20 @@ function predictionResult(item: ScanItem) {
   return pickColumns(item.activeColumns, item.result.deretLive).join("");
 }
 
+function detailTitle(item: ScanItem) {
+  if (item.scanMode === "ai_2d_belakang") return "Detail AI 2D Belakang";
+  if (item.scanMode === "bbfs_2d_belakang") return "Detail BBFS 2D Belakang";
+  return `Detail Trek ${NAME[item.targetPos]} (${SHORT[item.targetPos]})`;
+}
+
+function rowSuffix(item: ScanItem, row: ScanRow) {
+  if (item.scanMode === "posisi") return SHORT[item.targetPos];
+  return targetDigits(row).join("");
+}
+
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
-  const short = SHORT[item.targetPos];
-  const header = [`Detail Trek ${NAME[item.targetPos]} (${short})`, `Rumus : ${item.formula.toLowerCase()}`];
-  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${short}`);
+  const header = [detailTitle(item), `Rumus : ${item.formula.toLowerCase()}`];
+  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${rowSuffix(item, row)}`);
   const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
 }
@@ -107,6 +129,7 @@ export default function Page() {
   const [marketQuery, setMarketQuery] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
   const [rounds, setRounds] = useState("15");
+  const [scanMode, setScanMode] = useState<ScanMode>("posisi");
   const [targetPos, setTargetPos] = useState("K");
   const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(7);
@@ -166,6 +189,7 @@ export default function Page() {
   }
 
   function toggleTrek() {
+    if (scanMode !== "posisi") return;
     setMarketOpen(false);
     setDigitOpen(false);
     setTrekOpen((open) => !open);
@@ -185,6 +209,13 @@ export default function Page() {
   function pilihDigit(value: number) {
     setDigitCount(value);
     setDigitOpen(false);
+  }
+
+  function pilihMode(value: string) {
+    if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang" || value === "posisi") {
+      setScanMode(value);
+      setTrekOpen(false);
+    }
   }
 
   async function copyTrek() {
@@ -215,7 +246,7 @@ export default function Page() {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marketId, L: safeRounds, targetPos, digitCount: safeDigit, stopScan: safeStop }),
+        body: JSON.stringify({ marketId, L: safeRounds, targetPos, digitCount: safeDigit, stopScan: safeStop, scanMode }),
       });
       const d = await res.json();
       if (d.error) setError(d.error);
@@ -283,11 +314,22 @@ export default function Page() {
               onBlur={() => setRounds(String(clampTextNumber(rounds, 15, 1, 100)))}
             />
           </div>
+          <div className="field">
+            <label>Jenis Trek</label>
+            <select value={scanMode} onChange={(e) => pilihMode(e.target.value)}>
+              <option value="posisi">Trek Posisi</option>
+              <option value="ai_2d_belakang">AI 2D Belakang</option>
+              <option value="bbfs_2d_belakang">BBFS 2D Belakang</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="row two">
           <div className="field trek-field">
             <label>Posisi Trek</label>
-            <button className="trek-select" type="button" onClick={toggleTrek}>
+            <button className="trek-select" type="button" onClick={toggleTrek} disabled={scanMode !== "posisi"}>
               <span className="select-badge" />
-              <b>{LABEL[targetPos]}</b>
+              <b>{scanMode === "posisi" ? LABEL[targetPos] : "2D Belakang"}</b>
               <span className="select-arrow">{trekOpen ? "⌃" : "⌄"}</span>
             </button>
             {trekOpen && (
@@ -302,9 +344,6 @@ export default function Page() {
               </div>
             )}
           </div>
-        </div>
-
-        <div className="row two">
           <div className="field digit-field">
             <label>Jumlah Digit Trek</label>
             <button className="digit-select" type="button" onClick={toggleDigit}>
@@ -324,15 +363,16 @@ export default function Page() {
               </div>
             )}
           </div>
-          <div className="field">
-            <label>Batas Hasil</label>
-            <input
-              inputMode="numeric"
-              value={stopScan}
-              onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
-              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
-            />
-          </div>
+        </div>
+
+        <div className="field">
+          <label>Batas Hasil</label>
+          <input
+            inputMode="numeric"
+            value={stopScan}
+            onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
+            onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
+          />
         </div>
 
         <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>{loading ? "Sedang scan..." : "Scan Sekarang"}</button>
@@ -341,11 +381,11 @@ export default function Page() {
 
       {result && (
         <div className="panel result-panel">
-          <p className="summary"><b>{marketName}</b> &middot; <b>{LABEL[result.config.targetPos]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
+          <p className="summary"><b>{marketName}</b> &middot; <b>{MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
           <div className="scan-list compact-list">
             {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
             {result.items.map((item, index) => (
-              <div className="scan-item compact" key={`${item.targetPos}-${item.formula}-${index}`}>
+              <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.formula}-${index}`}>
                 <span className="scan-formula compact-formula">{item.formula}</span>
                 <div className="compact-digits">
                   {item.angkaHidup.map((digit, digitIndex) => (
@@ -383,7 +423,7 @@ export default function Page() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-head">
               <div>
-                <b>Detail Trek {NAME[viewItem.targetPos]} ({SHORT[viewItem.targetPos]})</b>
+                <b>{detailTitle(viewItem)}</b>
                 <span>Rumus : {viewItem.formula.toLowerCase()}</span>
               </div>
               <div className="sheet-actions">
@@ -401,7 +441,7 @@ export default function Page() {
                       <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{digit}</span>
                     ))}
                   </b>
-                  <em>{SHORT[viewItem.targetPos]}</em>
+                  <em>{rowSuffix(viewItem, row)}</em>
                 </div>
               ))}
               <div className="trek-row pending">
