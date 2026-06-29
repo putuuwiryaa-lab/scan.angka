@@ -176,7 +176,52 @@ function formulaSpecs(): FormulaSpec[] {
   return specs;
 }
 
-function selectedColumns(result: EngineResult, digitCount: number): Kolom[] {
+function rowTargetColumns(row: BacktestRow): Kolom[] {
+  const columns = uniqueDigits(row.targetDigits).map((digit) => KOLOM[(digit - row.patokan + 10) % 10]);
+  return [...new Set(columns)];
+}
+
+function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
+  const selected: Kolom[] = [];
+  const uncovered = new Set(result.rows.map((_, index) => index));
+
+  while (uncovered.size > 0) {
+    let best: Kolom | null = null;
+    let bestCover = -1;
+    let bestHit = -1;
+
+    for (const column of KOLOM) {
+      if (selected.includes(column)) continue;
+      const cover = [...uncovered].filter((rowIndex) => rowTargetColumns(result.rows[rowIndex]).includes(column)).length;
+      const hit = result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
+      if (cover > bestCover || (cover === bestCover && hit > bestHit)) {
+        best = column;
+        bestCover = cover;
+        bestHit = hit;
+      }
+    }
+
+    if (!best || bestCover <= 0) return [];
+    selected.push(best);
+    for (const rowIndex of [...uncovered]) {
+      if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
+    }
+    if (selected.length > digitCount) return [];
+  }
+
+  const padding = KOLOM
+    .filter((column) => !selected.includes(column))
+    .sort((a, b) => {
+      const hitA = result.kolom.find((k) => k.kolom === a)?.hit ?? 0;
+      const hitB = result.kolom.find((k) => k.kolom === b)?.hit ?? 0;
+      return hitB - hitA || KOLOM.indexOf(a) - KOLOM.indexOf(b);
+    });
+
+  return [...selected, ...padding].slice(0, digitCount);
+}
+
+function selectedColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
+  if (scanMode === "ai_2d_belakang") return selectedColumnsForAi(result, digitCount);
   const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
   if (alive.length > digitCount) return [];
   const padding = result.kolom.filter((k) => k.lemah).map((k) => k.kolom as Kolom);
@@ -280,7 +325,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     for (const spec of specs) {
       totalChecked += 1;
       const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
-      const columns = selectedColumns(result, safeConfig.digitCount);
+      const columns = selectedColumns(result, safeConfig.digitCount, safeConfig.scanMode);
       if (columns.length !== safeConfig.digitCount) continue;
 
       const columnSet = new Set<Kolom>(columns);
@@ -303,7 +348,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
         jumlahHidup: angkaHidup.length,
         result,
         typeOrder: spec.typeOrder,
-        strength: result.angkaKuat.length,
+        strength: safeConfig.scanMode === "ai_2d_belakang" ? columns.length : result.angkaKuat.length,
       });
     }
   }
