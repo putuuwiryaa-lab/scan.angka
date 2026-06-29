@@ -23,7 +23,7 @@ const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
 const COLS = "ABCDEFGHIJ";
-const DIGIT_OPTIONS = [1,2,3,4,5,6,7,8,9,10];
+const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -84,7 +84,7 @@ export default function Page() {
   const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(7);
   const [digitOpen, setDigitOpen] = useState(false);
-  const [stopScan, setStopScan] = useState("1");
+  const [stopScan, setStopScan] = useState("3");
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
@@ -158,8 +158,8 @@ export default function Page() {
     setCopied(false);
     try {
       const safeRounds = clampTextNumber(rounds, 15, 1, 100);
-      const safeDigit = Math.max(1, Math.min(10, Number(digitCount) || 7));
-      const safeStop = clampTextNumber(stopScan, 1, 1, 200);
+      const safeDigit = Math.max(1, Math.min(9, Number(digitCount) || 7));
+      const safeStop = clampTextNumber(stopScan, 3, 1, 200);
       setRounds(String(safeRounds));
       setDigitCount(safeDigit);
       setStopScan(String(safeStop));
@@ -193,8 +193,9 @@ export default function Page() {
         <div className="field market-field">
           <label>Pasaran</label>
           <button className="market-select" type="button" onClick={bukaMarket}>
-            <span className="market-dot" />
+            <span className="select-badge" />
             <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
+            <span className="select-arrow">⌄</span>
           </button>
           {marketOpen && (
             <div className="market-menu">
@@ -232,8 +233,9 @@ export default function Page() {
           <div className="field trek-field">
             <label>Posisi Trek</label>
             <button className="trek-select" type="button" onClick={() => setTrekOpen((open) => !open)}>
+              <span className="select-badge" />
               <b>{LABEL[targetPos]}</b>
-              <span>⌄</span>
+              <span className="select-arrow">⌄</span>
             </button>
             {trekOpen && (
               <div className="trek-menu">
@@ -252,8 +254,9 @@ export default function Page() {
           <div className="field digit-field">
             <label>Jumlah Digit Trek</label>
             <button className="digit-select" type="button" onClick={() => setDigitOpen((open) => !open)}>
+              <span className="select-badge" />
               <b>{digitCount} digit</b>
-              <span>⌄</span>
+              <span className="select-arrow">⌄</span>
             </button>
             {digitOpen && (
               <div className="digit-menu">
@@ -272,7 +275,7 @@ export default function Page() {
               inputMode="numeric"
               value={stopScan}
               onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
-              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))}
+              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
             />
           </div>
         </div>
