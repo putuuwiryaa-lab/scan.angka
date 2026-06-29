@@ -21,6 +21,7 @@ export interface KolomStat {
 }
 
 export interface BacktestRow {
+  displayDraw: Draw;
   patokanDraw: Draw;
   targetDraw: Draw;
   patokan: number;
@@ -36,6 +37,7 @@ export interface EngineResult {
   kolom: KolomStat[];
   deretLive: number[];
   patokanLiveDraw: Draw;
+  latestDraw: Draw;
   angkaKuat: number[];
   angkaMati: number[];
   rows: BacktestRow[];
