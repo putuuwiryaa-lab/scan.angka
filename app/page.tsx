@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Market = { id: string; name: string | null };
+type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
 type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; deret: number[] };
 type ScanItem = {
   targetPos: string;
@@ -51,6 +51,19 @@ function clampTextNumber(value: string, fallback: number, min: number, max: numb
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
+function formatSyncTime(value: string | null) {
+  if (!value) return "Sinkron data belum tersedia";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sinkron data belum tersedia";
+  return `Terakhir sinkron data: ${date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 function rowResultDigits(item: ScanItem, row: ScanRow) {
   return pickColumns(item.activeColumns, row.deret).map((digit) => ({
     digit,
@@ -85,6 +98,7 @@ export default function Page() {
   const [digitCount, setDigitCount] = useState(7);
   const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("3");
+  const [syncUpdatedAt, setSyncUpdatedAt] = useState<string | null>(null);
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
@@ -101,6 +115,7 @@ export default function Page() {
     if (!query) return markets.slice(0, 30);
     return markets.filter((m) => marketTitle(m).toLowerCase().includes(query)).slice(0, 30);
   }, [markets, marketQuery]);
+  const syncText = useMemo(() => formatSyncTime(syncUpdatedAt), [syncUpdatedAt]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
 
@@ -111,6 +126,7 @@ export default function Page() {
         if (d.error) return setError(d.error);
         const list: Market[] = d.markets ?? [];
         setMarkets(list);
+        setSyncUpdatedAt(d.syncUpdatedAt ?? null);
         const defaultMarket = list.find(isSingapore) ?? list[0];
         if (defaultMarket) setMarketId(defaultMarket.id);
       })
@@ -188,6 +204,7 @@ export default function Page() {
         <h1>Scan Angka</h1>
         <p>Cari trek angka dari riwayat result terbaru.</p>
       </header>
+      <div className="sync-status">{syncText}</div>
 
       <div className="panel">
         <div className="field market-field">
@@ -195,6 +212,7 @@ export default function Page() {
           <button className="market-select" type="button" onClick={bukaMarket}>
             <span className="select-badge" />
             <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
+            <span className="latest-result">{selectedMarket?.latestResult ?? "----"}</span>
             <span className="select-arrow">⌄</span>
           </button>
           {marketOpen && (
@@ -213,6 +231,7 @@ export default function Page() {
               {filteredMarkets.map((m) => (
                 <button key={m.id} type="button" className={m.id === marketId ? "market-option active" : "market-option"} onClick={() => pilihMarket(m)}>
                   <span>{marketTitle(m)}</span>
+                  {m.latestResult && <em>{m.latestResult}</em>}
                   {m.id === marketId && <b>✓</b>}
                 </button>
               ))}
