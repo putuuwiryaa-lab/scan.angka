@@ -57,8 +57,20 @@ function rowResultDigits(item: ScanItem, row: ScanRow) {
   }));
 }
 
+function rowResultText(item: ScanItem, row: ScanRow) {
+  return rowResultDigits(item, row).map(({ digit }) => digit).join("");
+}
+
 function predictionResult(item: ScanItem) {
   return pickColumns(item.activeColumns, item.result.deretLive).join("");
+}
+
+function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
+  const short = SHORT[item.targetPos];
+  const header = [`Rumus ${NAME[item.targetPos]} (${short}) ${item.angkaHidup.length} Digit`, `KEY : ${item.formula.toLowerCase()}`];
+  const history = rows.map((row) => `${row.patokanDraw} ➜ ${rowResultText(item, row)} ${short}`);
+  const next = `${item.result.patokanLiveDraw} ➜ ${nextPrediction} ??`;
+  return [...header, "", ...history, next].join("\n");
 }
 
 export default function Page() {
@@ -74,6 +86,7 @@ export default function Page() {
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -118,11 +131,24 @@ export default function Page() {
     setTrekOpen(false);
   }
 
+  async function copyTrek() {
+    if (!viewItem) return;
+    const text = buildCopyText(viewItem, viewRows, nextPrediction);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setError("Gagal copy trek.");
+    }
+  }
+
   async function mulaiScan() {
     setLoading(true);
     setError("");
     setResult(null);
     setViewItem(null);
+    setCopied(false);
     try {
       const safeRounds = clampTextNumber(rounds, 15, 1, 100);
       const safeDigit = Math.max(1, Math.min(10, Number(digitCount) || 7));
@@ -253,7 +279,7 @@ export default function Page() {
                     <span key={`${digit}-${digitIndex}`}>{digit}</span>
                   ))}
                 </div>
-                <button className="view-btn" type="button" onClick={() => setViewItem(item)}>View</button>
+                <button className="view-btn" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>View</button>
               </div>
             ))}
           </div>
@@ -268,7 +294,10 @@ export default function Page() {
                 <b>Rumus {NAME[viewItem.targetPos]} ({SHORT[viewItem.targetPos]}) {viewItem.angkaHidup.length} Digit</b>
                 <span>KEY : {viewItem.formula.toLowerCase()}</span>
               </div>
-              <button type="button" onClick={() => setViewItem(null)}>×</button>
+              <div className="sheet-actions">
+                <button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Copied" : "Copy Trek"}</button>
+                <button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button>
+              </div>
             </div>
             <div className="trek-detail">
               {viewRows.map((row, idx) => (
