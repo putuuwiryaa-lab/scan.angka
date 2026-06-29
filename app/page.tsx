@@ -134,7 +134,13 @@ export default function Page() {
   }, []);
 
   function bukaMarket() {
+    if (marketOpen) {
+      setMarketOpen(false);
+      return;
+    }
     setMarketQuery("");
+    setTrekOpen(false);
+    setDigitOpen(false);
     setMarketOpen(true);
   }
 
@@ -144,9 +150,21 @@ export default function Page() {
     setMarketOpen(false);
   }
 
+  function toggleTrek() {
+    setMarketOpen(false);
+    setDigitOpen(false);
+    setTrekOpen((open) => !open);
+  }
+
   function pilihTrek(value: string) {
     setTargetPos(value);
     setTrekOpen(false);
+  }
+
+  function toggleDigit() {
+    setMarketOpen(false);
+    setTrekOpen(false);
+    setDigitOpen((open) => !open);
   }
 
   function pilihDigit(value: number) {
@@ -213,7 +231,7 @@ export default function Page() {
             <span className="select-badge" />
             <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
             <span className="latest-result">{selectedMarket?.latestResult ?? "----"}</span>
-            <span className="select-arrow">⌄</span>
+            <span className="select-arrow">{marketOpen ? "⌃" : "⌄"}</span>
           </button>
           {marketOpen && (
             <div className="market-menu">
@@ -230,7 +248,8 @@ export default function Page() {
               {filteredMarkets.length === 0 && <div className="market-empty">Pasaran tidak ditemukan</div>}
               {filteredMarkets.map((m) => (
                 <button key={m.id} type="button" className={m.id === marketId ? "market-option active" : "market-option"} onClick={() => pilihMarket(m)}>
-                  <span>{marketTitle(m)}</span>
+                  <span className="option-badge" />
+                  <span className="option-label">{marketTitle(m)}</span>
                   {m.latestResult && <em>{m.latestResult}</em>}
                   {m.id === marketId && <b>✓</b>}
                 </button>
@@ -251,16 +270,17 @@ export default function Page() {
           </div>
           <div className="field trek-field">
             <label>Posisi Trek</label>
-            <button className="trek-select" type="button" onClick={() => setTrekOpen((open) => !open)}>
+            <button className="trek-select" type="button" onClick={toggleTrek}>
               <span className="select-badge" />
               <b>{LABEL[targetPos]}</b>
-              <span className="select-arrow">⌄</span>
+              <span className="select-arrow">{trekOpen ? "⌃" : "⌄"}</span>
             </button>
             {trekOpen && (
               <div className="trek-menu">
                 {TREK.map(([value, text]) => (
                   <button key={value} type="button" className={value === targetPos ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
-                    <span>{text}</span>
+                    <span className="option-badge" />
+                    <span className="option-label">{text}</span>
                     {value === targetPos && <b>✓</b>}
                   </button>
                 ))}
@@ -272,16 +292,17 @@ export default function Page() {
         <div className="row two">
           <div className="field digit-field">
             <label>Jumlah Digit Trek</label>
-            <button className="digit-select" type="button" onClick={() => setDigitOpen((open) => !open)}>
+            <button className="digit-select" type="button" onClick={toggleDigit}>
               <span className="select-badge" />
               <b>{digitCount} digit</b>
-              <span className="select-arrow">⌄</span>
+              <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
             </button>
             {digitOpen && (
               <div className="digit-menu">
                 {DIGIT_OPTIONS.map((value) => (
                   <button key={value} type="button" className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => pilihDigit(value)}>
-                    <span>{value} digit</span>
+                    <span className="option-badge" />
+                    <span className="option-label">{value} digit</span>
                     {value === digitCount && <b>✓</b>}
                   </button>
                 ))}
