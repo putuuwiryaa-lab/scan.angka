@@ -1,42 +1,22 @@
 import { NextResponse } from "next/server";
-import { createSupabaseClient } from "@/lib/supabase/client";
-import { parseHistoryData } from "@/lib/engine/acke-engine";
-import type { Market } from "@/lib/engine/types";
+import { getSupabase } from "@/lib/supabase/client";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type MarketResponse = Market & {
-  total_results: number;
-  last_result: string | null;
-};
 
 export async function GET() {
   try {
-    const supabase = createSupabaseClient();
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("markets")
-      .select("id,name,history_data,order,updated_at")
-      .order("order", { ascending: true, nullsFirst: false });
+      .select("id, name")
+      .order("order", { ascending: true });
 
-    if (error) throw error;
-
-    const markets: MarketResponse[] = (data || []).map((market) => {
-      const history = parseHistoryData(market.history_data);
-      return {
-        id: String(market.id),
-        name: market.name,
-        history_data: market.history_data,
-        order: market.order,
-        updated_at: market.updated_at,
-        total_results: history.length,
-        last_result: history.length ? history[history.length - 1] : null,
-      };
-    });
-
-    return NextResponse.json({ markets }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Gagal memuat pasaran.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ markets: data ?? [] });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Gagal memuat pasaran.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
