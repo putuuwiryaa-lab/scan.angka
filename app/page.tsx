@@ -18,8 +18,8 @@ type ScanResult = {
   items: ScanItem[];
 };
 
-const TREK: [string, string][] = [["A", "AS"], ["C", "COP"], ["K", "KPL"], ["E", "EKR"]];
-const LABEL: Record<string, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
+const TREK: [string, string][] = [["A", "As"], ["C", "Cop"], ["K", "Kepala"], ["E", "Ekor"]];
+const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const COLS = "ABCDEFGHIJ";
 
@@ -29,6 +29,10 @@ function pickColumns(activeColumns: string, deret: number[]) {
     .map((c) => deret[COLS.indexOf(c)])
     .filter((n) => Number.isFinite(n))
     .join("");
+}
+
+function marketTitle(market: Market) {
+  return market.name ?? market.id;
 }
 
 function rowResult(item: ScanItem, row: ScanRow) {
@@ -42,6 +46,8 @@ function predictionResult(item: ScanItem) {
 export default function Page() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketId, setMarketId] = useState("");
+  const [marketQuery, setMarketQuery] = useState("");
+  const [marketOpen, setMarketOpen] = useState(false);
   const [rounds, setRounds] = useState(15);
   const [targetPos, setTargetPos] = useState("K");
   const [digitCount, setDigitCount] = useState(3);
@@ -52,6 +58,11 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const filteredMarkets = useMemo(() => {
+    const query = marketQuery.trim().toLowerCase();
+    if (!query) return markets.slice(0, 30);
+    return markets.filter((m) => marketTitle(m).toLowerCase().includes(query)).slice(0, 30);
+  }, [markets, marketQuery]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
 
@@ -60,11 +71,21 @@ export default function Page() {
       .then((r) => r.json())
       .then((d) => {
         if (d.error) return setError(d.error);
-        setMarkets(d.markets ?? []);
-        if (d.markets?.length) setMarketId(d.markets[0].id);
+        const list: Market[] = d.markets ?? [];
+        setMarkets(list);
+        if (list.length) {
+          setMarketId(list[0].id);
+          setMarketQuery(marketTitle(list[0]));
+        }
       })
       .catch(() => setError("Gagal memuat daftar pasaran."));
   }, []);
+
+  function pilihMarket(market: Market) {
+    setMarketId(market.id);
+    setMarketQuery(marketTitle(market));
+    setMarketOpen(false);
+  }
 
   async function mulaiScan() {
     setLoading(true);
@@ -104,11 +125,29 @@ export default function Page() {
       </header>
 
       <div className="panel">
-        <div className="field">
+        <div className="field market-field">
           <label>Pilih Pasaran</label>
-          <select value={marketId} onChange={(e) => setMarketId(e.target.value)}>
-            {markets.map((m) => <option key={m.id} value={m.id}>{m.name ?? m.id}</option>)}
-          </select>
+          <input
+            className="market-search"
+            value={marketQuery}
+            onChange={(e) => {
+              setMarketQuery(e.target.value);
+              setMarketOpen(true);
+            }}
+            onFocus={() => setMarketOpen(true)}
+            placeholder="Cari pasaran..."
+          />
+          {marketOpen && (
+            <div className="market-menu">
+              {filteredMarkets.length === 0 && <div className="market-empty">Pasaran tidak ditemukan</div>}
+              {filteredMarkets.map((m) => (
+                <button key={m.id} type="button" className={m.id === marketId ? "market-option active" : "market-option"} onClick={() => pilihMarket(m)}>
+                  <span>{marketTitle(m)}</span>
+                  {m.id === marketId && <b>✓</b>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="row two">
@@ -176,7 +215,7 @@ export default function Page() {
                 <div className="trek-row" key={`${row.patokanDraw}-${idx}`}>
                   <span>{row.patokanDraw}</span>
                   <b>{rowResult(viewItem, row)}</b>
-                  <em>{viewItem.targetPos.toLowerCase()}</em>
+                  <em>{NAME[viewItem.targetPos]}</em>
                 </div>
               ))}
               <div className="trek-row pending">
@@ -184,7 +223,7 @@ export default function Page() {
                 <b>{nextPrediction}</b>
                 <em>??</em>
               </div>
-              <div className="trek-footer"><b>{viewItem.targetPos.toLowerCase()}</b> : {nextPrediction}</div>
+              <div className="trek-footer"><b>{NAME[viewItem.targetPos]}</b> : {nextPrediction}</div>
             </div>
           </div>
         </div>
