@@ -1,5 +1,6 @@
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
+export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
 
 export const KOLOM = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
 export type Kolom = (typeof KOLOM)[number];
@@ -11,6 +12,7 @@ export interface EngineConfig {
   patokanN: number;
   targetPos: Posisi;
   L: number;
+  scanMode?: ScanMode;
 }
 
 export interface KolomStat {
@@ -27,6 +29,7 @@ export interface BacktestRow {
   patokan: number;
   deret: number[];
   targetDigit: number;
+  targetDigits: number[];
   kolomKena: Kolom;
 }
 
@@ -48,10 +51,12 @@ export interface AutoScanConfig {
   targetPos?: Posisi;
   digitCount?: number;
   stopScan?: number;
+  scanMode?: ScanMode;
 }
 
 export interface AutoScanItem {
   targetPos: Posisi;
+  scanMode: ScanMode;
   patokanPos: Posisi;
   patokanN: number;
   formula: string;
@@ -71,6 +76,7 @@ export interface AutoScanResult {
     targetPos: Posisi;
     digitCount: number;
     stopScan: number;
+    scanMode: ScanMode;
   };
   totalChecked: number;
   totalMatched: number;
