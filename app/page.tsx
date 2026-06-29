@@ -342,21 +342,17 @@ export default function Page() {
       {result && (
         <div className="panel result-panel">
           <p className="summary"><b>{marketName}</b> &middot; <b>{LABEL[result.config.targetPos]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
-          <div className="scan-list">
+          <div className="scan-list compact-list">
             {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
             {result.items.map((item, index) => (
-              <div className="scan-item clean" key={`${item.targetPos}-${item.formula}-${index}`}>
-                <div className="scan-top">
-                  <span className="scan-no">#{index + 1}</span>
-                  <span className="scan-formula">{item.formula}</span>
-                  <span className="scan-target">{LABEL[item.targetPos]}</span>
-                </div>
-                <div className="trek-line">
+              <div className="scan-item compact" key={`${item.targetPos}-${item.formula}-${index}`}>
+                <span className="scan-formula compact-formula">{item.formula}</span>
+                <div className="compact-digits">
                   {item.angkaHidup.map((digit, digitIndex) => (
                     <span key={`${digit}-${digitIndex}`}>{digit}</span>
                   ))}
                 </div>
-                <button className="view-btn" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat Trek</button>
+                <button className="view-btn compact-view" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat</button>
               </div>
             ))}
           </div>
