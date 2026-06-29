@@ -46,9 +46,20 @@ function scanCode(target: Posisi, formula: string, L: number, columns: string): 
   return `#${target.toLowerCase()}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
-function digitSignature(targetPos: Posisi, digits: number[]): string {
-  const normalized = [...new Set(digits)].sort((a, b) => a - b).join("");
-  return `${targetPos}:${normalized}`;
+function normalizedDigitSet(digits: number[]): string {
+  return [...new Set(digits)].sort((a, b) => a - b).join("");
+}
+
+function digitsFromDeretColumns(deret: number[], columns: Kolom[]): number[] {
+  return columns
+    .map((column) => deret[KOLOM.indexOf(column)])
+    .filter((digit): digit is number => Number.isFinite(digit));
+}
+
+function trekSignature(item: AutoScanItem): string {
+  const rows = item.result.rows.map((row) => normalizedDigitSet(digitsFromDeretColumns(row.deret, item.kolomHidup)));
+  const live = normalizedDigitSet(item.angkaHidup);
+  return `${item.targetPos}:${rows.join("|")}:${live}`;
 }
 
 function formulaSpecs(): FormulaSpec[] {
@@ -249,7 +260,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
   const unique = [] as (AutoScanItem & { typeOrder: number; strength: number })[];
 
   for (const item of sorted) {
-    const signature = digitSignature(item.targetPos, item.angkaHidup);
+    const signature = trekSignature(item);
     if (seen.has(signature)) continue;
     seen.add(signature);
     unique.push(item);
