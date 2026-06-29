@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const config = {
       L: clamp(body?.L, 15, 1, 100),
       targetPos: target,
-      digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 10),
+      digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 9),
       stopScan: clamp(body?.stopScan, 3, 1, 200),
     };
 
