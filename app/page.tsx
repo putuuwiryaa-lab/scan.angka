@@ -60,6 +60,7 @@ export default function Page() {
   const [marketOpen, setMarketOpen] = useState(false);
   const [rounds, setRounds] = useState("15");
   const [targetPos, setTargetPos] = useState("K");
+  const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(7);
   const [stopScan, setStopScan] = useState("1");
   const [marketName, setMarketName] = useState("");
@@ -101,6 +102,11 @@ export default function Page() {
     setMarketId(market.id);
     setMarketQuery("");
     setMarketOpen(false);
+  }
+
+  function pilihTrek(value: string) {
+    setTargetPos(value);
+    setTrekOpen(false);
   }
 
   async function mulaiScan() {
@@ -180,11 +186,22 @@ export default function Page() {
               onBlur={() => setRounds(String(clampTextNumber(rounds, 15, 1, 100)))}
             />
           </div>
-          <div className="field">
+          <div className="field trek-field">
             <label>Jenis Trek</label>
-            <select value={targetPos} onChange={(e) => setTargetPos(e.target.value)}>
-              {TREK.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-            </select>
+            <button className="trek-select" type="button" onClick={() => setTrekOpen((open) => !open)}>
+              <b>{LABEL[targetPos]}</b>
+              <span>⌄</span>
+            </button>
+            {trekOpen && (
+              <div className="trek-menu">
+                {TREK.map(([value, text]) => (
+                  <button key={value} type="button" className={value === targetPos ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
+                    <span>{text}</span>
+                    {value === targetPos && <b>✓</b>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -222,7 +239,11 @@ export default function Page() {
                   <span className="scan-formula">{item.formula}</span>
                   <span className="scan-target">{LABEL[item.targetPos]}</span>
                 </div>
-                <div className="trek-line">{item.angkaHidup.join(" ")}</div>
+                <div className="trek-line">
+                  {item.angkaHidup.map((digit, digitIndex) => (
+                    <span key={`${digit}-${digitIndex}`}>{digit}</span>
+                  ))}
+                </div>
                 <button className="view-btn" type="button" onClick={() => setViewItem(item)}>View</button>
               </div>
             ))}
