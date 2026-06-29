@@ -68,7 +68,7 @@ function predictionResult(item: ScanItem) {
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
   const short = SHORT[item.targetPos];
   const header = [`Rumus ${NAME[item.targetPos]} (${short}) ${item.angkaHidup.length} Digit`, `KEY : ${item.formula.toLowerCase()}`];
-  const history = rows.map((row) => `${row.patokanDraw} ➜ ${rowResultText(item, row)} ${short}`);
+  const history = rows.map((row) => `${row.targetDraw} ➜ ${rowResultText(item, row)} ${short}`);
   const next = `${item.result.patokanLiveDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
 }
@@ -301,8 +301,8 @@ export default function Page() {
             </div>
             <div className="trek-detail">
               {viewRows.map((row, idx) => (
-                <div className="trek-row" key={`${row.patokanDraw}-${idx}`}>
-                  <span>{row.patokanDraw}</span>
+                <div className="trek-row" key={`${row.targetDraw}-${idx}`}>
+                  <span>{row.targetDraw}</span>
                   <i>➜</i>
                   <b className="row-digits">
                     {rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => (
