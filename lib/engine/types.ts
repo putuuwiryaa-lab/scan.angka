@@ -40,3 +40,31 @@ export interface EngineResult {
   angkaMati: number[];
   rows: BacktestRow[];
 }
+
+export interface AutoScanConfig {
+  L: number;
+  targetPos?: Posisi;
+  minMati?: number;
+  stopScan?: number;
+}
+
+export interface AutoScanItem {
+  targetPos: Posisi;
+  patokanPos: Posisi;
+  patokanN: number;
+  formula: string;
+  code: string;
+  angkaMati: number[];
+  kolomMati: Kolom[];
+  angkaKuat: number[];
+  activeColumns: string;
+  jumlahMati: number;
+  result: EngineResult;
+}
+
+export interface AutoScanResult {
+  config: Required<AutoScanConfig>;
+  totalChecked: number;
+  totalMatched: number;
+  items: AutoScanItem[];
+}
