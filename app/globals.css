@@ -51,7 +51,7 @@ button.run:disabled { opacity: .5; cursor: default; }
 .scan-no { color: var(--muted); font-family: var(--font-mono); font-size: 12px; font-weight: 800; }
 .scan-formula { background: rgba(110,155,255,.16); color: var(--ink); border: 1px solid rgba(110,155,255,.3); border-radius: 8px; padding: 3px 9px; font-family: var(--font-mono); font-size: 15px; font-weight: 900; }
 .scan-target { color: var(--gold); font-weight: 900; margin-left: auto; font-size: 14px; }
-.trek-line { color: var(--gold); font-family: var(--font-mono); font-size: 23px; font-weight: 900; letter-spacing: 5px; line-height: 1.2; }
+.trek-line { color: var(--gold); font-family: var(--font-mono); font-size: 23px; font-weight: 900; letter-spacing: 2px; word-spacing: 6px; line-height: 1.2; }
 .view-btn { width: 100%; margin-top: 8px; height: 32px; border: 1px solid rgba(110,155,255,.35); border-radius: 9px; background: rgba(110,155,255,.12); color: #cfe0ff; font-weight: 900; cursor: pointer; }
 .sheet-bg { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); display: flex; align-items: flex-end; padding: 12px; }
 .sheet { width: 100%; max-width: 560px; max-height: 82vh; margin: 0 auto; background: #111823; border: 1px solid var(--line); border-radius: 18px 18px 10px 10px; overflow: hidden; }
@@ -74,5 +74,5 @@ button.run:disabled { opacity: .5; cursor: default; }
   .panel { padding: 14px; }
   .field { margin-bottom: 10px; }
   .scan-item { padding: 9px 10px; }
-  .trek-line { font-size: 22px; letter-spacing: 4px; }
+  .trek-line { font-size: 22px; letter-spacing: 1px; word-spacing: 5px; }
 }
