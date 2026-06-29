@@ -1,173 +1,90 @@
-import type {
-  AckeResult,
-  AuditRow,
-  ColumnLabel,
-  ColumnResult,
-  FormulaCode,
-  Market,
-  PositionCode,
+import {
+  type Draw,
+  type EngineConfig,
+  type EngineResult,
+  type BacktestRow,
+  type KolomStat,
+  KOLOM,
+  POS_INDEX,
 } from "./types";
 
-export const POSITION_LABEL: Record<PositionCode, string> = {
-  A: "AS",
-  C: "COP",
-  K: "KPL",
-  E: "EKR",
-};
-
-export const POSITION_INDEX: Record<PositionCode, number> = {
-  A: 0,
-  C: 1,
-  K: 2,
-  E: 3,
-};
-
-export const COLUMN_LABELS: ColumnLabel[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-
-export function parseHistoryData(historyData: string | null | undefined): string[] {
-  return String(historyData || "")
+export function parseHistory(historyData: string): Draw[] {
+  return historyData
     .trim()
-    .split(/[\s,;|]+/)
-    .map((token) => token.trim())
-    .filter((token) => /^\d{4}$/.test(token));
+    .split(/\s+/)
+    .filter((tok) => /^\d{4}$/.test(tok));
 }
 
-export function parseFormula(formula: string): { source: PositionCode; lag: number } {
-  const match = /^([ACKE])([1-9])$/.exec(formula.trim().toUpperCase());
+function digitOf(draw: Draw, pos: keyof typeof POS_INDEX): number {
+  return Number(draw[POS_INDEX[pos]]);
+}
 
-  if (!match) {
-    throw new Error("Rumus harus berformat A1-A9, C1-C9, K1-K9, atau E1-E9.");
+function buildDeret(patokan: number): number[] {
+  return Array.from({ length: 10 }, (_, i) => (patokan + i) % 10);
+}
+
+export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
+  const { patokanPos, patokanN: N, targetPos, L } = config;
+
+  if (N < 1 || N > 9) {
+    throw new Error(`patokanN harus 1-9, diterima ${N}`);
+  }
+  if (draws.length <= N) {
+    throw new Error(`Data tidak cukup: butuh > ${N} hasil, hanya ada ${draws.length}.`);
   }
 
-  return {
-    source: match[1] as PositionCode,
-    lag: Number(match[2]),
-  };
-}
+  const len = draws.length;
+  const semuaTargetValid: number[] = [];
+  for (let t = N; t < len; t++) semuaTargetValid.push(t);
 
-export function clampRounds(value: unknown): number {
-  const numberValue = Number(value || 15);
-  if (!Number.isFinite(numberValue)) return 15;
-  return Math.max(1, Math.min(100, Math.trunc(numberValue)));
-}
+  const safeL = Math.max(1, Math.min(100, Number.isFinite(L) ? Math.trunc(L) : 15));
+  const targets = semuaTargetValid.slice(-safeL);
+  const hit = new Array(10).fill(0);
+  const rows: BacktestRow[] = [];
 
-export function digitAt(result: string, position: PositionCode): number {
-  const digit = Number(result[POSITION_INDEX[position]]);
-  if (!Number.isInteger(digit) || digit < 0 || digit > 9) {
-    throw new Error(`Result ${result} tidak valid untuk posisi ${position}.`);
-  }
-  return digit;
-}
-
-export function columnFromDigits(sourceDigit: number, targetDigit: number): ColumnLabel {
-  const index = (targetDigit - sourceDigit + 10) % 10;
-  return COLUMN_LABELS[index];
-}
-
-export function digitFromColumn(sourceDigit: number, columnIndex: number): number {
-  return (sourceDigit + columnIndex) % 10;
-}
-
-export function normalizeMarketCode(value: string): string {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_]/g, "");
-}
-
-export function makeFormulaOptions(): FormulaCode[] {
-  const positions: PositionCode[] = ["A", "C", "K", "E"];
-  return positions.flatMap((position) =>
-    Array.from({ length: 9 }, (_, index) => `${position}${index + 1}` as FormulaCode),
-  );
-}
-
-export function runAckeAnalysis(params: {
-  market: Market;
-  target: PositionCode;
-  formula: FormulaCode;
-  rounds: number;
-}): AckeResult {
-  const { market, target, formula } = params;
-  const rounds = clampRounds(params.rounds);
-  const { source, lag } = parseFormula(formula);
-  const results = parseHistoryData(market.history_data);
-
-  if (results.length === 0) {
-    throw new Error("Data result kosong.");
-  }
-
-  const needed = rounds + lag;
-  if (results.length < needed) {
-    throw new Error(`Data result kurang. Butuh minimal ${needed} result untuk ${formula} L${rounds}.`);
-  }
-
-  const hitMap = new Map<ColumnLabel, number>(COLUMN_LABELS.map((label) => [label, 0]));
-  const rows: AuditRow[] = [];
-  const startTargetIndex = results.length - rounds;
-
-  for (let targetIndex = startTargetIndex; targetIndex < results.length; targetIndex += 1) {
-    const sourceIndex = targetIndex - lag;
-    const targetResult = results[targetIndex];
-    const sourceResult = results[sourceIndex];
-    const sourceDigit = digitAt(sourceResult, source);
-    const targetDigit = digitAt(targetResult, target);
-    const column = columnFromDigits(sourceDigit, targetDigit);
-
-    hitMap.set(column, (hitMap.get(column) || 0) + 1);
+  for (const t of targets) {
+    const patokan = digitOf(draws[t - N], patokanPos);
+    const deret = buildDeret(patokan);
+    const targetDigit = digitOf(draws[t], targetPos);
+    const col = (targetDigit - patokan + 10) % 10;
+    hit[col]++;
     rows.push({
-      no: rows.length + 1,
-      targetResult,
-      sourceResult,
-      sourceDigit,
+      patokanDraw: draws[t - N],
+      targetDraw: draws[t],
+      patokan,
+      deret,
       targetDigit,
-      column,
+      kolomKena: KOLOM[col],
     });
   }
 
-  const predictionSourceIndex = results.length - lag;
-  const sourceLatestResult = results[predictionSourceIndex];
-  const sourceLatestDigit = digitAt(sourceLatestResult, source);
+  const patokanLiveDraw = draws[len - N];
+  const patokanLive = digitOf(patokanLiveDraw, patokanPos);
+  const deretLive = buildDeret(patokanLive);
 
-  const columns: ColumnResult[] = COLUMN_LABELS.map((label, index) => {
-    const hits = hitMap.get(label) || 0;
-    return {
-      label,
-      index,
-      hits,
-      currentDigit: digitFromColumn(sourceLatestDigit, index),
-      weak: hits === 0,
-    };
-  });
+  const kolom: KolomStat[] = KOLOM.map((k, i) => ({
+    kolom: k,
+    hit: hit[i],
+    lemah: hit[i] === 0,
+    digitLive: deretLive[i],
+  }));
 
-  const weakColumns = columns.filter((column) => column.weak).map((column) => column.label);
-  const weakDigits = columns
-    .filter((column) => column.weak && column.currentDigit !== null)
-    .map((column) => Number(column.currentDigit));
-  const activeColumns = columns
-    .filter((column) => !column.weak)
-    .map((column) => column.label)
-    .join("");
-  const marketCode = normalizeMarketCode(market.id || market.name || "MARKET");
-  const targetCode = target.toLowerCase();
-  const code = `#${marketCode}_${targetCode}_${formula}_L${rounds}-P0-D0_${activeColumns || "-"}`;
+  const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
+  const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
 
   return {
-    marketId: market.id,
-    marketName: market.name || market.id,
-    target,
-    formula,
-    rounds,
-    totalResults: results.length,
-    latestResult: results[results.length - 1],
-    sourceLatestResult,
-    sourceLatestDigit,
-    activeColumns,
-    weakColumns,
-    weakDigits,
-    code,
-    columns,
+    config: { ...config, L: safeL },
+    jumlahData: len,
+    jumlahBacktest: targets.length,
+    kolom,
+    deretLive,
+    patokanLiveDraw,
+    angkaKuat,
+    angkaMati,
     rows,
   };
+}
+
+export function runEngineFromHistory(historyData: string, config: EngineConfig): EngineResult {
+  return runEngine(parseHistory(historyData), config);
 }
