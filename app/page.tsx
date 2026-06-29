@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Market = { id: string; name: string | null };
-type ScanRow = { patokanDraw: string; targetDraw: string; deret: number[] };
+type ScanRow = { patokanDraw: string; targetDraw: string; targetDigit: number; deret: number[] };
 type ScanItem = {
   targetPos: string;
   formula: string;
@@ -27,12 +27,16 @@ function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
     .split("")
     .map((c) => deret[COLS.indexOf(c)])
-    .filter((n) => Number.isFinite(n))
-    .join("");
+    .filter((n) => Number.isFinite(n));
 }
 
 function marketTitle(market: Market) {
   return market.name ?? market.id;
+}
+
+function isSingapore(market: Market) {
+  const text = `${market.id} ${market.name ?? ""}`.toLowerCase();
+  return text.includes("singapore") || text.includes("sgp");
 }
 
 function cleanDigits(value: string, maxLength = 3) {
@@ -45,12 +49,15 @@ function clampTextNumber(value: string, fallback: number, min: number, max: numb
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
-function rowResult(item: ScanItem, row: ScanRow) {
-  return pickColumns(item.activeColumns, row.deret);
+function rowResultDigits(item: ScanItem, row: ScanRow) {
+  return pickColumns(item.activeColumns, row.deret).map((digit) => ({
+    digit,
+    hit: digit === row.targetDigit,
+  }));
 }
 
 function predictionResult(item: ScanItem) {
-  return pickColumns(item.activeColumns, item.result.deretLive);
+  return pickColumns(item.activeColumns, item.result.deretLive).join("");
 }
 
 export default function Page() {
@@ -88,7 +95,8 @@ export default function Page() {
         if (d.error) return setError(d.error);
         const list: Market[] = d.markets ?? [];
         setMarkets(list);
-        if (list.length) setMarketId(list[0].id);
+        const defaultMarket = list.find(isSingapore) ?? list[0];
+        if (defaultMarket) setMarketId(defaultMarket.id);
       })
       .catch(() => setError("Gagal memuat daftar pasaran."));
   }, []);
@@ -265,7 +273,11 @@ export default function Page() {
               {viewRows.map((row, idx) => (
                 <div className="trek-row" key={`${row.patokanDraw}-${idx}`}>
                   <span>{row.patokanDraw}</span>
-                  <b>{rowResult(viewItem, row)}</b>
+                  <b className="row-digits">
+                    {rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => (
+                      <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{digit}</span>
+                    ))}
+                  </b>
                   <em>{NAME[viewItem.targetPos]}</em>
                 </div>
               ))}
