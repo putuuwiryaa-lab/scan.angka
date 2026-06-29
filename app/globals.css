@@ -215,8 +215,8 @@ button.run:disabled {
   letter-spacing: 2px;
 }
 
-.dead-num {
-  color: var(--mati);
+.live-num {
+  color: var(--kuat);
 }
 
 .scan-code {
