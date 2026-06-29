@@ -24,6 +24,19 @@ function scanCode(target: Posisi, formula: string, L: number, columns: string): 
   return `#${target.toLowerCase()}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
+function selectedColumns(result: EngineResult, digitCount: number): Kolom[] {
+  const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
+  if (alive.length > digitCount) return [];
+  const padding = result.kolom.filter((k) => k.lemah).map((k) => k.kolom as Kolom);
+  return [...alive, ...padding].slice(0, digitCount);
+}
+
+function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
+  return columns
+    .map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive)
+    .filter((digit): digit is number => Number.isFinite(digit));
+}
+
 export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
   const { patokanPos, patokanN: N, targetPos, L } = config;
   if (!POSISI.includes(patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
@@ -75,7 +88,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
   const safeConfig = {
     L: clamp(config.L, 15, 1, 100),
     targetPos: config.targetPos || "K",
-    digitCount: clamp(config.digitCount, 3, 1, 10),
+    digitCount: clamp(config.digitCount, 3, 1, 9),
     stopScan: clamp(config.stopScan, 3, 1, 200),
   };
   const targets = config.targetPos ? [config.targetPos] : POSISI;
@@ -88,28 +101,44 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
         totalChecked += 1;
         const formula = `${patokanPos}${patokanN}`;
         const result = runEngine(draws, { patokanPos, patokanN, targetPos, L: safeConfig.L });
-        const kolomHidup = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
-        if (result.angkaKuat.length === safeConfig.digitCount) {
-          items.push({
-            targetPos,
-            patokanPos,
-            patokanN,
-            formula,
-            code: scanCode(targetPos, formula, safeConfig.L, kolomHidup.join("")),
-            angkaHidup: result.angkaKuat,
-            kolomHidup,
-            angkaMati: result.angkaMati,
-            kolomMati: result.kolom.filter((k) => k.lemah).map((k) => k.kolom as Kolom),
-            activeColumns: kolomHidup.join(""),
-            jumlahHidup: result.angkaKuat.length,
-            result,
-          });
-          if (items.length >= safeConfig.stopScan) return { config: safeConfig, totalChecked, totalMatched: items.length, items };
-        }
+        const columns = selectedColumns(result, safeConfig.digitCount);
+        if (columns.length !== safeConfig.digitCount) continue;
+
+        const columnSet = new Set<Kolom>(columns);
+        const angkaHidup = digitsFromColumns(result, columns);
+        const kolomMati = result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom);
+        const angkaMati = result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive);
+
+        items.push({
+          targetPos,
+          patokanPos,
+          patokanN,
+          formula,
+          code: scanCode(targetPos, formula, safeConfig.L, columns.join("")),
+          angkaHidup,
+          kolomHidup: columns,
+          angkaMati,
+          kolomMati,
+          activeColumns: columns.join(""),
+          jumlahHidup: angkaHidup.length,
+          result,
+        });
       }
     }
   }
-  return { config: safeConfig, totalChecked, totalMatched: items.length, items };
+
+  const sorted = items.sort((a, b) => {
+    const strength = a.result.angkaKuat.length - b.result.angkaKuat.length;
+    if (strength !== 0) return strength;
+    const targetOrder = POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos);
+    if (targetOrder !== 0) return targetOrder;
+    const sourceOrder = POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos);
+    if (sourceOrder !== 0) return sourceOrder;
+    return a.patokanN - b.patokanN;
+  });
+  const limited = sorted.slice(0, safeConfig.stopScan);
+
+  return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
 export function runAutoScanFromHistory(historyData: string, config: AutoScanConfig): AutoScanResult {
