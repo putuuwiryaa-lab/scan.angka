@@ -5,86 +5,75 @@ Dibuat dengan Next.js, siap deploy ke Vercel.
 
 ---
 
-## Fitur
+## Cara pakai (untuk pemula, dari HP)
 
-- Ambil data pasaran dari tabel `markets` Supabase.
-- Baca `history_data` berisi result 4D, kiri = terlama, kanan = terbaru.
-- Pilih pasaran.
-- Pilih target: `A`, `C`, `K`, atau `E`.
-- Pilih patokan: `A1-A9`, `C1-C9`, `K1-K9`, `E1-E9`.
-- Atur putaran audit 1 sampai 100, default 15.
-- Hitung kolom A-J yang kena dan kolom kosong/mati.
-- Generate kode rumus seperti `#SGP_k_A3_L15-P0-D0_ABCDEFGHJ`.
+### 1. Pastikan semua file sudah ada di repo
 
----
+Struktur yang benar:
 
-## Struktur data Supabase
-
-Tabel yang dipakai:
-
-```txt
-public.markets
+```
+racik-acke/
+  package.json
+  next.config.mjs
+  tsconfig.json
+  .gitignore
+  .env.local.example
+  README.md
+  lib/
+    engine/
+      types.ts
+      acke-engine.ts
+    supabase/
+      client.ts
+  app/
+    layout.tsx
+    page.tsx
+    globals.css
+    api/
+      markets/
+        route.ts
+      acke/
+        route.ts
 ```
 
-Kolom minimal:
+Di GitHub web: **Add file → Create new file**, ketik path lengkap (mis.
+`app/api/acke/route.ts`), paste isinya, lalu **Commit**.
 
-```txt
-id           text
-name         text
-history_data text
-order        integer
-updated_at   timestamptz
-```
+### 2. Buka akses baca tabel di Supabase
 
-`history_data` format:
-
-```txt
-1234 5678 9012 3456
-```
-
-Kiri = data terlama. Kanan = data terbaru.
-
----
-
-## SQL akses baca tabel
-
-Jalankan di Supabase SQL Editor:
+Di Supabase → **SQL Editor**, jalankan:
 
 ```sql
-alter table public.markets enable row level security;
+alter table markets enable row level security;
 
 create policy "allow public read markets"
-on public.markets for select to anon using (true);
+on markets for select to anon using (true);
 ```
 
----
+### 3. Ambil kunci Supabase
 
-## Environment Variables
+Supabase → **Project Settings → API**. Catat:
 
-Di Vercel → Project → Settings → Environment Variables:
+- **Project URL** (mis. `https://xxxx.supabase.co`)
+- **anon public** key
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
-```
+### 4. Hubungkan ke Vercel
 
-Jangan commit `.env.local` yang berisi key asli.
+1. Buka vercel.com, login pakai GitHub.
+2. **Add New → Project**, pilih repo `racik-acke`, klik **Import**.
+3. Di bagian **Environment Variables**, tambahkan dua:
+   - `NEXT_PUBLIC_SUPABASE_URL` = Project URL tadi
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon key tadi
+4. Klik **Deploy**. Tunggu selesai, buka URL yang diberikan.
 
----
-
-## Cara deploy ke Vercel
-
-1. Buka Vercel.
-2. Add New → Project.
-3. Pilih repo `scan.angka`.
-4. Tambahkan environment variables.
-5. Deploy.
+Selesai. Pilih pasaran, atur patokan & target, tekan **Hitung**.
 
 ---
 
 ## Catatan teknis
 
-- Engine ada di `lib/engine/`.
-- Token `[A/C/K/E][N]`: patokan diambil dari hasil N langkah sebelum target.
-- Untuk prediksi berikutnya, `A1` memakai result terbaru sebagai H-1.
-- `Patah` dan `D0` belum dipakai, output default `P0-D0`.
+- Engine ada di `lib/engine/` — fungsi murni, tanpa I/O, gampang dites.
+- Token `[A/C/K/E][N]`: patokan diambil dari hasil N langkah sebelum target
+  (N=1 = hasil terbaru).
+- `history_data` dibaca apa adanya: angka 4D dipisah spasi, kiri = terlama.
+- `Patah` dan `D0` belum dipakai (semua data uji bernilai 0).
