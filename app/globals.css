@@ -71,6 +71,9 @@ button.run:disabled { opacity: .5; cursor: default; }
 .trek-row span { color: #e5edf8; font-weight: 800; }
 .trek-row b { color: var(--gold); letter-spacing: 1px; font-size: 16px; }
 .trek-row em { color: #cfd8e3; font-style: normal; font-weight: 900; font-size: 12px; }
+.trek-row b.row-digits { display: flex; flex-wrap: wrap; gap: 2px 4px; letter-spacing: 0; }
+.row-digits span { display: inline-grid; place-items: center; width: 20px; height: 24px; border-radius: 6px; }
+.row-digits .hit-digit { color: #07111f; background: var(--gold); box-shadow: 0 0 0 1px rgba(224,179,65,.55); }
 .trek-row.pending { position: sticky; bottom: 0; background: #151f2d; border: 1px solid rgba(224,179,65,.35); border-radius: 10px; margin-top: 10px; padding: 10px 8px; }
 .trek-row.pending span, .trek-row.pending em { color: var(--gold); }
 .trek-footer { padding: 16px 0 4px; color: #e5edf8; font-family: var(--font-mono); font-size: 18px; letter-spacing: 1px; }
