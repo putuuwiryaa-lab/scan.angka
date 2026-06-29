@@ -39,21 +39,32 @@ export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
   const rows: BacktestRow[] = [];
 
   for (const t of targets) {
-    const patokan = digitOf(draws[t - N], patokanPos);
+    const sourceIndex = t - N;
+    const displayIndex = t - 1;
+    const patokan = digitOf(draws[sourceIndex], patokanPos);
     const deret = buildDeret(patokan);
     const targetDigit = digitOf(draws[t], targetPos);
     const col = (targetDigit - patokan + 10) % 10;
     hit[col] += 1;
-    rows.push({ patokanDraw: draws[t - N], targetDraw: draws[t], patokan, deret, targetDigit, kolomKena: KOLOM[col] });
+    rows.push({
+      displayDraw: draws[displayIndex],
+      patokanDraw: draws[sourceIndex],
+      targetDraw: draws[t],
+      patokan,
+      deret,
+      targetDigit,
+      kolomKena: KOLOM[col],
+    });
   }
 
+  const latestDraw = draws[draws.length - 1];
   const patokanLiveDraw = draws[draws.length - N];
   const deretLive = buildDeret(digitOf(patokanLiveDraw, patokanPos));
   const kolom: KolomStat[] = KOLOM.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
   const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
 
-  return { config: { ...config, L: safeL }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, angkaKuat, angkaMati, rows };
+  return { config: { ...config, L: safeL }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
 }
 
 export function runEngineFromHistory(historyData: string, config: EngineConfig): EngineResult {
