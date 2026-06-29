@@ -1,53 +1,52 @@
 import { NextResponse } from "next/server";
-import { clampRounds, runAckeAnalysis } from "@/lib/engine/acke-engine";
-import type { AckeRequest, FormulaCode, PositionCode } from "@/lib/engine/types";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { getSupabase } from "@/lib/supabase/client";
+import { runEngineFromHistory } from "@/lib/engine/acke-engine";
+import type { Posisi } from "@/lib/engine/types";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isPositionCode(value: unknown): value is PositionCode {
-  return value === "A" || value === "C" || value === "K" || value === "E";
+function clampL(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 15;
+  return Math.max(1, Math.min(100, Math.trunc(parsed)));
 }
 
-function isFormulaCode(value: unknown): value is FormulaCode {
-  return typeof value === "string" && /^[ACKE][1-9]$/.test(value.toUpperCase());
-}
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as Partial<AckeRequest>;
-    const marketId = String(body.marketId || "").trim();
-    const target = String(body.target || "").trim().toUpperCase();
-    const formula = String(body.formula || "").trim().toUpperCase();
-    const rounds = clampRounds(body.rounds);
+    const body = await req.json();
+    const { marketId, patokanPos, patokanN, targetPos, L } = body ?? {};
 
-    if (!marketId || !isPositionCode(target) || !isFormulaCode(formula)) {
-      return NextResponse.json({ error: "Request tidak valid." }, { status: 400 });
+    if (!marketId) {
+      return NextResponse.json({ error: "Pilih pasaran dulu." }, { status: 400 });
     }
 
-    const supabase = createSupabaseClient();
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("markets")
-      .select("id,name,history_data,order,updated_at")
+      .select("history_data, name")
       .eq("id", marketId)
       .single();
 
-    if (error) throw error;
-    if (!data) {
-      return NextResponse.json({ error: "Pasaran tidak ditemukan." }, { status: 404 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data?.history_data) {
+      return NextResponse.json(
+        { error: "Pasaran ini belum punya data keluaran." },
+        { status: 404 }
+      );
     }
 
-    const result = runAckeAnalysis({
-      market: data,
-      target,
-      formula,
-      rounds,
+    const result = runEngineFromHistory(data.history_data, {
+      patokanPos: patokanPos as Posisi,
+      patokanN: Number(patokanN),
+      targetPos: targetPos as Posisi,
+      L: clampL(L),
     });
 
-    return NextResponse.json({ result }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Gagal menghitung ACKE.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ market: data.name, result });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Terjadi kesalahan.";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
