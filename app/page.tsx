@@ -21,6 +21,7 @@ type ScanResult = {
 const TREK: [string, string][] = [["A", "As"], ["C", "Cop"], ["K", "Kepala"], ["E", "Ekor"]];
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
+const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
 const COLS = "ABCDEFGHIJ";
 
 function pickColumns(activeColumns: string, deret: number[]) {
@@ -264,7 +265,7 @@ export default function Page() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-head">
               <div>
-                <b>Rumus {NAME[viewItem.targetPos]} ({viewItem.targetPos.toLowerCase()}) {viewItem.angkaHidup.length} Digit</b>
+                <b>Rumus {NAME[viewItem.targetPos]} ({SHORT[viewItem.targetPos]}) {viewItem.angkaHidup.length} Digit</b>
                 <span>KEY : {viewItem.formula.toLowerCase()}</span>
               </div>
               <button type="button" onClick={() => setViewItem(null)}>×</button>
@@ -273,20 +274,23 @@ export default function Page() {
               {viewRows.map((row, idx) => (
                 <div className="trek-row" key={`${row.patokanDraw}-${idx}`}>
                   <span>{row.patokanDraw}</span>
+                  <i>➜</i>
                   <b className="row-digits">
                     {rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => (
                       <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{digit}</span>
                     ))}
                   </b>
-                  <em>{NAME[viewItem.targetPos]}</em>
+                  <em>{SHORT[viewItem.targetPos]}</em>
                 </div>
               ))}
               <div className="trek-row pending">
                 <span>{viewItem.result.patokanLiveDraw}</span>
-                <b>{nextPrediction}</b>
+                <i>➜</i>
+                <b className="row-digits">
+                  {nextPrediction.split("").map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
+                </b>
                 <em>??</em>
               </div>
-              <div className="trek-footer"><b>{NAME[viewItem.targetPos]}</b> : {nextPrediction}</div>
             </div>
           </div>
         </div>
