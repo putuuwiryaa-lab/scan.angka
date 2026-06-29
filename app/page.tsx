@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Market = { id: string; name: string | null };
-type ScanRow = { patokanDraw: string; targetDraw: string; targetDigit: number; deret: number[] };
+type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; deret: number[] };
 type ScanItem = {
   targetPos: string;
   formula: string;
   angkaHidup: number[];
   activeColumns: string;
-  result: { rows: ScanRow[]; patokanLiveDraw: string; deretLive: number[] };
+  result: { rows: ScanRow[]; patokanLiveDraw: string; latestDraw: string; deretLive: number[] };
 };
 type ScanResult = {
   config: { L: number; targetPos: string; digitCount: number; stopScan: number };
@@ -68,8 +68,8 @@ function predictionResult(item: ScanItem) {
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
   const short = SHORT[item.targetPos];
   const header = [`Rumus ${NAME[item.targetPos]} (${short}) ${item.angkaHidup.length} Digit`, `KEY : ${item.formula.toLowerCase()}`];
-  const history = rows.map((row) => `${row.targetDraw} ➜ ${rowResultText(item, row)} ${short}`);
-  const next = `${item.result.patokanLiveDraw} ➜ ${nextPrediction} ??`;
+  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${short}`);
+  const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
 }
 
@@ -301,8 +301,8 @@ export default function Page() {
             </div>
             <div className="trek-detail">
               {viewRows.map((row, idx) => (
-                <div className="trek-row" key={`${row.targetDraw}-${idx}`}>
-                  <span>{row.targetDraw}</span>
+                <div className="trek-row" key={`${row.displayDraw}-${idx}`}>
+                  <span>{row.displayDraw}</span>
                   <i>➜</i>
                   <b className="row-digits">
                     {rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => (
@@ -313,7 +313,7 @@ export default function Page() {
                 </div>
               ))}
               <div className="trek-row pending">
-                <span>{viewItem.result.patokanLiveDraw}</span>
+                <span>{viewItem.result.latestDraw}</span>
                 <i>➜</i>
                 <b className="row-digits">
                   {nextPrediction.split("").map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
