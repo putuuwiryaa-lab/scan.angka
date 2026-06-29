@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { runAutoScanFromHistory } from "@/lib/engine/acke-engine";
-import type { Posisi } from "@/lib/engine/types";
+import type { Posisi, ScanMode } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
 function isPosisi(value: unknown): value is Posisi {
   return value === "A" || value === "C" || value === "K" || value === "E";
+}
+
+function scanMode(value: unknown): ScanMode {
+  if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang") return value;
+  return "posisi";
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -30,6 +35,7 @@ export async function POST(req: Request) {
       targetPos: target,
       digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 9),
       stopScan: clamp(body?.stopScan, 3, 1, 200),
+      scanMode: scanMode(body?.scanMode),
     };
 
     const supabase = getSupabase();
