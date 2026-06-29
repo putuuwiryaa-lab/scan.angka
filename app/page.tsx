@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
+type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
 type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; targetDigits?: number[]; deret: number[] };
 type ScanItem = {
@@ -21,7 +22,15 @@ type ScanResult = {
 };
 type FrequencyRow = { digit: number; count: number };
 
-const TREK: [string, string][] = [["A", "As"], ["C", "Cop"], ["K", "Kepala"], ["E", "Ekor"]];
+const TREK: [TrekChoice, string][] = [
+  ["A", "As"],
+  ["C", "Cop"],
+  ["K", "Kepala"],
+  ["E", "Ekor"],
+  ["ai_2d_belakang", "AI 2D Belakang"],
+  ["bbfs_2d_belakang", "BBFS 2D Belakang"],
+];
+const POS_CHOICES = ["A", "C", "K", "E"];
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
@@ -156,6 +165,7 @@ export default function Page() {
   const frequencies = useMemo(() => result ? buildFrequencies(result.items) : [], [result]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
+  const selectedTrekText = scanMode === "posisi" ? LABEL[targetPos] : MODE_LABEL[scanMode];
 
   useEffect(() => {
     fetch("/api/markets")
@@ -189,14 +199,19 @@ export default function Page() {
   }
 
   function toggleTrek() {
-    if (scanMode !== "posisi") return;
     setMarketOpen(false);
     setDigitOpen(false);
     setTrekOpen((open) => !open);
   }
 
-  function pilihTrek(value: string) {
-    setTargetPos(value);
+  function pilihTrek(value: TrekChoice) {
+    if (POS_CHOICES.includes(value)) {
+      setScanMode("posisi");
+      setTargetPos(value);
+    } else {
+      setScanMode(value);
+      setTargetPos("K");
+    }
     setTrekOpen(false);
   }
 
@@ -209,13 +224,6 @@ export default function Page() {
   function pilihDigit(value: number) {
     setDigitCount(value);
     setDigitOpen(false);
-  }
-
-  function pilihMode(value: string) {
-    if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang" || value === "posisi") {
-      setScanMode(value);
-      setTrekOpen(false);
-    }
   }
 
   async function copyTrek() {
@@ -314,36 +322,31 @@ export default function Page() {
               onBlur={() => setRounds(String(clampTextNumber(rounds, 15, 1, 100)))}
             />
           </div>
-          <div className="field">
-            <label>Jenis Trek</label>
-            <select value={scanMode} onChange={(e) => pilihMode(e.target.value)}>
-              <option value="posisi">Trek Posisi</option>
-              <option value="ai_2d_belakang">AI 2D Belakang</option>
-              <option value="bbfs_2d_belakang">BBFS 2D Belakang</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="row two">
           <div className="field trek-field">
-            <label>Posisi Trek</label>
-            <button className="trek-select" type="button" onClick={toggleTrek} disabled={scanMode !== "posisi"}>
+            <label>Jenis Trek</label>
+            <button className="trek-select" type="button" onClick={toggleTrek}>
               <span className="select-badge" />
-              <b>{scanMode === "posisi" ? LABEL[targetPos] : "2D Belakang"}</b>
+              <b>{selectedTrekText}</b>
               <span className="select-arrow">{trekOpen ? "⌃" : "⌄"}</span>
             </button>
             {trekOpen && (
               <div className="trek-menu">
-                {TREK.map(([value, text]) => (
-                  <button key={value} type="button" className={value === targetPos ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
-                    <span className="option-badge" />
-                    <span className="option-label">{text}</span>
-                    {value === targetPos && <b>✓</b>}
-                  </button>
-                ))}
+                {TREK.map(([value, text]) => {
+                  const active = scanMode === "posisi" ? value === targetPos : value === scanMode;
+                  return (
+                    <button key={value} type="button" className={active ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
+                      <span className="option-badge" />
+                      <span className="option-label">{text}</span>
+                      {active && <b>✓</b>}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
+        </div>
+
+        <div className="row two">
           <div className="field digit-field">
             <label>Jumlah Digit Trek</label>
             <button className="digit-select" type="button" onClick={toggleDigit}>
@@ -363,16 +366,15 @@ export default function Page() {
               </div>
             )}
           </div>
-        </div>
-
-        <div className="field">
-          <label>Batas Hasil</label>
-          <input
-            inputMode="numeric"
-            value={stopScan}
-            onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
-            onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
-          />
+          <div className="field">
+            <label>Batas Hasil</label>
+            <input
+              inputMode="numeric"
+              value={stopScan}
+              onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
+              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
+            />
+          </div>
         </div>
 
         <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>{loading ? "Sedang scan..." : "Scan Sekarang"}</button>
@@ -381,7 +383,7 @@ export default function Page() {
 
       {result && (
         <div className="panel result-panel">
-          <p className="summary"><b>{marketName}</b> &middot; <b>{MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
+          <p className="summary"><b>{marketName}</b> &middot; <b>{result.config.scanMode === "posisi" ? LABEL[result.config.targetPos] : MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
           <div className="scan-list compact-list">
             {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
             {result.items.map((item, index) => (
