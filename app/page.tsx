@@ -9,7 +9,7 @@ type ScanItem = {
   formula: string;
   angkaHidup: number[];
   activeColumns: string;
-  result: { rows: ScanRow[] };
+  result: { rows: ScanRow[]; deretLive: number[] };
 };
 type ScanResult = {
   config: { L: number; targetPos: string; digitCount: number; stopScan: number };
@@ -22,12 +22,20 @@ const TREK: [string, string][] = [["A", "AS"], ["C", "COP"], ["K", "KPL"], ["E",
 const LABEL: Record<string, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
 const COLS = "ABCDEFGHIJ";
 
-function rowResult(item: ScanItem, row: ScanRow) {
-  return item.activeColumns
+function pickColumns(activeColumns: string, deret: number[]) {
+  return activeColumns
     .split("")
-    .map((c) => row.deret[COLS.indexOf(c)])
+    .map((c) => deret[COLS.indexOf(c)])
     .filter((n) => Number.isFinite(n))
     .join("");
+}
+
+function rowResult(item: ScanItem, row: ScanRow) {
+  return pickColumns(item.activeColumns, row.deret);
+}
+
+function predictionResult(item: ScanItem) {
+  return pickColumns(item.activeColumns, item.result.deretLive);
 }
 
 export default function Page() {
@@ -172,6 +180,11 @@ export default function Page() {
                   <em>✓</em>
                 </div>
               ))}
+              <div className="trek-row pending">
+                <span>NEXT</span>
+                <b>{predictionResult(viewItem)}</b>
+                <em>?</em>
+              </div>
             </div>
           </div>
         </div>
