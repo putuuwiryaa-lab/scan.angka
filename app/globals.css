@@ -19,20 +19,21 @@ header h1 { font-size: 26px; font-weight: 800; margin: 0; }
 header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 650; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 18px; }
 label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 6px; font-weight: 800; }
-select, input { width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: var(--font-sans); }
+select, input { width: 100%; min-height: 48px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: var(--font-sans); }
+select { -webkit-appearance: none; appearance: none; background-image: none; }
+input { -webkit-appearance: none; appearance: none; }
 select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .field { margin-bottom: 12px; }
 .row { display: grid; gap: 10px; }
 .row.two { grid-template-columns: 1fr 1fr; }
 .market-field { position: relative; z-index: 5; }
-.market-select { width: 100%; min-height: 48px; display: grid; grid-template-columns: 18px 1fr 24px; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 11px 12px; text-align: left; cursor: pointer; }
+.market-select { width: 100%; min-height: 48px; display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 11px 12px; text-align: left; cursor: pointer; }
 .market-select b { font-size: 15px; letter-spacing: .2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.market-select em { color: var(--muted); font-style: normal; text-align: right; font-size: 18px; }
 .market-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 4px rgba(110,155,255,.12); }
 .market-menu { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; max-height: 310px; overflow-y: auto; background: #111823; border: 1px solid var(--line); border-radius: 12px; padding: 8px; box-shadow: 0 16px 35px rgba(0,0,0,.38); }
 .market-menu-top { display: grid; grid-template-columns: 1fr 38px; gap: 8px; margin-bottom: 8px; }
 .market-menu-top button { border: 0; border-radius: 9px; background: var(--panel-2); color: var(--ink); font-size: 22px; font-weight: 800; }
-.market-search { font-weight: 800; letter-spacing: .2px; padding-left: 12px; height: 40px; }
+.market-search { font-weight: 800; letter-spacing: .2px; padding-left: 12px; height: 40px; min-height: 40px; }
 .market-option { width: 100%; min-height: 40px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); padding: 9px 10px; text-align: left; font-weight: 800; cursor: pointer; }
 .market-option.active { background: rgba(110,155,255,.15); color: #dce8ff; }
 .market-option b { color: var(--gold); }
