@@ -176,9 +176,10 @@ export default function Page() {
 
   return (
     <div className="wrap">
-      <header>
+      <header className="hero">
+        <div className="hero-kicker">Scanner Rumus Otomatis</div>
         <h1>Scan Angka</h1>
-        <p>Scanner otomatis rumus ACKE dari data pasaran.</p>
+        <p>Cari trek angka dari riwayat result terbaru.</p>
       </header>
 
       <div className="panel">
