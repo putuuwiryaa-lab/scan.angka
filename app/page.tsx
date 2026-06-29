@@ -73,9 +73,7 @@ function buildFrequencies(items: ScanItem[]): FrequencyRow[] {
       counts[digit] += 1;
     });
   }
-  return counts
-    .map((count, digit) => ({ digit, count }))
-    .sort((a, b) => b.count - a.count || a.digit - b.digit);
+  return counts.map((count, digit) => ({ digit, count }));
 }
 
 function rowResultDigits(item: ScanItem, row: ScanRow) {
@@ -368,6 +366,7 @@ export default function Page() {
                 {frequencies.map((item) => (
                   <div className={item.count === 0 ? "frequency-item muted" : "frequency-item"} key={item.digit}>
                     <b>{item.digit}</b>
+                    <i>=</i>
                     <span>{item.count}x</span>
                   </div>
                 ))}
