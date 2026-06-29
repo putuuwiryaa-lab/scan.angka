@@ -3,8 +3,11 @@ import { KOLOM, POS_INDEX, type AutoScanConfig, type AutoScanItem, type AutoScan
 const POSISI: Posisi[] = ["A", "C", "K", "E"];
 const OFFSET_LIST = [0, 1, 2, -1, -2];
 const COMBO_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["A", "K"], ["A", "E"], ["C", "K"], ["C", "E"], ["K", "E"]];
+const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "E"], ["A", "K", "E"], ["C", "K", "E"]];
+const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
+const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-type FormulaType = "base" | "offset" | "combo" | "diff" | "total";
+type FormulaType = "base" | "offset" | "tesson" | "mirror" | "combo" | "combo3" | "diff" | "absdiff" | "total";
 
 interface FormulaSpec {
   formula: string;
@@ -77,16 +80,45 @@ function formulaSpecs(): FormulaSpec[] {
           compute: (draw) => mod10(digitOf(draw, pos) + offset),
         });
       }
+
+      specs.push({
+        formula: `TS-${pos}${N}`,
+        type: "tesson",
+        typeOrder: 2,
+        patokanPos: pos,
+        patokanN: N,
+        compute: (draw) => TESSON_MAP[digitOf(draw, pos)],
+      });
+
+      specs.push({
+        formula: `M-${pos}${N}`,
+        type: "mirror",
+        typeOrder: 3,
+        patokanPos: pos,
+        patokanN: N,
+        compute: (draw) => MIRROR_MAP[digitOf(draw, pos)],
+      });
     }
 
     for (const [left, right] of COMBO_PAIRS) {
       specs.push({
         formula: `${left}${N}+${right}${N}`,
         type: "combo",
-        typeOrder: 2,
+        typeOrder: 4,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, right)),
+      });
+    }
+
+    for (const [left, middle, right] of COMBO_TRIPLES) {
+      specs.push({
+        formula: `${left}${N}+${middle}${N}+${right}${N}`,
+        type: "combo3",
+        typeOrder: 5,
+        patokanPos: left,
+        patokanN: N,
+        compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)),
       });
     }
 
@@ -96,7 +128,7 @@ function formulaSpecs(): FormulaSpec[] {
         specs.push({
           formula: `${left}${N}-${right}${N}`,
           type: "diff",
-          typeOrder: 3,
+          typeOrder: 6,
           patokanPos: left,
           patokanN: N,
           compute: (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)),
@@ -104,10 +136,21 @@ function formulaSpecs(): FormulaSpec[] {
       }
     }
 
+    for (const [left, right] of COMBO_PAIRS) {
+      specs.push({
+        formula: `D-${left}${right}${N}`,
+        type: "absdiff",
+        typeOrder: 7,
+        patokanPos: left,
+        patokanN: N,
+        compute: (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)),
+      });
+    }
+
     specs.push({
       formula: `T${N}`,
       type: "total",
-      typeOrder: 4,
+      typeOrder: 8,
       patokanPos: "A",
       patokanN: N,
       compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)),
