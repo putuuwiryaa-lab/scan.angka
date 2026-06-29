@@ -28,8 +28,8 @@ export async function POST(req: Request) {
     const config = {
       L: clamp(body?.L, 15, 1, 100),
       targetPos: target,
-      minMati: clamp(body?.minMati, 1, 1, 10),
-      stopScan: clamp(body?.stopScan, 50, 1, 200),
+      digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 10),
+      stopScan: clamp(body?.stopScan, 3, 1, 200),
     };
 
     const supabase = getSupabase();
