@@ -46,6 +46,11 @@ function scanCode(target: Posisi, formula: string, L: number, columns: string): 
   return `#${target.toLowerCase()}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
+function digitSignature(targetPos: Posisi, digits: number[]): string {
+  const normalized = [...new Set(digits)].sort((a, b) => a - b).join("");
+  return `${targetPos}:${normalized}`;
+}
+
 function formulaSpecs(): FormulaSpec[] {
   const specs: FormulaSpec[] = [];
 
@@ -240,7 +245,18 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     if (a.patokanN !== b.patokanN) return a.patokanN - b.patokanN;
     return a.formula.localeCompare(b.formula);
   });
-  const limited = sorted.slice(0, safeConfig.stopScan).map(({ typeOrder, strength, ...item }) => item);
+  const seen = new Set<string>();
+  const unique = [] as (AutoScanItem & { typeOrder: number; strength: number })[];
+
+  for (const item of sorted) {
+    const signature = digitSignature(item.targetPos, item.angkaHidup);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    unique.push(item);
+    if (unique.length >= safeConfig.stopScan) break;
+  }
+
+  const limited = unique.map(({ typeOrder, strength, ...item }) => item);
 
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
