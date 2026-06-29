@@ -52,6 +52,9 @@ button.run:disabled { opacity: .5; cursor: default; }
 .trek-row span { color: #e5edf8; font-weight: 800; }
 .trek-row b { color: var(--gold); letter-spacing: 2px; font-size: 16px; }
 .trek-row em { color: #67d37c; font-style: normal; font-weight: 900; }
+.trek-row.pending { position: sticky; bottom: 0; background: #151f2d; border: 1px solid rgba(224,179,65,.35); border-radius: 10px; margin-top: 10px; padding: 10px 8px; }
+.trek-row.pending span { color: var(--gold); }
+.trek-row.pending em { color: var(--gold); font-size: 18px; }
 @media (max-width: 430px) {
   .wrap { padding: 20px 12px 56px; }
   .row.two { grid-template-columns: 1fr; }
