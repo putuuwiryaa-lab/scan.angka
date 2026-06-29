@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Market = { id: string; name: string | null };
-type ScanRow = { targetDraw: string; deret: number[] };
+type ScanRow = { patokanDraw: string; targetDraw: string; deret: number[] };
 type ScanItem = {
   targetPos: string;
   formula: string;
   angkaHidup: number[];
   activeColumns: string;
-  result: { rows: ScanRow[]; deretLive: number[] };
+  result: { rows: ScanRow[]; patokanLiveDraw: string; deretLive: number[] };
 };
 type ScanResult = {
   config: { L: number; targetPos: string; digitCount: number; stopScan: number };
@@ -20,6 +20,7 @@ type ScanResult = {
 
 const TREK: [string, string][] = [["A", "AS"], ["C", "COP"], ["K", "KPL"], ["E", "EKR"]];
 const LABEL: Record<string, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
+const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const COLS = "ABCDEFGHIJ";
 
 function pickColumns(activeColumns: string, deret: number[]) {
@@ -51,10 +52,8 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const viewRows = useMemo(() => {
-    if (!viewItem) return [];
-    return viewItem.result.rows.slice().reverse();
-  }, [viewItem]);
+  const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
+  const nextPrediction = viewItem ? predictionResult(viewItem) : "";
 
   useEffect(() => {
     fetch("/api/markets")
@@ -167,24 +166,25 @@ export default function Page() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-head">
               <div>
-                <b>{LABEL[viewItem.targetPos]} {viewItem.formula}</b>
-                <span>RESULT: {viewItem.angkaHidup.join(" ")}</span>
+                <b>Rumus {NAME[viewItem.targetPos]} ({viewItem.targetPos.toLowerCase()}) {viewItem.angkaHidup.length} Digit</b>
+                <span>KEY : {viewItem.formula.toLowerCase()}</span>
               </div>
               <button type="button" onClick={() => setViewItem(null)}>×</button>
             </div>
             <div className="trek-detail">
               {viewRows.map((row, idx) => (
-                <div className="trek-row" key={`${row.targetDraw}-${idx}`}>
-                  <span>{row.targetDraw}</span>
+                <div className="trek-row" key={`${row.patokanDraw}-${idx}`}>
+                  <span>{row.patokanDraw}</span>
                   <b>{rowResult(viewItem, row)}</b>
-                  <em>✓</em>
+                  <em>{viewItem.targetPos.toLowerCase()}</em>
                 </div>
               ))}
               <div className="trek-row pending">
-                <span>NEXT</span>
-                <b>{predictionResult(viewItem)}</b>
-                <em>?</em>
+                <span>{viewItem.result.patokanLiveDraw}</span>
+                <b>{nextPrediction}</b>
+                <em>??</em>
               </div>
+              <div className="trek-footer"><b>{viewItem.targetPos.toLowerCase()}</b> : {nextPrediction}</div>
             </div>
           </div>
         </div>
