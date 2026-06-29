@@ -73,7 +73,9 @@ function buildFrequencies(items: ScanItem[]): FrequencyRow[] {
       counts[digit] += 1;
     });
   }
-  return counts.map((count, digit) => ({ digit, count }));
+  return counts
+    .map((count, digit) => ({ digit, count }))
+    .sort((a, b) => b.count - a.count || a.digit - b.digit);
 }
 
 function rowResultDigits(item: ScanItem, row: ScanRow) {
