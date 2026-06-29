@@ -44,7 +44,7 @@ export interface EngineResult {
 export interface AutoScanConfig {
   L: number;
   targetPos?: Posisi;
-  minMati?: number;
+  digitCount?: number;
   stopScan?: number;
 }
 
@@ -54,16 +54,22 @@ export interface AutoScanItem {
   patokanN: number;
   formula: string;
   code: string;
+  angkaHidup: number[];
+  kolomHidup: Kolom[];
   angkaMati: number[];
   kolomMati: Kolom[];
-  angkaKuat: number[];
   activeColumns: string;
-  jumlahMati: number;
+  jumlahHidup: number;
   result: EngineResult;
 }
 
 export interface AutoScanResult {
-  config: Required<AutoScanConfig>;
+  config: {
+    L: number;
+    targetPos: Posisi;
+    digitCount: number;
+    stopScan: number;
+  };
   totalChecked: number;
   totalMatched: number;
   items: AutoScanItem[];
