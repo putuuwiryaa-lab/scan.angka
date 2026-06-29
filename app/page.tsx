@@ -58,6 +58,10 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const selectedMarket = useMemo(
+    () => markets.find((m) => m.id === marketId) ?? null,
+    [markets, marketId]
+  );
   const filteredMarkets = useMemo(() => {
     const query = marketQuery.trim().toLowerCase();
     if (!query) return markets.slice(0, 30);
@@ -73,17 +77,19 @@ export default function Page() {
         if (d.error) return setError(d.error);
         const list: Market[] = d.markets ?? [];
         setMarkets(list);
-        if (list.length) {
-          setMarketId(list[0].id);
-          setMarketQuery(marketTitle(list[0]));
-        }
+        if (list.length) setMarketId(list[0].id);
       })
       .catch(() => setError("Gagal memuat daftar pasaran."));
   }, []);
 
+  function bukaMarket() {
+    setMarketQuery("");
+    setMarketOpen(true);
+  }
+
   function pilihMarket(market: Market) {
     setMarketId(market.id);
-    setMarketQuery(marketTitle(market));
+    setMarketQuery("");
     setMarketOpen(false);
   }
 
@@ -127,18 +133,23 @@ export default function Page() {
       <div className="panel">
         <div className="field market-field">
           <label>Pilih Pasaran</label>
-          <input
-            className="market-search"
-            value={marketQuery}
-            onChange={(e) => {
-              setMarketQuery(e.target.value);
-              setMarketOpen(true);
-            }}
-            onFocus={() => setMarketOpen(true)}
-            placeholder="Cari pasaran..."
-          />
+          <button className="market-select" type="button" onClick={bukaMarket}>
+            <span className="market-dot" />
+            <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
+            <em>⌄</em>
+          </button>
           {marketOpen && (
             <div className="market-menu">
+              <div className="market-menu-top">
+                <input
+                  className="market-search"
+                  value={marketQuery}
+                  onChange={(e) => setMarketQuery(e.target.value)}
+                  placeholder="Cari pasaran..."
+                  autoFocus
+                />
+                <button type="button" onClick={() => setMarketOpen(false)}>×</button>
+              </div>
               {filteredMarkets.length === 0 && <div className="market-empty">Pasaran tidak ditemukan</div>}
               {filteredMarkets.map((m) => (
                 <button key={m.id} type="button" className={m.id === marketId ? "market-option active" : "market-option"} onClick={() => pilihMarket(m)}>
