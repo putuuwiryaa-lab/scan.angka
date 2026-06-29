@@ -23,6 +23,7 @@ const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
 const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
 const COLS = "ABCDEFGHIJ";
+const DIGIT_OPTIONS = [1,2,3,4,5,6,7,8,9,10];
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -67,7 +68,7 @@ function predictionResult(item: ScanItem) {
 
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
   const short = SHORT[item.targetPos];
-  const header = [`Rumus ${NAME[item.targetPos]} (${short}) ${item.angkaHidup.length} Digit`, `KEY : ${item.formula.toLowerCase()}`];
+  const header = [`Detail Trek ${NAME[item.targetPos]} (${short})`, `Rumus : ${item.formula.toLowerCase()}`];
   const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${short}`);
   const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
@@ -82,6 +83,7 @@ export default function Page() {
   const [targetPos, setTargetPos] = useState("K");
   const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(7);
+  const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -131,6 +133,11 @@ export default function Page() {
     setTrekOpen(false);
   }
 
+  function pilihDigit(value: number) {
+    setDigitCount(value);
+    setDigitOpen(false);
+  }
+
   async function copyTrek() {
     if (!viewItem) return;
     const text = buildCopyText(viewItem, viewRows, nextPrediction);
@@ -139,7 +146,7 @@ export default function Page() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      setError("Gagal copy trek.");
+      setError("Gagal salin trek.");
     }
   }
 
@@ -184,7 +191,7 @@ export default function Page() {
 
       <div className="panel">
         <div className="field market-field">
-          <label>Pilih Pasaran</label>
+          <label>Pasaran</label>
           <button className="market-select" type="button" onClick={bukaMarket}>
             <span className="market-dot" />
             <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
@@ -214,7 +221,7 @@ export default function Page() {
 
         <div className="row two">
           <div className="field">
-            <label>Putaran / Data</label>
+            <label>Data Uji</label>
             <input
               inputMode="numeric"
               value={rounds}
@@ -223,7 +230,7 @@ export default function Page() {
             />
           </div>
           <div className="field trek-field">
-            <label>Jenis Trek</label>
+            <label>Posisi Trek</label>
             <button className="trek-select" type="button" onClick={() => setTrekOpen((open) => !open)}>
               <b>{LABEL[targetPos]}</b>
               <span>⌄</span>
@@ -242,14 +249,25 @@ export default function Page() {
         </div>
 
         <div className="row two">
-          <div className="field">
-            <label>Jumlah Digit</label>
-            <select value={digitCount} onChange={(e) => setDigitCount(Number(e.target.value))}>
-              {[1,2,3,4,5,6,7,8,9,10].map((n) => <option key={n} value={n}>{n} digit</option>)}
-            </select>
+          <div className="field digit-field">
+            <label>Jumlah Digit Trek</label>
+            <button className="digit-select" type="button" onClick={() => setDigitOpen((open) => !open)}>
+              <b>{digitCount} digit</b>
+              <span>⌄</span>
+            </button>
+            {digitOpen && (
+              <div className="digit-menu">
+                {DIGIT_OPTIONS.map((value) => (
+                  <button key={value} type="button" className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => pilihDigit(value)}>
+                    <span>{value} digit</span>
+                    {value === digitCount && <b>✓</b>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="field">
-            <label>Stop Scan</label>
+            <label>Batas Hasil</label>
             <input
               inputMode="numeric"
               value={stopScan}
@@ -259,7 +277,7 @@ export default function Page() {
           </div>
         </div>
 
-        <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>{loading ? "Scanning..." : "Mulai Scan"}</button>
+        <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>{loading ? "Sedang scan..." : "Scan Sekarang"}</button>
         {error && <div className="err">{error}</div>}
       </div>
 
@@ -267,7 +285,7 @@ export default function Page() {
         <div className="panel result-panel">
           <p className="summary"><b>{marketName}</b> &middot; <b>{LABEL[result.config.targetPos]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
           <div className="scan-list">
-            {result.items.length === 0 && <div className="scan-empty">Tidak ada trek lolos.</div>}
+            {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
             {result.items.map((item, index) => (
               <div className="scan-item clean" key={`${item.targetPos}-${item.formula}-${index}`}>
                 <div className="scan-top">
@@ -280,7 +298,7 @@ export default function Page() {
                     <span key={`${digit}-${digitIndex}`}>{digit}</span>
                   ))}
                 </div>
-                <button className="view-btn" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>View</button>
+                <button className="view-btn" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat Trek</button>
               </div>
             ))}
           </div>
@@ -292,11 +310,11 @@ export default function Page() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-head">
               <div>
-                <b>Rumus {NAME[viewItem.targetPos]} ({SHORT[viewItem.targetPos]}) {viewItem.angkaHidup.length} Digit</b>
-                <span>KEY : {viewItem.formula.toLowerCase()}</span>
+                <b>Detail Trek {NAME[viewItem.targetPos]} ({SHORT[viewItem.targetPos]})</b>
+                <span>Rumus : {viewItem.formula.toLowerCase()}</span>
               </div>
               <div className="sheet-actions">
-                <button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Copied" : "Copy Trek"}</button>
+                <button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button>
                 <button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button>
               </div>
             </div>
