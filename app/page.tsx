@@ -1,13 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Market = { id: string; name: string | null };
-type ScanItem = { targetPos: string; formula: string; code: string; angkaHidup: number[]; activeColumns: string; jumlahHidup: number };
-type ScanResult = { config: { L: number; targetPos: string; digitCount: number; stopScan: number }; totalChecked: number; totalMatched: number; items: ScanItem[] };
+type ScanRow = { targetDraw: string; deret: number[] };
+type ScanItem = {
+  targetPos: string;
+  formula: string;
+  angkaHidup: number[];
+  activeColumns: string;
+  result: { rows: ScanRow[] };
+};
+type ScanResult = {
+  config: { L: number; targetPos: string; digitCount: number; stopScan: number };
+  totalChecked: number;
+  totalMatched: number;
+  items: ScanItem[];
+};
 
 const TREK: [string, string][] = [["A", "AS"], ["C", "COP"], ["K", "KPL"], ["E", "EKR"]];
 const LABEL: Record<string, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
+const COLS = "ABCDEFGHIJ";
+
+function rowResult(item: ScanItem, row: ScanRow) {
+  return item.activeColumns
+    .split("")
+    .map((c) => row.deret[COLS.indexOf(c)])
+    .filter((n) => Number.isFinite(n))
+    .join("");
+}
 
 export default function Page() {
   const [markets, setMarkets] = useState<Market[]>([]);
@@ -18,8 +39,14 @@ export default function Page() {
   const [stopScan, setStopScan] = useState(3);
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [viewItem, setViewItem] = useState<ScanItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const viewRows = useMemo(() => {
+    if (!viewItem) return [];
+    return viewItem.result.rows.slice().reverse();
+  }, [viewItem]);
 
   useEffect(() => {
     fetch("/api/markets")
@@ -36,6 +63,7 @@ export default function Page() {
     setLoading(true);
     setError("");
     setResult(null);
+    setViewItem(null);
     try {
       const safeRounds = Math.max(1, Math.min(100, Number(rounds) || 15));
       const safeDigit = Math.max(1, Math.min(10, Number(digitCount) || 3));
@@ -107,17 +135,44 @@ export default function Page() {
       </div>
 
       {result && (
-        <div className="panel">
-          <p className="summary"><b>{marketName}</b> &middot; trek <b>{LABEL[result.config.targetPos]}</b> &middot; {result.config.digitCount} digit &middot; cek {result.totalChecked} rumus</p>
+        <div className="panel result-panel">
+          <p className="summary"><b>{marketName}</b> &middot; <b>{LABEL[result.config.targetPos]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
           <div className="scan-list">
             {result.items.length === 0 && <div className="scan-empty">Tidak ada trek lolos.</div>}
             {result.items.map((item, index) => (
-              <div className="scan-item" key={`${item.targetPos}-${item.formula}-${index}`}>
-                <div className="scan-top"><span className="scan-no">#{index + 1}</span><span className="scan-formula">{item.formula}</span><span className="scan-target">{LABEL[item.targetPos]}</span></div>
-                <div className="scan-body"><div><span className="scan-label">Trek</span><b className="live-num">{item.angkaHidup.join(" ")}</b></div><div><span className="scan-label">Kolom Aktif</span><b>{item.activeColumns || "-"}</b></div></div>
-                <div className="scan-code">{item.code}</div>
+              <div className="scan-item clean" key={`${item.targetPos}-${item.formula}-${index}`}>
+                <div className="scan-top">
+                  <span className="scan-no">#{index + 1}</span>
+                  <span className="scan-formula">{item.formula}</span>
+                  <span className="scan-target">{LABEL[item.targetPos]}</span>
+                </div>
+                <div className="trek-line">{item.angkaHidup.join(" ")}</div>
+                <button className="view-btn" type="button" onClick={() => setViewItem(item)}>View</button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {viewItem && (
+        <div className="sheet-bg" onClick={() => setViewItem(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-head">
+              <div>
+                <b>{LABEL[viewItem.targetPos]} {viewItem.formula}</b>
+                <span>RESULT: {viewItem.angkaHidup.join(" ")}</span>
+              </div>
+              <button type="button" onClick={() => setViewItem(null)}>×</button>
+            </div>
+            <div className="trek-detail">
+              {viewRows.map((row, idx) => (
+                <div className="trek-row" key={`${row.targetDraw}-${idx}`}>
+                  <span>{row.targetDraw}</span>
+                  <b>{rowResult(viewItem, row)}</b>
+                  <em>✓</em>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
