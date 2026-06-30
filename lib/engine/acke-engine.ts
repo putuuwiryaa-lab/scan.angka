@@ -9,7 +9,7 @@ const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
+type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
 interface FormulaSpec {
   formula: string;
@@ -176,7 +176,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `${left}${N}+${middle}${N}+${right}${N}`,
         type: "combo3",
-        typeOrder: 9,
+        typeOrder: 10,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)),
@@ -189,7 +189,7 @@ function formulaSpecs(): FormulaSpec[] {
         specs.push({
           formula: `${left}${N}-${right}${N}`,
           type: "diff",
-          typeOrder: 10,
+          typeOrder: 11,
           patokanPos: left,
           patokanN: N,
           compute: (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)),
@@ -201,7 +201,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `D-${left}${right}${N}`,
         type: "absdiff",
-        typeOrder: 11,
+        typeOrder: 12,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)),
@@ -211,7 +211,7 @@ function formulaSpecs(): FormulaSpec[] {
     specs.push({
       formula: `T${N}`,
       type: "total",
-      typeOrder: 12,
+      typeOrder: 13,
       patokanPos: "A",
       patokanN: N,
       compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)),
@@ -221,7 +221,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `T${N}${offsetSuffix(offset)}`,
         type: "totalOffset",
-        typeOrder: 13,
+        typeOrder: 14,
         patokanPos: "A",
         patokanN: N,
         compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset),
@@ -242,6 +242,26 @@ function formulaSpecs(): FormulaSpec[] {
           compute: () => 0,
           computeAt: (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) + digitOf(draws[targetIndex - rightN], right)),
         });
+      }
+    }
+  }
+
+  for (const left of POSISI) {
+    for (const right of POSISI) {
+      if (left === right) continue;
+      for (const leftN of CROSS_N_LIST) {
+        for (const rightN of CROSS_N_LIST) {
+          if (leftN === rightN) continue;
+          specs.push({
+            formula: `${left}${leftN}-${right}${rightN}`,
+            type: "crossDiff",
+            typeOrder: 9,
+            patokanPos: left,
+            patokanN: Math.max(leftN, rightN),
+            compute: () => 0,
+            computeAt: (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) - digitOf(draws[targetIndex - rightN], right)),
+          });
+        }
       }
     }
   }
