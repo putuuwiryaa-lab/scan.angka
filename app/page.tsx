@@ -45,6 +45,17 @@ const COLS = "ABCDEFGHIJ";
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const NO_BADGE_SELECT_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) 24px" };
 const NO_BADGE_OPTION_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) auto" };
+const DATA_HINT_FIELD_STYLE: CSSProperties = { position: "relative" };
+const DATA_HINT_INPUT_STYLE: CSSProperties = { paddingRight: 76 };
+const DATA_HINT_STYLE: CSSProperties = {
+  position: "absolute",
+  right: 12,
+  bottom: 14,
+  color: "rgba(233,238,245,.34)",
+  fontSize: 12,
+  fontWeight: 900,
+  pointerEvents: "none",
+};
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -327,14 +338,16 @@ export default function Page() {
         </div>
 
         <div className="row two">
-          <div className="field">
+          <div className="field" style={DATA_HINT_FIELD_STYLE}>
             <label>Data Uji</label>
             <input
               inputMode="numeric"
+              style={DATA_HINT_INPUT_STYLE}
               value={rounds}
               onChange={(e) => setRounds(cleanDigits(e.target.value, 3))}
               onBlur={() => setRounds(String(clampTextNumber(rounds, 14, 1, 100)))}
             />
+            <span style={DATA_HINT_STYLE}>maks.100</span>
           </div>
           <div className="field trek-field">
             <label>Jenis Trek</label>
