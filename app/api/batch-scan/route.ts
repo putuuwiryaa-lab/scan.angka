@@ -54,7 +54,10 @@ export async function POST(req: Request) {
       .select("id, name, history_data")
       .in("id", marketIds);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/batch-scan] Supabase error", error);
+      return NextResponse.json({ error: "Gagal mengambil data pasaran." }, { status: 500 });
+    }
 
     const rows = (data ?? []) as MarketRow[];
     const byId = new Map<string, MarketRow>(rows.map((row: MarketRow) => [row.id, row]));
@@ -75,7 +78,7 @@ export async function POST(req: Request) {
     const copyText = [title, "", ...lines].join("\n");
     return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Batch scan gagal.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error("[api/batch-scan] Request error", error);
+    return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
   }
 }
