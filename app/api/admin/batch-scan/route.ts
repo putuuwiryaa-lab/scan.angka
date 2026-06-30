@@ -9,6 +9,10 @@ type MarketRow = { id: string; name: string | null; history_data: string | null 
 type BatchLine = { id: string; name: string; digits: string };
 type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; digitCount?: unknown; L?: unknown; outputTitle?: unknown };
 
+function titleCase(value: string): string {
+  return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+}
+
 function asPos(value: unknown): Posisi {
   return value === "A" || value === "C" || value === "E" ? value : "K";
 }
@@ -47,7 +51,7 @@ export async function POST(req: Request) {
     const byId = new Map<string, MarketRow>(rows.map((row: MarketRow) => [row.id, row]));
     const results: BatchLine[] = marketIds.map((id: string) => {
       const market = byId.get(id);
-      const name = (market?.name ?? id).toLowerCase();
+      const name = titleCase(market?.name ?? id);
       if (!market?.history_data) return { id, name, digits: "-" };
 
       try {
