@@ -8,6 +8,7 @@ const COMBO_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["A", "K"], ["A", "E"], ["C
 const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "E"], ["A", "K", "E"], ["C", "K", "E"]];
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+const DEFAULT_DIGIT_COUNT = 7;
 
 type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
@@ -343,7 +344,7 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 }
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
-  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, 3, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
+  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
   const targets = safeConfig.scanMode === "posisi" ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
   const items: RankedItem[] = [];
   let totalChecked = 0;
