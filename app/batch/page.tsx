@@ -85,7 +85,7 @@ export default function BatchPage() {
   const [query, setQuery] = useState("");
   const [rounds, setRounds] = useState("14");
   const [trek, setTrek] = useState<TrekChoice>("bbfs_2d_belakang");
-  const [digitCount, setDigitCount] = useState(7);
+  const [digitCount, setDigitCount] = useState(4);
   const [result, setResult] = useState<BatchResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
