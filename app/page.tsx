@@ -136,7 +136,7 @@ export default function Page() {
   const [marketId, setMarketId] = useState("");
   const [marketQuery, setMarketQuery] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
-  const [rounds, setRounds] = useState("15");
+  const [rounds, setRounds] = useState("14");
   const [scanMode, setScanMode] = useState<ScanMode>("posisi");
   const [targetPos, setTargetPos] = useState("K");
   const [trekOpen, setTrekOpen] = useState(false);
@@ -244,7 +244,7 @@ export default function Page() {
     setViewItem(null);
     setCopied(false);
     try {
-      const safeRounds = clampTextNumber(rounds, 15, 1, 100);
+      const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const safeDigit = Math.max(1, Math.min(9, Number(digitCount) || 7));
       const safeStop = clampTextNumber(stopScan, 3, 1, 200);
       setRounds(String(safeRounds));
@@ -318,7 +318,7 @@ export default function Page() {
               inputMode="numeric"
               value={rounds}
               onChange={(e) => setRounds(cleanDigits(e.target.value, 3))}
-              onBlur={() => setRounds(String(clampTextNumber(rounds, 15, 1, 100)))}
+              onBlur={() => setRounds(String(clampTextNumber(rounds, 14, 1, 100)))}
             />
           </div>
           <div className="field trek-field">
