@@ -138,12 +138,12 @@ export default function Page() {
   const [marketQuery, setMarketQuery] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
   const [rounds, setRounds] = useState("14");
-  const [scanMode, setScanMode] = useState<ScanMode>("posisi");
+  const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
   const [targetPos, setTargetPos] = useState("K");
   const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(7);
   const [digitOpen, setDigitOpen] = useState(false);
-  const [stopScan, setStopScan] = useState("3");
+  const [stopScan, setStopScan] = useState("1");
   const [syncUpdatedAt, setSyncUpdatedAt] = useState<string | null>(null);
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -247,7 +247,7 @@ export default function Page() {
     try {
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const safeDigit = Math.max(1, Math.min(9, Number(digitCount) || 7));
-      const safeStop = clampTextNumber(stopScan, 3, 1, 200);
+      const safeStop = clampTextNumber(stopScan, 1, 1, 200);
       setRounds(String(safeRounds));
       setDigitCount(safeDigit);
       setStopScan(String(safeStop));
@@ -372,7 +372,7 @@ export default function Page() {
               inputMode="numeric"
               value={stopScan}
               onChange={(e) => setStopScan(cleanDigits(e.target.value, 3))}
-              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 3, 1, 200)))}
+              onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))}
             />
           </div>
         </div>
