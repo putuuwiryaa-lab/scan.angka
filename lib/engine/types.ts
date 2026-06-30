@@ -67,6 +67,10 @@ export interface AutoScanItem {
   kolomMati: Kolom[];
   activeColumns: string;
   jumlahHidup: number;
+  coreSize?: number;
+  coreColumns?: Kolom[];
+  supportColumns?: Kolom[];
+  supportReasons?: string[];
   result: EngineResult;
 }
 
