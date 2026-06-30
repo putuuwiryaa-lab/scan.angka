@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { runAutoScanFromHistory } from "@/lib/engine/acke-engine";
+import { runAutoScan } from "@/lib/engine/acke-engine";
+import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import type { Posisi, ScanMode } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -74,18 +75,27 @@ export async function POST(req: Request) {
 
     const rows = (data ?? []) as MarketRow[];
     const byId = new Map<string, MarketRow>(rows.map((row: MarketRow) => [row.id, row]));
-    const results: BatchLine[] = marketIds.map((id: string) => {
+    const results: BatchLine[] = [];
+
+    for (const id of marketIds) {
       const market = byId.get(id);
       const name = titleCase(market?.name ?? id);
-      if (!market?.history_data) return { id, name, digits: "-" };
+      if (!market?.history_data) {
+        results.push({ id, name, digits: "-" });
+        continue;
+      }
 
       try {
-        const result = runAutoScanFromHistory(market.history_data, { L, targetPos, digitCount, stopScan: 1, scanMode });
-        return { id, name, digits: result.items[0]?.angkaHidup.join("") || "-" };
-      } catch {
-        return { id, name, digits: "-" };
+        const draws = parseStrictHistory(market.history_data);
+        const result = runAutoScan(draws, { L, targetPos, digitCount, stopScan: 1, scanMode });
+        results.push({ id, name, digits: result.items[0]?.angkaHidup.join("") || "-" });
+      } catch (error) {
+        if (error instanceof HistoryDataFormatError) {
+          return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
+        }
+        throw error;
       }
-    });
+    }
 
     const lines = results.map((row: BatchLine) => `${row.name} ⟢ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
