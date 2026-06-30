@@ -6,7 +6,7 @@ import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_DIGIT_COUNT = 7;
+const DEFAULT_DIGIT_COUNT = 4;
 const DEFAULT_SCAN_MODE: ScanMode = "ai_2d_belakang";
 const DEFAULT_STOP_SCAN = 1;
 
