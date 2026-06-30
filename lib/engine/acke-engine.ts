@@ -1,13 +1,14 @@
 import { KOLOM, POS_INDEX, type AutoScanConfig, type AutoScanItem, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode } from "./types";
 
 const POSISI: Posisi[] = ["A", "C", "K", "E"];
-const OFFSET_LIST = [0, 1, 2, -1, -2];
+const OFFSET_LIST = [0, 1, 2, -1, -2, 3, 4, 5, -3, -4, -5];
+const EXTENDED_OFFSET_LIST = [1, 2, -1, -2];
 const COMBO_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["A", "K"], ["A", "E"], ["C", "K"], ["C", "E"], ["K", "E"]];
 const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "E"], ["A", "K", "E"], ["C", "K", "E"]];
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-type FormulaType = "base" | "offset" | "tesson" | "mirror" | "combo" | "combo3" | "diff" | "absdiff" | "total";
+type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
 interface FormulaSpec {
   formula: string;
@@ -55,9 +56,13 @@ function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi): number[]
   return [digitOf(draw, targetPos)];
 }
 
+function offsetSuffix(offset: number): string {
+  return `${offset > 0 ? "+" : ""}${offset}`;
+}
+
 function offsetLabel(pos: Posisi, N: number, offset: number): string {
   if (offset === 0) return `${pos}${N}`;
-  return `${pos}${N}${offset > 0 ? "+" : ""}${offset}`;
+  return `${pos}${N}${offsetSuffix(offset)}`;
 }
 
 function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode): string {
@@ -106,32 +111,65 @@ function formulaSpecs(): FormulaSpec[] {
         compute: (draw) => TESSON_MAP[digitOf(draw, pos)],
       });
 
+      for (const offset of EXTENDED_OFFSET_LIST) {
+        specs.push({
+          formula: `TS-${pos}${N}${offsetSuffix(offset)}`,
+          type: "tessonOffset",
+          typeOrder: 3,
+          patokanPos: pos,
+          patokanN: N,
+          compute: (draw) => mod10(TESSON_MAP[digitOf(draw, pos)] + offset),
+        });
+      }
+
       specs.push({
         formula: `M-${pos}${N}`,
         type: "mirror",
-        typeOrder: 3,
+        typeOrder: 4,
         patokanPos: pos,
         patokanN: N,
         compute: (draw) => MIRROR_MAP[digitOf(draw, pos)],
       });
+
+      for (const offset of EXTENDED_OFFSET_LIST) {
+        specs.push({
+          formula: `M-${pos}${N}${offsetSuffix(offset)}`,
+          type: "mirrorOffset",
+          typeOrder: 5,
+          patokanPos: pos,
+          patokanN: N,
+          compute: (draw) => mod10(MIRROR_MAP[digitOf(draw, pos)] + offset),
+        });
+      }
     }
 
     for (const [left, right] of COMBO_PAIRS) {
       specs.push({
         formula: `${left}${N}+${right}${N}`,
         type: "combo",
-        typeOrder: 4,
+        typeOrder: 6,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, right)),
       });
+
+      for (const offset of EXTENDED_OFFSET_LIST) {
+        specs.push({
+          formula: `${left}${N}+${right}${N}${offsetSuffix(offset)}`,
+          type: "comboOffset",
+          typeOrder: 7,
+          patokanPos: left,
+          patokanN: N,
+          compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, right) + offset),
+        });
+      }
     }
 
     for (const [left, middle, right] of COMBO_TRIPLES) {
       specs.push({
         formula: `${left}${N}+${middle}${N}+${right}${N}`,
         type: "combo3",
-        typeOrder: 5,
+        typeOrder: 8,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)),
@@ -144,7 +182,7 @@ function formulaSpecs(): FormulaSpec[] {
         specs.push({
           formula: `${left}${N}-${right}${N}`,
           type: "diff",
-          typeOrder: 6,
+          typeOrder: 9,
           patokanPos: left,
           patokanN: N,
           compute: (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)),
@@ -156,7 +194,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `D-${left}${right}${N}`,
         type: "absdiff",
-        typeOrder: 7,
+        typeOrder: 10,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)),
@@ -166,11 +204,22 @@ function formulaSpecs(): FormulaSpec[] {
     specs.push({
       formula: `T${N}`,
       type: "total",
-      typeOrder: 8,
+      typeOrder: 11,
       patokanPos: "A",
       patokanN: N,
       compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)),
     });
+
+    for (const offset of EXTENDED_OFFSET_LIST) {
+      specs.push({
+        formula: `T${N}${offsetSuffix(offset)}`,
+        type: "totalOffset",
+        typeOrder: 12,
+        patokanPos: "A",
+        patokanN: N,
+        compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset),
+      });
+    }
   }
 
   return specs;
@@ -243,7 +292,7 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
   const validTargets: number[] = [];
   for (let t = N; t < draws.length; t++) validTargets.push(t);
 
-  const safeL = clamp(L, 15, 1, 100);
+  const safeL = clamp(L, 14, 1, 100);
   const targets = validTargets.slice(-safeL);
   const hit = new Array(10).fill(0);
   const rows: BacktestRow[] = [];
@@ -310,7 +359,7 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
   const safeConfig = {
-    L: clamp(config.L, 15, 1, 100),
+    L: clamp(config.L, 14, 1, 100),
     targetPos: config.targetPos || "K",
     digitCount: clamp(config.digitCount, 3, 1, 9),
     stopScan: clamp(config.stopScan, 3, 1, 200),
