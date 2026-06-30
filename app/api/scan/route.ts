@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     const target = isPosisi(body?.targetPos) ? body.targetPos : undefined;
     const config = {
-      L: clamp(body?.L, 15, 1, 100),
+      L: clamp(body?.L, 14, 1, 100),
       targetPos: target,
       digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 9),
       stopScan: clamp(body?.stopScan, 3, 1, 200),
