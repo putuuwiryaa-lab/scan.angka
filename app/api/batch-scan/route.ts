@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase/client";
 export const dynamic = "force-dynamic";
 
 const MAX_BATCH_MARKETS = 30;
+const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
@@ -15,8 +16,12 @@ function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
 }
 
-function asPos(value: unknown): Posisi {
-  return value === "A" || value === "C" || value === "E" ? value : "K";
+function isPosisi(value: unknown): value is Posisi {
+  return value === "A" || value === "C" || value === "K" || value === "E";
+}
+
+function isScanMode(value: unknown): value is ScanMode {
+  return value === "posisi" || value === "ai_2d_belakang" || value === "bbfs_2d_belakang";
 }
 
 function asNum(value: unknown, fallback: number, min: number, max: number): number {
@@ -43,9 +48,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.` }, { status: 413 });
     }
 
-    const scanMode = (typeof body.scanMode === "string" ? body.scanMode : "posisi") as ScanMode;
-    const targetPos = asPos(body.targetPos);
-    const digitCount = asNum(body.digitCount, 7, 1, 9);
+    if (body.scanMode !== undefined && !isScanMode(body.scanMode)) {
+      return NextResponse.json({ error: "Jenis scan tidak valid." }, { status: 400 });
+    }
+
+    if (body.targetPos !== undefined && !isPosisi(body.targetPos)) {
+      return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
+    }
+
+    const scanMode = (body.scanMode ?? "posisi") as ScanMode;
+    const targetPos = (body.targetPos ?? "K") as Posisi;
+    const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 9);
     const L = asNum(body.L, 14, 1, 100);
     const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D`;
 
