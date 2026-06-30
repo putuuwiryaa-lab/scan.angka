@@ -42,7 +42,6 @@ Dengan Batch Scan, pengguna tidak perlu scan pasaran satu per satu. Pengguna cuk
 | --- | --- |
 | `/` | Halaman scan utama untuk satu pasaran |
 | `/batch` | Halaman Batch Scan untuk banyak pasaran |
-| `/admin` | Redirect ke `/batch` |
 | `/manifest.webmanifest` | Manifest PWA |
 | `/sw.js` | Service worker PWA |
 
@@ -360,8 +359,6 @@ app/
       route.ts
   batch/
     page.tsx
-  admin/
-    page.tsx
   globals.css
   layout.tsx
   manifest.ts
@@ -371,6 +368,7 @@ app/
 lib/
   engine/
     acke-engine.ts
+    history.ts
     types.ts
   supabase/
     client.ts
@@ -392,6 +390,7 @@ public/
 | `app/api/batch-scan/route.ts` | API batch scan |
 | `app/api/markets/route.ts` | API daftar pasaran |
 | `lib/engine/acke-engine.ts` | Engine scan dan ranking |
+| `lib/engine/history.ts` | Validasi format data riwayat |
 | `lib/engine/types.ts` | Tipe data engine |
 | `lib/supabase/client.ts` | Client Supabase |
 | `app/manifest.ts` | Manifest PWA |
