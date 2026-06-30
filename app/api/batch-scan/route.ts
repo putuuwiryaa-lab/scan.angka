@@ -7,7 +7,7 @@ import { getSupabase } from "@/lib/supabase/client";
 export const dynamic = "force-dynamic";
 
 const MAX_BATCH_MARKETS = 30;
-const DEFAULT_DIGIT_COUNT = 4;
+const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
