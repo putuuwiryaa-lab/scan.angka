@@ -288,24 +288,18 @@ function consensusProfile(items: AutoScanItem[], digitCount: number): ConsensusP
 }
 
 function applyConsensusScores(items: RankedItem[], digitCount: number): void {
-  const coreGroups = new Map<number, RankedItem[]>();
-  for (const item of items) coreGroups.set(item.rankCoreSize, [...(coreGroups.get(item.rankCoreSize) ?? []), item]);
-
-  for (const group of coreGroups.values()) {
-    const profile = consensusProfile(group, digitCount);
-    const consensusSet = new Set(profile.digits);
-    for (const item of group) {
-      const digits = uniqueDigits(item.angkaHidup);
-      item.consensusDigits = profile.digits;
-      item.consensusOverlap = digits.filter((digit) => consensusSet.has(digit)).length;
-      item.consensusWeight = digits.reduce((sum, digit) => sum + (profile.counts[digit] ?? 0), 0);
-    }
+  const profile = consensusProfile(items, digitCount);
+  const consensusSet = new Set(profile.digits);
+  for (const item of items) {
+    const digits = uniqueDigits(item.angkaHidup);
+    item.consensusDigits = profile.digits;
+    item.consensusOverlap = digits.filter((digit) => consensusSet.has(digit)).length;
+    item.consensusWeight = digits.reduce((sum, digit) => sum + (profile.counts[digit] ?? 0), 0);
   }
 }
 
 function baseRank(a: RankedItem, b: RankedItem): number {
-  return a.rankCoreSize - b.rankCoreSize ||
-    b.recentScore - a.recentScore ||
+  return b.recentScore - a.recentScore ||
     b.hitScore - a.hitScore ||
     a.typeOrder - b.typeOrder ||
     POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
@@ -315,8 +309,7 @@ function baseRank(a: RankedItem, b: RankedItem): number {
 }
 
 function finalRank(a: RankedItem, b: RankedItem): number {
-  return a.rankCoreSize - b.rankCoreSize ||
-    b.consensusOverlap - a.consensusOverlap ||
+  return b.consensusOverlap - a.consensusOverlap ||
     b.consensusWeight - a.consensusWeight ||
     b.recentScore - a.recentScore ||
     b.hitScore - a.hitScore ||
