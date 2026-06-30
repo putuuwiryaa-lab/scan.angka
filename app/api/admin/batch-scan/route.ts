@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const byId = new Map<string, MarketRow>(rows.map((row: MarketRow) => [row.id, row]));
     const results: BatchLine[] = marketIds.map((id: string) => {
       const market = byId.get(id);
-      const name = market?.name ?? id;
+      const name = (market?.name ?? id).toLowerCase();
       if (!market?.history_data) return { id, name, digits: "-" };
 
       try {
