@@ -326,6 +326,8 @@ File PWA:
 app/manifest.ts
 app/pwa-register.tsx
 public/sw.js
+public/icon-192.png
+public/icon-512.png
 public/icon.svg
 ```
 
@@ -374,6 +376,8 @@ lib/
     client.ts
 
 public/
+  icon-192.png
+  icon-512.png
   icon.svg
   sw.js
 ```
@@ -394,6 +398,8 @@ public/
 | `lib/engine/types.ts` | Tipe data engine |
 | `lib/supabase/client.ts` | Client Supabase |
 | `app/manifest.ts` | Manifest PWA |
+| `public/icon-192.png` | Icon PWA 192x192 |
+| `public/icon-512.png` | Icon PWA 512x512 |
 | `public/sw.js` | Service worker |
 
 ---
