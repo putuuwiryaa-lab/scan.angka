@@ -11,7 +11,7 @@ const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
-type RankedItem = AutoScanItem & { typeOrder: number; strength: number; coreSize: number; hitScore: number; recentScore: number };
+type RankedItem = AutoScanItem & { typeOrder: number; strength: number; rankCoreSize: number; hitScore: number; recentScore: number };
 
 interface FormulaSpec {
   formula: string;
@@ -21,6 +21,13 @@ interface FormulaSpec {
   patokanN: number;
   compute: (draw: Draw) => number;
   computeAt?: (draws: Draw[], targetIndex: number) => number;
+}
+
+interface SupportPick {
+  column: Kolom;
+  score: number;
+  ownHit: number;
+  reason: string;
 }
 
 export function parseHistory(historyData: string): Draw[] {
@@ -151,7 +158,56 @@ function rowTargetColumns(row: BacktestRow): Kolom[] {
   return [...new Set(columns)];
 }
 
-function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
+function columnHit(result: EngineResult, column: Kolom): number {
+  return result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
+}
+
+function columnDigit(result: EngineResult, column: Kolom): number {
+  return result.kolom.find((k) => k.kolom === column)?.digitLive ?? -1;
+}
+
+function columnsHitScore(result: EngineResult, columns: Kolom[]): number {
+  return columns.reduce((sum, column) => sum + columnHit(result, column), 0);
+}
+
+function adjacentColumn(column: Kolom, direction: -1 | 1): Kolom {
+  const index = KOLOM.indexOf(column);
+  return KOLOM[(index + direction + KOLOM.length) % KOLOM.length];
+}
+
+function supportCandidate(result: EngineResult, column: Kolom, coreSet: Set<Kolom>): SupportPick {
+  const left = adjacentColumn(column, -1);
+  const right = adjacentColumn(column, 1);
+  const leftHit = coreSet.has(left) ? columnHit(result, left) : 0;
+  const rightHit = coreSet.has(right) ? columnHit(result, right) : 0;
+  const ownHit = columnHit(result, column);
+  const bridgeBonus = leftHit > 0 && rightHit > 0 ? 25 : 0;
+  const score = (leftHit + rightHit) * 100 + bridgeBonus + ownHit * 10;
+  const digit = columnDigit(result, column);
+
+  if (leftHit > 0 && rightHit > 0) {
+    return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menjembatani ${left}(${leftHit}x) dan ${right}(${rightHit}x)` };
+  }
+  if (leftHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menempel ${left}(${leftHit}x)` };
+  if (rightHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menempel ${right}(${rightHit}x)` };
+  if (ownHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena punya hit ${ownHit}x pada rumus ini` };
+  return { column, score, ownHit, reason: `${column}(${digit}) dipilih sebagai cadangan terdekat yang tersedia pada deret rumus` };
+}
+
+function supportFill(result: EngineResult, coreColumns: Kolom[], digitCount: number): { columns: Kolom[]; supportColumns: Kolom[]; supportReasons: string[] } | null {
+  if (coreColumns.length > digitCount) return null;
+  const coreSet = new Set(coreColumns);
+  const needed = digitCount - coreColumns.length;
+  const supports = KOLOM
+    .filter((column) => !coreSet.has(column))
+    .map((column) => supportCandidate(result, column, coreSet))
+    .sort((a, b) => b.score - a.score || b.ownHit - a.ownHit || KOLOM.indexOf(a.column) - KOLOM.indexOf(b.column))
+    .slice(0, needed);
+  if (supports.length !== needed) return null;
+  return { columns: [...coreColumns, ...supports.map((item) => item.column)], supportColumns: supports.map((item) => item.column), supportReasons: supports.map((item) => item.reason) };
+}
+
+function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
   const selected: Kolom[] = [];
   const uncovered = new Set(result.rows.map((_, index) => index));
   while (uncovered.size > 0) {
@@ -161,7 +217,7 @@ function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[]
     for (const column of KOLOM) {
       if (selected.includes(column)) continue;
       const cover = [...uncovered].filter((rowIndex) => rowTargetColumns(result.rows[rowIndex]).includes(column)).length;
-      const hit = result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
+      const hit = columnHit(result, column);
       if (cover > bestCover || (cover === bestCover && hit > bestHit)) {
         best = column;
         bestCover = cover;
@@ -173,28 +229,19 @@ function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[]
     for (const rowIndex of [...uncovered]) if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
     if (selected.length > digitCount) return [];
   }
-  const padding = KOLOM.filter((column) => !selected.includes(column)).sort((a, b) => {
-    const hitA = result.kolom.find((k) => k.kolom === a)?.hit ?? 0;
-    const hitB = result.kolom.find((k) => k.kolom === b)?.hit ?? 0;
-    return hitB - hitA || KOLOM.indexOf(a) - KOLOM.indexOf(b);
-  });
-  return [...selected, ...padding].slice(0, digitCount);
+  return selected;
+}
+
+function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
+  if (scanMode === "ai_2d_belakang") return coreColumnsForAi(result, digitCount);
+  const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
+  return alive.length <= digitCount ? alive : [];
 }
 
 function selectedColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
-  if (scanMode === "ai_2d_belakang") return selectedColumnsForAi(result, digitCount);
-  const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
-  if (alive.length > digitCount) return [];
-  const padding = result.kolom.filter((k) => k.lemah).map((k) => k.kolom as Kolom);
-  return [...alive, ...padding].slice(0, digitCount);
-}
-
-function columnHit(result: EngineResult, column: Kolom): number {
-  return result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
-}
-
-function columnsHitScore(result: EngineResult, columns: Kolom[]): number {
-  return columns.reduce((sum, column) => sum + columnHit(result, column), 0);
+  const core = coreColumns(result, digitCount, scanMode);
+  const filled = supportFill(result, core, digitCount);
+  return filled?.columns ?? [];
 }
 
 function rowCovered(row: BacktestRow, columns: Set<Kolom>, scanMode: ScanMode): boolean {
@@ -207,16 +254,15 @@ function recentScore(result: EngineResult, columns: Kolom[], scanMode: ScanMode)
   return result.rows.slice(-5).filter((row) => rowCovered(row, columnSet, scanMode)).length;
 }
 
-function compressionProfile(result: EngineResult, digitCount: number, scanMode: ScanMode): { displayColumns: Kolom[]; coreColumns: Kolom[]; coreSize: number; hitScore: number; recentScore: number } | null {
-  const displayColumns = selectedColumns(result, digitCount, scanMode);
-  if (displayColumns.length !== digitCount) return null;
+function compressionProfile(result: EngineResult, digitCount: number, scanMode: ScanMode): { displayColumns: Kolom[]; coreColumns: Kolom[]; supportColumns: Kolom[]; supportReasons: string[]; coreSize: number; hitScore: number; recentScore: number } | null {
+  const core = coreColumns(result, digitCount, scanMode);
+  if (core.length === 0 || core.length > digitCount) return null;
   const minCore = Math.max(1, digitCount - 2);
-  for (let size = minCore; size <= digitCount; size += 1) {
-    const coreColumns = selectedColumns(result, size, scanMode);
-    if (coreColumns.length !== size) continue;
-    return { displayColumns, coreColumns, coreSize: size, hitScore: columnsHitScore(result, coreColumns), recentScore: recentScore(result, coreColumns, scanMode) };
-  }
-  return { displayColumns, coreColumns: displayColumns, coreSize: digitCount, hitScore: columnsHitScore(result, displayColumns), recentScore: recentScore(result, displayColumns, scanMode) };
+  const coreSize = Math.max(core.length, minCore);
+  if (!supportFill(result, core, coreSize)) return null;
+  const display = supportFill(result, core, digitCount);
+  if (!display) return null;
+  return { displayColumns: display.columns, coreColumns: core, supportColumns: display.supportColumns, supportReasons: display.supportReasons, coreSize, hitScore: columnsHitScore(result, core), recentScore: recentScore(result, core, scanMode) };
 }
 
 function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
@@ -277,10 +323,10 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
       if (!profile) continue;
       const columns = profile.displayColumns;
       const columnSet = new Set<Kolom>(columns);
-      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, result, typeOrder: spec.typeOrder, strength: profile.coreSize, coreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
+      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
     }
   }
-  const sorted = items.sort((a, b) => a.coreSize - b.coreSize || b.hitScore - a.hitScore || b.recentScore - a.recentScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
+  const sorted = items.sort((a, b) => a.rankCoreSize - b.rankCoreSize || b.hitScore - a.hitScore || b.recentScore - a.recentScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
   const seen = new Set<string>();
   const unique: RankedItem[] = [];
   for (const item of sorted) {
@@ -290,7 +336,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     unique.push(item);
     if (unique.length >= safeConfig.stopScan) break;
   }
-  const limited = unique.map(({ typeOrder, strength, coreSize, hitScore, recentScore, ...item }) => item);
+  const limited = unique.map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
