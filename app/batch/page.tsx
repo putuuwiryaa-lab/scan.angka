@@ -7,6 +7,7 @@ type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null };
 type BatchResult = { title: string; copyText: string; results: { id: string; name: string; digits: string }[] };
 
+const MAX_BATCH_MARKETS = 30;
 const TREK_OPTIONS: { value: TrekChoice; label: string }[] = [
   { value: "A", label: "As" },
   { value: "C", label: "Cop" },
@@ -74,6 +75,7 @@ const styles: Record<string, CSSProperties> = {
   output: { width: "100%", minHeight: 240, background: "#101723", border: "1px solid #283040", color: "#e9eef5", borderRadius: 12, padding: 12, fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 800, lineHeight: 1.55, whiteSpace: "pre-wrap" },
   copy: { width: "100%", minHeight: 42, marginTop: 10, border: "1px solid rgba(224,179,65,.35)", borderRadius: 12, background: "rgba(224,179,65,.12)", color: "#e0b341", fontSize: 14, fontWeight: 950 },
   meta: { color: "#8b97a8", fontSize: 12, fontWeight: 800, margin: "0 0 10px" },
+  notice: { marginTop: 8, color: "#8b97a8", fontSize: 12, fontWeight: 800 },
 };
 
 export default function BatchPage() {
@@ -105,14 +107,26 @@ export default function BatchPage() {
   }, []);
 
   function toggleMarket(id: string) {
-    setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setError("");
+    setSelected((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= MAX_BATCH_MARKETS) {
+        setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
+        return current;
+      }
+      return [...current, id];
+    });
   }
 
   function pilihSemua() {
-    setSelected(filtered.map((market) => market.id));
+    setError("");
+    const ids = filtered.map((market) => market.id).slice(0, MAX_BATCH_MARKETS);
+    setSelected(ids);
+    if (filtered.length > MAX_BATCH_MARKETS) setError(`Pilih Semua dibatasi ${MAX_BATCH_MARKETS} pasaran pertama.`);
   }
 
   function kosongkan() {
+    setError("");
     setSelected([]);
   }
 
@@ -122,6 +136,10 @@ export default function BatchPage() {
     setResult(null);
     setCopied(false);
     try {
+      if (selected.length > MAX_BATCH_MARKETS) {
+        setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
+        return;
+      }
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       setRounds(String(safeRounds));
       const { scanMode, targetPos } = modeFromTrek(trek);
@@ -185,7 +203,7 @@ export default function BatchPage() {
         <div style={styles.tools}>
           <button style={styles.smallBtn} type="button" onClick={pilihSemua}>Pilih Semua</button>
           <button style={styles.smallBtn} type="button" onClick={kosongkan}>Kosongkan</button>
-          <span style={{ ...styles.smallBtn, marginLeft: "auto" }}>{selected.length} dipilih</span>
+          <span style={{ ...styles.smallBtn, marginLeft: "auto" }}>{selected.length}/{MAX_BATCH_MARKETS} dipilih</span>
         </div>
         <input style={styles.search} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari pasaran..." />
         <div style={styles.grid}>
@@ -216,6 +234,7 @@ export default function BatchPage() {
             );
           })}
         </div>
+        <p style={styles.notice}>Batas aman: maksimal {MAX_BATCH_MARKETS} pasaran per batch scan.</p>
         <button style={styles.run} type="button" onClick={runBatch} disabled={loading || selected.length === 0}>{loading ? "Sedang batch scan..." : "Batch Scan"}</button>
         {error && <div style={styles.error}>{error}</div>}
       </section>
