@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import BottomNav from "../bottom-nav";
 
 type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
 type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang";
@@ -55,7 +56,7 @@ function clampTextNumber(value: string, fallback: number, min: number, max: numb
 }
 
 const styles: Record<string, CSSProperties> = {
-  page: { maxWidth: 820, margin: "0 auto", padding: "18px 12px 70px" },
+  page: { maxWidth: 820, margin: "0 auto", padding: "18px 12px 118px" },
   header: { padding: "18px 4px 12px" },
   kicker: { color: "#8b97a8", fontSize: 12, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" },
   title: { margin: "5px 0 0", fontSize: 34, lineHeight: 1, fontWeight: 950, letterSpacing: -1 },
@@ -246,6 +247,8 @@ export default function BatchPage() {
           <button style={styles.copy} type="button" onClick={copyOutput}>{copied ? "Tersalin" : "Copy Output"}</button>
         </section>
       )}
+
+      <BottomNav />
     </main>
   );
 }
