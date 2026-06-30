@@ -141,7 +141,7 @@ export default function Page() {
   const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
   const [targetPos, setTargetPos] = useState("K");
   const [trekOpen, setTrekOpen] = useState(false);
-  const [digitCount, setDigitCount] = useState(7);
+  const [digitCount, setDigitCount] = useState(4);
   const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
   const [syncUpdatedAt, setSyncUpdatedAt] = useState<string | null>(null);
@@ -246,7 +246,7 @@ export default function Page() {
     setCopied(false);
     try {
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
-      const safeDigit = Math.max(1, Math.min(9, Number(digitCount) || 7));
+      const safeDigit = Math.max(1, Math.min(9, Number(digitCount) || 4));
       const safeStop = clampTextNumber(stopScan, 1, 1, 200);
       setRounds(String(safeRounds));
       setDigitCount(safeDigit);
