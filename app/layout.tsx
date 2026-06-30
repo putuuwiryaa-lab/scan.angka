@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import PwaRegister from "./pwa-register";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "Scan Angka",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <PwaRegister />
         {children}
+        <Analytics />
       </body>
     </html>
   );
