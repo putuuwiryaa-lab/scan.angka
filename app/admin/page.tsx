@@ -17,8 +17,12 @@ const TREK_OPTIONS: { value: TrekChoice; label: string }[] = [
 ];
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+function titleCase(value: string) {
+  return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+}
+
 function marketTitle(market: Market) {
-  return (market.name ?? market.id).toLowerCase();
+  return titleCase(market.name ?? market.id);
 }
 
 function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: string } {
