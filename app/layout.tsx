@@ -9,7 +9,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <nav className="main-nav">
+          <a href="/">Scan</a>
+          <a href="/batch">Batch Scan</a>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }
