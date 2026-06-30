@@ -17,7 +17,8 @@ export async function GET() {
       .order("order", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[api/markets] Supabase error", error);
+      return NextResponse.json({ error: "Gagal memuat pasaran." }, { status: 500 });
     }
 
     const rows = data ?? [];
@@ -34,8 +35,8 @@ export async function GET() {
       .at(-1) ?? null;
 
     return NextResponse.json({ markets, syncUpdatedAt });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Gagal memuat pasaran.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch (error) {
+    console.error("[api/markets] Request error", error);
+    return NextResponse.json({ error: "Gagal memuat pasaran." }, { status: 500 });
   }
 }
