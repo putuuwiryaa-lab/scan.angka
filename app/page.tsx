@@ -41,6 +41,8 @@ const MODE_LABEL: Record<ScanMode, string> = {
 };
 const COLS = "ABCDEFGHIJ";
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const NO_BADGE_SELECT_STYLE = { gridTemplateColumns: "minmax(0,1fr) 24px" };
+const NO_BADGE_OPTION_STYLE = { gridTemplateColumns: "minmax(0,1fr) auto" };
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -110,6 +112,15 @@ function rowResultText(item: ScanItem, row: ScanRow) {
   return rowResultDigits(item, row).map(({ digit }) => digit).join("");
 }
 
+function rowStatus(item: ScanItem, row: ScanRow) {
+  const results = rowResultDigits(item, row);
+  if (item.scanMode === "bbfs_2d_belakang") {
+    const resultDigits = results.map(({ digit }) => digit);
+    return targetDigits(row).every((digit) => resultDigits.includes(digit)) ? "✅" : "❌";
+  }
+  return results.some(({ hit }) => hit) ? "✅" : "❌";
+}
+
 function predictionResult(item: ScanItem) {
   return pickColumns(item.activeColumns, item.result.deretLive).join("");
 }
@@ -127,7 +138,7 @@ function rowSuffix(item: ScanItem, row: ScanRow) {
 
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
   const header = [detailTitle(item), `Rumus : ${item.formula.toLowerCase()}`];
-  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${rowSuffix(item, row)}`);
+  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${rowStatus(item, row)}`);
   const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
 }
@@ -324,8 +335,7 @@ export default function Page() {
           </div>
           <div className="field trek-field">
             <label>Jenis Trek</label>
-            <button className="trek-select" type="button" onClick={toggleTrek}>
-              <span className="select-badge" />
+            <button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleTrek}>
               <b>{selectedTrekText}</b>
               <span className="select-arrow">{trekOpen ? "⌃" : "⌄"}</span>
             </button>
@@ -334,8 +344,7 @@ export default function Page() {
                 {TREK.map(([value, text]) => {
                   const active = scanMode === "posisi" ? value === targetPos : value === scanMode;
                   return (
-                    <button key={value} type="button" className={active ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
-                      <span className="option-badge" />
+                    <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={active ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
                       <span className="option-label">{text}</span>
                       {active && <b>✓</b>}
                     </button>
@@ -349,16 +358,14 @@ export default function Page() {
         <div className="row two">
           <div className="field digit-field">
             <label>Jumlah Digit Trek</label>
-            <button className="digit-select" type="button" onClick={toggleDigit}>
-              <span className="select-badge" />
+            <button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}>
               <b>{digitCount} digit</b>
               <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
             </button>
             {digitOpen && (
               <div className="digit-menu">
                 {DIGIT_OPTIONS.map((value) => (
-                  <button key={value} type="button" className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => pilihDigit(value)}>
-                    <span className="option-badge" />
+                  <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => pilihDigit(value)}>
                     <span className="option-label">{value} digit</span>
                     {value === digitCount && <b>✓</b>}
                   </button>
@@ -443,7 +450,7 @@ export default function Page() {
                       <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{digit}</span>
                     ))}
                   </b>
-                  <em>{rowSuffix(viewItem, row)}</em>
+                  <em>{rowStatus(viewItem, row)}</em>
                 </div>
               ))}
               <div className="trek-row pending">
