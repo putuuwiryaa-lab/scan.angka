@@ -380,6 +380,26 @@ export default function Page() {
         {error && <div className="err">{error}</div>}
       </div>
 
+      <a
+        href="/batch"
+        style={{
+          width: "100%",
+          minHeight: 46,
+          marginTop: 12,
+          display: "grid",
+          placeItems: "center",
+          border: "1px solid rgba(224,179,65,.35)",
+          borderRadius: 12,
+          background: "rgba(224,179,65,.12)",
+          color: "#e0b341",
+          textDecoration: "none",
+          fontSize: 14,
+          fontWeight: 950,
+        }}
+      >
+        Batch Scan
+      </a>
+
       {result && (
         <div className="panel result-panel">
           <p className="summary"><b>{marketName}</b> &middot; <b>{result.config.scanMode === "posisi" ? LABEL[result.config.targetPos] : MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
