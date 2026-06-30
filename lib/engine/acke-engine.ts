@@ -11,6 +11,8 @@ const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
+type RankedItem = AutoScanItem & { typeOrder: number; strength: number; coreSize: number; hitScore: number; recentScore: number };
+
 interface FormulaSpec {
   formula: string;
   type: FormulaType;
@@ -187,6 +189,36 @@ function selectedColumns(result: EngineResult, digitCount: number, scanMode: Sca
   return [...alive, ...padding].slice(0, digitCount);
 }
 
+function columnHit(result: EngineResult, column: Kolom): number {
+  return result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
+}
+
+function columnsHitScore(result: EngineResult, columns: Kolom[]): number {
+  return columns.reduce((sum, column) => sum + columnHit(result, column), 0);
+}
+
+function rowCovered(row: BacktestRow, columns: Set<Kolom>, scanMode: ScanMode): boolean {
+  const targetColumns = rowTargetColumns(row);
+  return scanMode === "ai_2d_belakang" ? targetColumns.some((column) => columns.has(column)) : targetColumns.every((column) => columns.has(column));
+}
+
+function recentScore(result: EngineResult, columns: Kolom[], scanMode: ScanMode): number {
+  const columnSet = new Set(columns);
+  return result.rows.slice(-5).filter((row) => rowCovered(row, columnSet, scanMode)).length;
+}
+
+function compressionProfile(result: EngineResult, digitCount: number, scanMode: ScanMode): { displayColumns: Kolom[]; coreColumns: Kolom[]; coreSize: number; hitScore: number; recentScore: number } | null {
+  const displayColumns = selectedColumns(result, digitCount, scanMode);
+  if (displayColumns.length !== digitCount) return null;
+  const minCore = Math.max(1, digitCount - 2);
+  for (let size = minCore; size <= digitCount; size += 1) {
+    const coreColumns = selectedColumns(result, size, scanMode);
+    if (coreColumns.length !== size) continue;
+    return { displayColumns, coreColumns, coreSize: size, hitScore: columnsHitScore(result, coreColumns), recentScore: recentScore(result, coreColumns, scanMode) };
+  }
+  return { displayColumns, coreColumns: displayColumns, coreSize: digitCount, hitScore: columnsHitScore(result, displayColumns), recentScore: recentScore(result, displayColumns, scanMode) };
+}
+
 function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
   return columns.map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive).filter((digit): digit is number => Number.isFinite(digit));
 }
@@ -235,21 +267,22 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
   const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, 3, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
   const targets = safeConfig.scanMode === "posisi" ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
-  const items: (AutoScanItem & { typeOrder: number; strength: number })[] = [];
+  const items: RankedItem[] = [];
   let totalChecked = 0;
   for (const targetPos of targets) {
     for (const spec of formulaSpecs()) {
       totalChecked += 1;
       const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
-      const columns = selectedColumns(result, safeConfig.digitCount, safeConfig.scanMode);
-      if (columns.length !== safeConfig.digitCount) continue;
+      const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
+      if (!profile) continue;
+      const columns = profile.displayColumns;
       const columnSet = new Set<Kolom>(columns);
-      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, result, typeOrder: spec.typeOrder, strength: safeConfig.scanMode === "ai_2d_belakang" ? columns.length : result.angkaKuat.length });
+      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, result, typeOrder: spec.typeOrder, strength: profile.coreSize, coreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
     }
   }
-  const sorted = items.sort((a, b) => a.strength - b.strength || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
+  const sorted = items.sort((a, b) => a.coreSize - b.coreSize || b.hitScore - a.hitScore || b.recentScore - a.recentScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
   const seen = new Set<string>();
-  const unique = [] as (AutoScanItem & { typeOrder: number; strength: number })[];
+  const unique: RankedItem[] = [];
   for (const item of sorted) {
     const signature = trekSignature(item);
     if (seen.has(signature)) continue;
@@ -257,7 +290,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     unique.push(item);
     if (unique.length >= safeConfig.stopScan) break;
   }
-  const limited = unique.map(({ typeOrder, strength, ...item }) => item);
+  const limited = unique.map(({ typeOrder, strength, coreSize, hitScore, recentScore, ...item }) => item);
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
