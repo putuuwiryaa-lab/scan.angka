@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const mode = scanMode(body?.scanMode);
     const targetPos = isPosisi(body?.targetPos) ? body.targetPos : "K";
     const digitCount = clamp(body?.digitCount, 7, 1, 9);
-    const L = clamp(body?.L, 15, 1, 100);
+    const L = clamp(body?.L, 14, 1, 100);
     const outputTitle = title(mode, targetPos, digitCount);
 
     const supabase = getSupabase();
