@@ -18,7 +18,7 @@ const TREK_OPTIONS: { value: TrekChoice; label: string }[] = [
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function marketTitle(market: Market) {
-  return market.name ?? market.id;
+  return (market.name ?? market.id).toLowerCase();
 }
 
 function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: string } {
