@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Racik ACKE",
-  description: "Analisa kolom mati A/C/K/E dari data Supabase",
+  title: "Scan Angka",
+  description: "Scan angka dan batch scan banyak pasaran dari data Supabase",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
