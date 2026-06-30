@@ -5,13 +5,14 @@ import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
+const DEFAULT_DIGIT_COUNT = 7;
+
 function isPosisi(value: unknown): value is Posisi {
   return value === "A" || value === "C" || value === "K" || value === "E";
 }
 
-function scanMode(value: unknown): ScanMode {
-  if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang") return value;
-  return "posisi";
+function isScanMode(value: unknown): value is ScanMode {
+  return value === "posisi" || value === "ai_2d_belakang" || value === "bbfs_2d_belakang";
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -29,13 +30,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Pilih pasaran dulu." }, { status: 400 });
     }
 
-    const target = isPosisi(body?.targetPos) ? body.targetPos : undefined;
+    if (body?.scanMode !== undefined && !isScanMode(body.scanMode)) {
+      return NextResponse.json({ error: "Jenis scan tidak valid." }, { status: 400 });
+    }
+
+    if (body?.targetPos !== undefined && !isPosisi(body.targetPos)) {
+      return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
+    }
+
     const config = {
       L: clamp(body?.L, 14, 1, 100),
-      targetPos: target,
-      digitCount: clamp(body?.digitCount ?? body?.minHidup, 3, 1, 9),
+      targetPos: body?.targetPos as Posisi | undefined,
+      digitCount: clamp(body?.digitCount ?? body?.minHidup, DEFAULT_DIGIT_COUNT, 1, 9),
       stopScan: clamp(body?.stopScan, 3, 1, 200),
-      scanMode: scanMode(body?.scanMode),
+      scanMode: (body?.scanMode ?? "posisi") as ScanMode,
     };
 
     const supabase = getSupabase();
