@@ -9,7 +9,7 @@ const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
+type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
 interface FormulaSpec {
   formula: string;
@@ -52,9 +52,7 @@ function uniqueDigits(digits: number[]): number[] {
 }
 
 function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi): number[] {
-  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang") {
-    return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
-  }
+  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang") return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
   return [digitOf(draw, targetPos)];
 }
 
@@ -63,8 +61,7 @@ function offsetSuffix(offset: number): string {
 }
 
 function offsetLabel(pos: Posisi, N: number, offset: number): string {
-  if (offset === 0) return `${pos}${N}`;
-  return `${pos}${N}${offsetSuffix(offset)}`;
+  return offset === 0 ? `${pos}${N}` : `${pos}${N}${offsetSuffix(offset)}`;
 }
 
 function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode): string {
@@ -77,9 +74,7 @@ function normalizedDigitSet(digits: number[]): string {
 }
 
 function digitsFromDeretColumns(deret: number[], columns: Kolom[]): number[] {
-  return columns
-    .map((column) => deret[KOLOM.indexOf(column)])
-    .filter((digit): digit is number => Number.isFinite(digit));
+  return columns.map((column) => deret[KOLOM.indexOf(column)]).filter((digit): digit is number => Number.isFinite(digit));
 }
 
 function trekSignature(item: AutoScanItem): string {
@@ -89,159 +84,47 @@ function trekSignature(item: AutoScanItem): string {
 }
 
 function computeFormula(spec: FormulaSpec, draws: Draw[], targetIndex: number): number {
-  if (spec.computeAt) return spec.computeAt(draws, targetIndex);
-  return spec.compute(draws[targetIndex - spec.patokanN]);
+  return spec.computeAt ? spec.computeAt(draws, targetIndex) : spec.compute(draws[targetIndex - spec.patokanN]);
 }
 
 function formulaSpecs(): FormulaSpec[] {
   const specs: FormulaSpec[] = [];
+  const add = (formula: string, type: FormulaType, typeOrder: number, patokanPos: Posisi, patokanN: number, compute: (draw: Draw) => number, computeAt?: (draws: Draw[], targetIndex: number) => number) => {
+    specs.push({ formula, type, typeOrder, patokanPos, patokanN, compute, computeAt });
+  };
 
   for (let N = 1; N <= 9; N += 1) {
     for (const pos of POSISI) {
-      for (const offset of OFFSET_LIST) {
-        specs.push({
-          formula: offsetLabel(pos, N, offset),
-          type: offset === 0 ? "base" : "offset",
-          typeOrder: offset === 0 ? 0 : 1,
-          patokanPos: pos,
-          patokanN: N,
-          compute: (draw) => mod10(digitOf(draw, pos) + offset),
-        });
-      }
-
-      specs.push({
-        formula: `TS-${pos}${N}`,
-        type: "tesson",
-        typeOrder: 2,
-        patokanPos: pos,
-        patokanN: N,
-        compute: (draw) => TESSON_MAP[digitOf(draw, pos)],
-      });
-
-      for (const offset of EXTENDED_OFFSET_LIST) {
-        specs.push({
-          formula: `TS-${pos}${N}${offsetSuffix(offset)}`,
-          type: "tessonOffset",
-          typeOrder: 3,
-          patokanPos: pos,
-          patokanN: N,
-          compute: (draw) => mod10(TESSON_MAP[digitOf(draw, pos)] + offset),
-        });
-      }
-
-      specs.push({
-        formula: `M-${pos}${N}`,
-        type: "mirror",
-        typeOrder: 4,
-        patokanPos: pos,
-        patokanN: N,
-        compute: (draw) => MIRROR_MAP[digitOf(draw, pos)],
-      });
-
-      for (const offset of EXTENDED_OFFSET_LIST) {
-        specs.push({
-          formula: `M-${pos}${N}${offsetSuffix(offset)}`,
-          type: "mirrorOffset",
-          typeOrder: 5,
-          patokanPos: pos,
-          patokanN: N,
-          compute: (draw) => mod10(MIRROR_MAP[digitOf(draw, pos)] + offset),
-        });
-      }
+      for (const offset of OFFSET_LIST) add(offsetLabel(pos, N, offset), offset === 0 ? "base" : "offset", offset === 0 ? 0 : 1, pos, N, (draw) => mod10(digitOf(draw, pos) + offset));
+      add(`TS-${pos}${N}`, "tesson", 2, pos, N, (draw) => TESSON_MAP[digitOf(draw, pos)]);
+      for (const offset of EXTENDED_OFFSET_LIST) add(`TS-${pos}${N}${offsetSuffix(offset)}`, "tessonOffset", 3, pos, N, (draw) => mod10(TESSON_MAP[digitOf(draw, pos)] + offset));
+      add(`M-${pos}${N}`, "mirror", 4, pos, N, (draw) => MIRROR_MAP[digitOf(draw, pos)]);
+      for (const offset of EXTENDED_OFFSET_LIST) add(`M-${pos}${N}${offsetSuffix(offset)}`, "mirrorOffset", 5, pos, N, (draw) => mod10(MIRROR_MAP[digitOf(draw, pos)] + offset));
     }
 
     for (const [left, right] of COMBO_PAIRS) {
-      specs.push({
-        formula: `${left}${N}+${right}${N}`,
-        type: "combo",
-        typeOrder: 6,
-        patokanPos: left,
-        patokanN: N,
-        compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, right)),
-      });
-
-      for (const offset of EXTENDED_OFFSET_LIST) {
-        specs.push({
-          formula: `${left}${N}+${right}${N}${offsetSuffix(offset)}`,
-          type: "comboOffset",
-          typeOrder: 7,
-          patokanPos: left,
-          patokanN: N,
-          compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, right) + offset),
-        });
-      }
+      add(`${left}${N}+${right}${N}`, "combo", 6, left, N, (draw) => mod10(digitOf(draw, left) + digitOf(draw, right)));
+      for (const offset of EXTENDED_OFFSET_LIST) add(`${left}${N}+${right}${N}${offsetSuffix(offset)}`, "comboOffset", 7, left, N, (draw) => mod10(digitOf(draw, left) + digitOf(draw, right) + offset));
+      add(`${left}${N}+TS-${right}${N}`, "tessonCombo", 10, left, N, (draw) => mod10(digitOf(draw, left) + TESSON_MAP[digitOf(draw, right)]));
+      add(`${right}${N}+TS-${left}${N}`, "tessonCombo", 10, right, N, (draw) => mod10(digitOf(draw, right) + TESSON_MAP[digitOf(draw, left)]));
+      add(`TS-${left}${N}+TS-${right}${N}`, "tessonCombo", 10, left, N, (draw) => mod10(TESSON_MAP[digitOf(draw, left)] + TESSON_MAP[digitOf(draw, right)]));
+      add(`${left}${N}+M-${right}${N}`, "mirrorCombo", 11, left, N, (draw) => mod10(digitOf(draw, left) + MIRROR_MAP[digitOf(draw, right)]));
+      add(`${right}${N}+M-${left}${N}`, "mirrorCombo", 11, right, N, (draw) => mod10(digitOf(draw, right) + MIRROR_MAP[digitOf(draw, left)]));
+      add(`M-${left}${N}+M-${right}${N}`, "mirrorCombo", 11, left, N, (draw) => mod10(MIRROR_MAP[digitOf(draw, left)] + MIRROR_MAP[digitOf(draw, right)]));
     }
 
-    for (const [left, middle, right] of COMBO_TRIPLES) {
-      specs.push({
-        formula: `${left}${N}+${middle}${N}+${right}${N}`,
-        type: "combo3",
-        typeOrder: 10,
-        patokanPos: left,
-        patokanN: N,
-        compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)),
-      });
-    }
-
-    for (const left of POSISI) {
-      for (const right of POSISI) {
-        if (left === right) continue;
-        specs.push({
-          formula: `${left}${N}-${right}${N}`,
-          type: "diff",
-          typeOrder: 11,
-          patokanPos: left,
-          patokanN: N,
-          compute: (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)),
-        });
-      }
-    }
-
-    for (const [left, right] of COMBO_PAIRS) {
-      specs.push({
-        formula: `D-${left}${right}${N}`,
-        type: "absdiff",
-        typeOrder: 12,
-        patokanPos: left,
-        patokanN: N,
-        compute: (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)),
-      });
-    }
-
-    specs.push({
-      formula: `T${N}`,
-      type: "total",
-      typeOrder: 13,
-      patokanPos: "A",
-      patokanN: N,
-      compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)),
-    });
-
-    for (const offset of EXTENDED_OFFSET_LIST) {
-      specs.push({
-        formula: `T${N}${offsetSuffix(offset)}`,
-        type: "totalOffset",
-        typeOrder: 14,
-        patokanPos: "A",
-        patokanN: N,
-        compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset),
-      });
-    }
+    for (const [left, middle, right] of COMBO_TRIPLES) add(`${left}${N}+${middle}${N}+${right}${N}`, "combo3", 12, left, N, (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)));
+    for (const left of POSISI) for (const right of POSISI) if (left !== right) add(`${left}${N}-${right}${N}`, "diff", 13, left, N, (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)));
+    for (const [left, right] of COMBO_PAIRS) add(`D-${left}${right}${N}`, "absdiff", 14, left, N, (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)));
+    add(`T${N}`, "total", 15, "A", N, (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)));
+    for (const offset of EXTENDED_OFFSET_LIST) add(`T${N}${offsetSuffix(offset)}`, "totalOffset", 16, "A", N, (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset));
   }
 
   for (const [left, right] of COMBO_PAIRS) {
     for (const leftN of CROSS_N_LIST) {
       for (const rightN of CROSS_N_LIST) {
         if (leftN === rightN) continue;
-        specs.push({
-          formula: `${left}${leftN}+${right}${rightN}`,
-          type: "crossCombo",
-          typeOrder: 8,
-          patokanPos: left,
-          patokanN: Math.max(leftN, rightN),
-          compute: () => 0,
-          computeAt: (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) + digitOf(draws[targetIndex - rightN], right)),
-        });
+        add(`${left}${leftN}+${right}${rightN}`, "crossCombo", 8, left, Math.max(leftN, rightN), () => 0, (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) + digitOf(draws[targetIndex - rightN], right)));
       }
     }
   }
@@ -252,15 +135,7 @@ function formulaSpecs(): FormulaSpec[] {
       for (const leftN of CROSS_N_LIST) {
         for (const rightN of CROSS_N_LIST) {
           if (leftN === rightN) continue;
-          specs.push({
-            formula: `${left}${leftN}-${right}${rightN}`,
-            type: "crossDiff",
-            typeOrder: 9,
-            patokanPos: left,
-            patokanN: Math.max(leftN, rightN),
-            compute: () => 0,
-            computeAt: (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) - digitOf(draws[targetIndex - rightN], right)),
-          });
+          add(`${left}${leftN}-${right}${rightN}`, "crossDiff", 9, left, Math.max(leftN, rightN), () => 0, (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) - digitOf(draws[targetIndex - rightN], right)));
         }
       }
     }
@@ -277,12 +152,10 @@ function rowTargetColumns(row: BacktestRow): Kolom[] {
 function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
   const selected: Kolom[] = [];
   const uncovered = new Set(result.rows.map((_, index) => index));
-
   while (uncovered.size > 0) {
     let best: Kolom | null = null;
     let bestCover = -1;
     let bestHit = -1;
-
     for (const column of KOLOM) {
       if (selected.includes(column)) continue;
       const cover = [...uncovered].filter((rowIndex) => rowTargetColumns(result.rows[rowIndex]).includes(column)).length;
@@ -293,23 +166,16 @@ function selectedColumnsForAi(result: EngineResult, digitCount: number): Kolom[]
         bestHit = hit;
       }
     }
-
     if (!best || bestCover <= 0) return [];
     selected.push(best);
-    for (const rowIndex of [...uncovered]) {
-      if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
-    }
+    for (const rowIndex of [...uncovered]) if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
     if (selected.length > digitCount) return [];
   }
-
-  const padding = KOLOM
-    .filter((column) => !selected.includes(column))
-    .sort((a, b) => {
-      const hitA = result.kolom.find((k) => k.kolom === a)?.hit ?? 0;
-      const hitB = result.kolom.find((k) => k.kolom === b)?.hit ?? 0;
-      return hitB - hitA || KOLOM.indexOf(a) - KOLOM.indexOf(b);
-    });
-
+  const padding = KOLOM.filter((column) => !selected.includes(column)).sort((a, b) => {
+    const hitA = result.kolom.find((k) => k.kolom === a)?.hit ?? 0;
+    const hitB = result.kolom.find((k) => k.kolom === b)?.hit ?? 0;
+    return hitB - hitA || KOLOM.indexOf(a) - KOLOM.indexOf(b);
+  });
   return [...selected, ...padding].slice(0, digitCount);
 }
 
@@ -322,9 +188,7 @@ function selectedColumns(result: EngineResult, digitCount: number, scanMode: Sca
 }
 
 function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
-  return columns
-    .map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive)
-    .filter((digit): digit is number => Number.isFinite(digit));
+  return columns.map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive).filter((digit): digit is number => Number.isFinite(digit));
 }
 
 function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode): EngineResult {
@@ -332,15 +196,12 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
   if (N < 1 || N > 9) throw new Error(`patokanN harus 1-9, diterima ${N}`);
   if (draws.length <= N) throw new Error(`Data tidak cukup: butuh > ${N} hasil, hanya ada ${draws.length}.`);
-
   const validTargets: number[] = [];
   for (let t = N; t < draws.length; t++) validTargets.push(t);
-
   const safeL = clamp(L, 14, 1, 100);
   const targets = validTargets.slice(-safeL);
   const hit = new Array(10).fill(0);
   const rows: BacktestRow[] = [];
-
   for (const t of targets) {
     const sourceIndex = t - N;
     const displayIndex = t - 1;
@@ -350,51 +211,21 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
     const targetDigit = targetDigits[0];
     const hitColumns = uniqueDigits(targetDigits).map((digit) => (digit - patokan + 10) % 10);
     for (const col of hitColumns) hit[col] += 1;
-    rows.push({
-      displayDraw: draws[displayIndex],
-      patokanDraw: draws[sourceIndex],
-      targetDraw: draws[t],
-      patokan,
-      deret,
-      targetDigit,
-      targetDigits,
-      kolomKena: KOLOM[hitColumns[0]],
-    });
+    rows.push({ displayDraw: draws[displayIndex], patokanDraw: draws[sourceIndex], targetDraw: draws[t], patokan, deret, targetDigit, targetDigits, kolomKena: KOLOM[hitColumns[0]] });
   }
-
   const latestDraw = draws[draws.length - 1];
   const patokanLiveDraw = draws[draws.length - N];
   const deretLive = buildDeret(computeFormula(spec, draws, draws.length));
   const kolom: KolomStat[] = KOLOM.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
   const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
-
-  return {
-    config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, L: safeL, scanMode },
-    jumlahData: draws.length,
-    jumlahBacktest: targets.length,
-    kolom,
-    deretLive,
-    patokanLiveDraw,
-    latestDraw,
-    angkaKuat,
-    angkaMati,
-    rows,
-  };
+  return { config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, L: safeL, scanMode }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
 }
 
 export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
   const { patokanPos, patokanN, targetPos, L } = config;
   const scanMode = scanModeOrDefault(config.scanMode);
-  const spec: FormulaSpec = {
-    formula: `${patokanPos}${patokanN}`,
-    type: "base",
-    typeOrder: 0,
-    patokanPos,
-    patokanN,
-    compute: (draw) => digitOf(draw, patokanPos),
-  };
-  return runFormulaEngine(draws, spec, targetPos, L, scanMode);
+  return runFormulaEngine(draws, { formula: `${patokanPos}${patokanN}`, type: "base", typeOrder: 0, patokanPos, patokanN, compute: (draw) => digitOf(draw, patokanPos) }, targetPos, L, scanMode);
 }
 
 export function runEngineFromHistory(historyData: string, config: EngineConfig): EngineResult {
@@ -402,65 +233,23 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 }
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
-  const safeConfig = {
-    L: clamp(config.L, 14, 1, 100),
-    targetPos: config.targetPos || "K",
-    digitCount: clamp(config.digitCount, 3, 1, 9),
-    stopScan: clamp(config.stopScan, 3, 1, 200),
-    scanMode: scanModeOrDefault(config.scanMode),
-  };
+  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, 3, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
   const targets = safeConfig.scanMode === "posisi" ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
   const items: (AutoScanItem & { typeOrder: number; strength: number })[] = [];
   let totalChecked = 0;
-  const specs = formulaSpecs();
-
   for (const targetPos of targets) {
-    for (const spec of specs) {
+    for (const spec of formulaSpecs()) {
       totalChecked += 1;
       const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
       const columns = selectedColumns(result, safeConfig.digitCount, safeConfig.scanMode);
       if (columns.length !== safeConfig.digitCount) continue;
-
       const columnSet = new Set<Kolom>(columns);
-      const angkaHidup = digitsFromColumns(result, columns);
-      const kolomMati = result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom);
-      const angkaMati = result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive);
-
-      items.push({
-        targetPos,
-        scanMode: safeConfig.scanMode,
-        patokanPos: spec.patokanPos,
-        patokanN: spec.patokanN,
-        formula: spec.formula,
-        code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode),
-        angkaHidup,
-        kolomHidup: columns,
-        angkaMati,
-        kolomMati,
-        activeColumns: columns.join(""),
-        jumlahHidup: angkaHidup.length,
-        result,
-        typeOrder: spec.typeOrder,
-        strength: safeConfig.scanMode === "ai_2d_belakang" ? columns.length : result.angkaKuat.length,
-      });
+      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, result, typeOrder: spec.typeOrder, strength: safeConfig.scanMode === "ai_2d_belakang" ? columns.length : result.angkaKuat.length });
     }
   }
-
-  const sorted = items.sort((a, b) => {
-    const strength = a.strength - b.strength;
-    if (strength !== 0) return strength;
-    const typeOrder = a.typeOrder - b.typeOrder;
-    if (typeOrder !== 0) return typeOrder;
-    const targetOrder = POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos);
-    if (targetOrder !== 0) return targetOrder;
-    const sourceOrder = POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos);
-    if (sourceOrder !== 0) return sourceOrder;
-    if (a.patokanN !== b.patokanN) return a.patokanN - b.patokanN;
-    return a.formula.localeCompare(b.formula);
-  });
+  const sorted = items.sort((a, b) => a.strength - b.strength || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
   const seen = new Set<string>();
   const unique = [] as (AutoScanItem & { typeOrder: number; strength: number })[];
-
   for (const item of sorted) {
     const signature = trekSignature(item);
     if (seen.has(signature)) continue;
@@ -468,9 +257,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     unique.push(item);
     if (unique.length >= safeConfig.stopScan) break;
   }
-
   const limited = unique.map(({ typeOrder, strength, ...item }) => item);
-
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
