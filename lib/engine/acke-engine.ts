@@ -84,18 +84,13 @@ function scanCode(target: Posisi, formula: string, L: number, columns: string, m
   return `#${prefix}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
-function normalizedDigitSet(digits: number[]): string {
-  return [...new Set(digits)].sort((a, b) => a - b).join("");
-}
-
 function digitsFromDeretColumns(deret: number[], columns: Kolom[]): number[] {
   return columns.map((column) => deret[KOLOM.indexOf(column)]).filter((digit): digit is number => Number.isFinite(digit));
 }
 
 function trekSignature(item: AutoScanItem): string {
-  const rows = item.result.rows.map((row) => normalizedDigitSet(digitsFromDeretColumns(row.deret, item.kolomHidup)));
-  const live = normalizedDigitSet(item.angkaHidup);
-  return `${item.scanMode}:${item.targetPos}:${rows.join("|")}:${live}`;
+  const rows = item.result.rows.map((row) => digitsFromDeretColumns(row.deret, item.kolomHidup).join(""));
+  return `${item.scanMode}:${item.targetPos}:${rows.join("|")}`;
 }
 
 function computeFormula(spec: FormulaSpec, draws: Draw[], targetIndex: number): number {
