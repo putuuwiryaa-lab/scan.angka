@@ -63,7 +63,7 @@ export default function AdminPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-  const [rounds, setRounds] = useState("15");
+  const [rounds, setRounds] = useState("14");
   const [trek, setTrek] = useState<TrekChoice>("bbfs_2d_belakang");
   const [digitCount, setDigitCount] = useState(7);
   const [result, setResult] = useState<BatchResult | null>(null);
@@ -105,7 +105,7 @@ export default function AdminPage() {
     setResult(null);
     setCopied(false);
     try {
-      const safeRounds = clampTextNumber(rounds, 15, 1, 100);
+      const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       setRounds(String(safeRounds));
       const { scanMode, targetPos } = modeFromTrek(trek);
       const res = await fetch("/api/admin/batch-scan", {
