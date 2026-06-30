@@ -45,15 +45,18 @@ export async function POST(req: Request) {
       .eq("id", marketId)
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/scan] Supabase error", error);
+      return NextResponse.json({ error: "Gagal mengambil data pasaran." }, { status: 500 });
+    }
     if (!data?.history_data) {
       return NextResponse.json({ error: "Pasaran ini belum punya data keluaran." }, { status: 404 });
     }
 
     const result = runAutoScanFromHistory(data.history_data, config);
     return NextResponse.json({ market: data.name, result });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Scan gagal.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+  } catch (error) {
+    console.error("[api/scan] Request error", error);
+    return NextResponse.json({ error: "Scan gagal." }, { status: 400 });
   }
 }
