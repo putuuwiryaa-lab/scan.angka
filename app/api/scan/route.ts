@@ -7,6 +7,8 @@ import { getSupabase } from "@/lib/supabase/client";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_DIGIT_COUNT = 7;
+const DEFAULT_SCAN_MODE: ScanMode = "ai_2d_belakang";
+const DEFAULT_STOP_SCAN = 1;
 
 function isPosisi(value: unknown): value is Posisi {
   return value === "A" || value === "C" || value === "K" || value === "E";
@@ -43,8 +45,8 @@ export async function POST(req: Request) {
       L: clamp(body?.L, 14, 1, 100),
       targetPos: body?.targetPos as Posisi | undefined,
       digitCount: clamp(body?.digitCount ?? body?.minHidup, DEFAULT_DIGIT_COUNT, 1, 9),
-      stopScan: clamp(body?.stopScan, 3, 1, 200),
-      scanMode: (body?.scanMode ?? "posisi") as ScanMode,
+      stopScan: clamp(body?.stopScan, DEFAULT_STOP_SCAN, 1, 200),
+      scanMode: (body?.scanMode ?? DEFAULT_SCAN_MODE) as ScanMode,
     };
 
     const supabase = getSupabase();
