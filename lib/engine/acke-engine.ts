@@ -59,15 +59,21 @@ function clamp(value: unknown, fallback: number, min: number, max: number): numb
 }
 
 function scanModeOrDefault(value: unknown): ScanMode {
-  return value === "ai_2d_belakang" || value === "bbfs_2d_belakang" ? value : "posisi";
+  return value === "ai_2d_belakang" || value === "bbfs_2d_belakang" || value === "jumlah_2d_belakang" ? value : "posisi";
 }
 
 function uniqueDigits(digits: number[]): number[] {
   return [...new Set(digits.filter((digit) => Number.isFinite(digit)))];
 }
 
+function jumlah2dDigit(left: number, right: number): number {
+  const total = left + right;
+  return total >= 10 ? Math.floor(total / 10) + (total % 10) : total;
+}
+
 function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi): number[] {
   if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang") return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
+  if (mode === "jumlah_2d_belakang") return [jumlah2dDigit(digitOf(draw, "K"), digitOf(draw, "E"))];
   return [digitOf(draw, targetPos)];
 }
 
@@ -80,7 +86,7 @@ function offsetLabel(pos: Posisi, N: number, offset: number): string {
 }
 
 function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode): string {
-  const prefix = mode === "ai_2d_belakang" ? "ai2db" : mode === "bbfs_2d_belakang" ? "bbfs2db" : target.toLowerCase();
+  const prefix = mode === "ai_2d_belakang" ? "ai2db" : mode === "bbfs_2d_belakang" ? "bbfs2db" : mode === "jumlah_2d_belakang" ? "jml2db" : target.toLowerCase();
   return `#${prefix}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
@@ -387,8 +393,10 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
         const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
         if (!profile) continue;
         const columns = profile.displayColumns;
+        const angkaHidup = digitsFromColumns(result, columns);
+        if (safeConfig.scanMode === "jumlah_2d_belakang" && angkaHidup.includes(0)) continue;
         const columnSet = new Set<Kolom>(columns);
-        items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, consensusDigits: [], consensusOverlap: 0, consensusWeight: 0, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
+        items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup, kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, consensusDigits: [], consensusOverlap: 0, consensusWeight: 0, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
       } catch {
         continue;
       }
