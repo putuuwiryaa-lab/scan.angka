@@ -5,6 +5,8 @@ import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
+const MAX_BATCH_MARKETS = 30;
+
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
 type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; digitCount?: unknown; L?: unknown; outputTitle?: unknown };
@@ -23,15 +25,22 @@ function asNum(value: unknown, fallback: number, min: number, max: number): numb
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
+function normalizeMarketIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item: unknown) => String(item).trim()).filter(Boolean))];
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
-    const marketIds: string[] = Array.isArray(body.marketIds)
-      ? body.marketIds.map((item: unknown) => String(item).trim()).filter(Boolean)
-      : [];
+    const marketIds = normalizeMarketIds(body.marketIds);
 
     if (marketIds.length === 0) {
       return NextResponse.json({ error: "Pilih minimal 1 pasaran." }, { status: 400 });
+    }
+
+    if (marketIds.length > MAX_BATCH_MARKETS) {
+      return NextResponse.json({ error: `Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.` }, { status: 413 });
     }
 
     const scanMode = (typeof body.scanMode === "string" ? body.scanMode : "posisi") as ScanMode;
@@ -64,7 +73,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ⟢ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Batch scan gagal.";
     return NextResponse.json({ error: message }, { status: 400 });
