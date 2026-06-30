@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const lines = results.map((row: BatchLine) => `${row.name} ⟢ ${row.digits}`);
+    const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
     return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS });
   } catch (error) {
