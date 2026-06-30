@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,14 +8,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const navStyle: React.CSSProperties = {
+  const navStyle: CSSProperties = {
     maxWidth: 560,
     margin: "0 auto",
     padding: "12px 16px 0",
     display: "flex",
     gap: 8,
   };
-  const linkStyle: React.CSSProperties = {
+  const linkStyle: CSSProperties = {
     flex: 1,
     minHeight: 38,
     display: "grid",
