@@ -28,7 +28,8 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[api/acke] Supabase error", error);
+      return NextResponse.json({ error: "Gagal mengambil data pasaran." }, { status: 500 });
     }
     if (!data?.history_data) {
       return NextResponse.json(
@@ -45,8 +46,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ market: data.name, result });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Terjadi kesalahan.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+  } catch (error) {
+    console.error("[api/acke] Request error", error);
+    return NextResponse.json({ error: "Terjadi kesalahan." }, { status: 400 });
   }
 }
