@@ -15,7 +15,7 @@ function isPosisi(value: unknown): value is Posisi {
 }
 
 function isScanMode(value: unknown): value is ScanMode {
-  return value === "posisi" || value === "ai_2d_belakang" || value === "bbfs_2d_belakang";
+  return value === "posisi" || value === "ai_2d_belakang" || value === "bbfs_2d_belakang" || value === "jumlah_2d_belakang";
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
