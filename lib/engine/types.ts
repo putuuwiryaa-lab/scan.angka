@@ -1,6 +1,6 @@
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
-export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
+export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang";
 
 export const KOLOM = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
 export type Kolom = (typeof KOLOM)[number];
