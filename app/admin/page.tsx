@@ -26,6 +26,19 @@ function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: strin
   return { scanMode: value, targetPos: "K" };
 }
 
+function outputTitleFromTrek(value: TrekChoice, digitCount: number) {
+  const label: Record<TrekChoice, string> = {
+    A: "As",
+    C: "Cop",
+    K: "Kepala",
+    E: "Ekor",
+    ai_2d_belakang: "AI",
+    bbfs_2d_belakang: "BBFS",
+  };
+  if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang") return `${label[value]} ${digitCount}D Belakang`;
+  return `${label[value]} ${digitCount}D`;
+}
+
 function cleanDigits(value: string, maxLength = 3) {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
@@ -108,10 +121,11 @@ export default function AdminPage() {
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       setRounds(String(safeRounds));
       const { scanMode, targetPos } = modeFromTrek(trek);
+      const outputTitle = outputTitleFromTrek(trek, digitCount);
       const res = await fetch("/api/admin/batch-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marketIds: selected, L: safeRounds, scanMode, targetPos, digitCount }),
+        body: JSON.stringify({ marketIds: selected, L: safeRounds, scanMode, targetPos, digitCount, outputTitle }),
       });
       const data = await res.json();
       if (data.error) setError(data.error);
