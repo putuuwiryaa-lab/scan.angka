@@ -348,12 +348,16 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
   for (const targetPos of targets) {
     for (const spec of formulaSpecs()) {
       totalChecked += 1;
-      const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
-      const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
-      if (!profile) continue;
-      const columns = profile.displayColumns;
-      const columnSet = new Set<Kolom>(columns);
-      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, consensusDigits: [], consensusOverlap: 0, consensusWeight: 0, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
+      try {
+        const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
+        const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
+        if (!profile) continue;
+        const columns = profile.displayColumns;
+        const columnSet = new Set<Kolom>(columns);
+        items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, consensusDigits: [], consensusOverlap: 0, consensusWeight: 0, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
+      } catch {
+        continue;
+      }
     }
   }
   applyConsensusScores(items, safeConfig.digitCount);
