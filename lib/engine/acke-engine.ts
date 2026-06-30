@@ -94,8 +94,12 @@ function digitsFromDeretColumns(deret: number[], columns: Kolom[]): number[] {
   return columns.map((column) => deret[KOLOM.indexOf(column)]).filter((digit): digit is number => Number.isFinite(digit));
 }
 
+function normalizedTrekDigits(digits: number[]): string {
+  return uniqueDigits(digits).sort((a, b) => a - b).join("");
+}
+
 function trekSignature(item: AutoScanItem): string {
-  const rows = item.result.rows.map((row) => digitsFromDeretColumns(row.deret, item.kolomHidup).join(""));
+  const rows = item.result.rows.map((row) => normalizedTrekDigits(digitsFromDeretColumns(row.deret, item.kolomHidup)));
   return `${item.scanMode}:${item.targetPos}:${rows.join("|")}`;
 }
 
