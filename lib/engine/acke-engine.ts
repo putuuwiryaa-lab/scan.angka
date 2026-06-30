@@ -302,6 +302,42 @@ function applyConsensusScores(items: RankedItem[], digitCount: number): void {
   }
 }
 
+function baseRank(a: RankedItem, b: RankedItem): number {
+  return a.rankCoreSize - b.rankCoreSize ||
+    b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
+function finalRank(a: RankedItem, b: RankedItem): number {
+  return a.rankCoreSize - b.rankCoreSize ||
+    b.consensusOverlap - a.consensusOverlap ||
+    b.consensusWeight - a.consensusWeight ||
+    b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
+function dedupeTrekCandidates(items: RankedItem[]): RankedItem[] {
+  const seen = new Set<string>();
+  const unique: RankedItem[] = [];
+  for (const item of [...items].sort(baseRank)) {
+    const signature = trekSignature(item);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    unique.push(item);
+  }
+  return unique;
+}
+
 function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode): EngineResult {
   const N = spec.patokanN;
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
@@ -363,18 +399,10 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
       }
     }
   }
-  applyConsensusScores(items, safeConfig.digitCount);
-  const sorted = items.sort((a, b) => a.rankCoreSize - b.rankCoreSize || b.consensusOverlap - a.consensusOverlap || b.consensusWeight - a.consensusWeight || b.recentScore - a.recentScore || b.hitScore - a.hitScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
-  const seen = new Set<string>();
-  const unique: RankedItem[] = [];
-  for (const item of sorted) {
-    const signature = trekSignature(item);
-    if (seen.has(signature)) continue;
-    seen.add(signature);
-    unique.push(item);
-    if (unique.length >= safeConfig.stopScan) break;
-  }
-  const limited = unique.map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
+  const uniqueItems = dedupeTrekCandidates(items);
+  applyConsensusScores(uniqueItems, safeConfig.digitCount);
+  const sorted = uniqueItems.sort(finalRank);
+  const limited = sorted.slice(0, safeConfig.stopScan).map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
