@@ -83,7 +83,7 @@ export default function BatchPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-  const [rounds, setRounds] = useState("14");
+  const [rounds, setRounds] = useState("");
   const [trek, setTrek] = useState<TrekChoice>("bbfs_2d_belakang");
   const [digitCount, setDigitCount] = useState(7);
   const [result, setResult] = useState<BatchResult | null>(null);
@@ -183,7 +183,7 @@ export default function BatchPage() {
         <div style={styles.rowTwo}>
           <div style={styles.field}>
             <label style={styles.label}>Data Uji</label>
-            <input style={styles.input} inputMode="numeric" value={rounds} onChange={(e) => setRounds(cleanDigits(e.target.value, 3))} />
+            <input style={styles.input} inputMode="numeric" placeholder="maks.100" value={rounds} onChange={(e) => setRounds(cleanDigits(e.target.value, 3))} />
           </div>
           <div style={styles.field}>
             <label style={styles.label}>Jenis Trek</label>
