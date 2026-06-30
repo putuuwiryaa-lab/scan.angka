@@ -11,7 +11,7 @@ const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
-type RankedItem = AutoScanItem & { typeOrder: number; strength: number; rankCoreSize: number; hitScore: number; recentScore: number };
+type RankedItem = AutoScanItem & { typeOrder: number; strength: number; rankCoreSize: number; hitScore: number; recentScore: number; consensusOverlap: number; consensusWeight: number; consensusDigits: number[] };
 
 interface FormulaSpec {
   formula: string;
@@ -28,6 +28,11 @@ interface SupportPick {
   score: number;
   ownHit: number;
   reason: string;
+}
+
+interface ConsensusProfile {
+  digits: number[];
+  counts: number[];
 }
 
 export function parseHistory(historyData: string): Draw[] {
@@ -185,9 +190,7 @@ function supportCandidate(result: EngineResult, column: Kolom, coreSet: Set<Kolo
   const score = (leftHit + rightHit) * 100 + bridgeBonus + ownHit * 10;
   const digit = columnDigit(result, column);
 
-  if (leftHit > 0 && rightHit > 0) {
-    return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menjembatani ${left}(${leftHit}x) dan ${right}(${rightHit}x)` };
-  }
+  if (leftHit > 0 && rightHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menjembatani ${left}(${leftHit}x) dan ${right}(${rightHit}x)` };
   if (leftHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menempel ${left}(${leftHit}x)` };
   if (rightHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena menempel ${right}(${rightHit}x)` };
   if (ownHit > 0) return { column, score, ownHit, reason: `${column}(${digit}) dipilih karena punya hit ${ownHit}x pada rumus ini` };
@@ -269,6 +272,33 @@ function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
   return columns.map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive).filter((digit): digit is number => Number.isFinite(digit));
 }
 
+function consensusProfile(items: AutoScanItem[], digitCount: number): ConsensusProfile {
+  const counts = Array.from({ length: 10 }, () => 0);
+  for (const item of items) {
+    for (const digit of uniqueDigits(item.angkaHidup)) {
+      if (digit >= 0 && digit <= 9) counts[digit] += 1;
+    }
+  }
+  const digits = counts.map((count, digit) => ({ digit, count })).sort((a, b) => b.count - a.count || a.digit - b.digit).slice(0, digitCount).map((item) => item.digit);
+  return { digits, counts };
+}
+
+function applyConsensusScores(items: RankedItem[], digitCount: number): void {
+  const coreGroups = new Map<number, RankedItem[]>();
+  for (const item of items) coreGroups.set(item.rankCoreSize, [...(coreGroups.get(item.rankCoreSize) ?? []), item]);
+
+  for (const group of coreGroups.values()) {
+    const profile = consensusProfile(group, digitCount);
+    const consensusSet = new Set(profile.digits);
+    for (const item of group) {
+      const digits = uniqueDigits(item.angkaHidup);
+      item.consensusDigits = profile.digits;
+      item.consensusOverlap = digits.filter((digit) => consensusSet.has(digit)).length;
+      item.consensusWeight = digits.reduce((sum, digit) => sum + (profile.counts[digit] ?? 0), 0);
+    }
+  }
+}
+
 function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode): EngineResult {
   const N = spec.patokanN;
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
@@ -323,10 +353,11 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
       if (!profile) continue;
       const columns = profile.displayColumns;
       const columnSet = new Set<Kolom>(columns);
-      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
+      items.push({ targetPos, scanMode: safeConfig.scanMode, patokanPos: spec.patokanPos, patokanN: spec.patokanN, formula: spec.formula, code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode), angkaHidup: digitsFromColumns(result, columns), kolomHidup: columns, angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive), kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom), activeColumns: columns.join(""), jumlahHidup: columns.length, coreSize: profile.coreSize, coreColumns: profile.coreColumns, supportColumns: profile.supportColumns, supportReasons: profile.supportReasons, consensusDigits: [], consensusOverlap: 0, consensusWeight: 0, result, typeOrder: spec.typeOrder, strength: profile.coreSize, rankCoreSize: profile.coreSize, hitScore: profile.hitScore, recentScore: profile.recentScore });
     }
   }
-  const sorted = items.sort((a, b) => a.rankCoreSize - b.rankCoreSize || b.hitScore - a.hitScore || b.recentScore - a.recentScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
+  applyConsensusScores(items, safeConfig.digitCount);
+  const sorted = items.sort((a, b) => a.rankCoreSize - b.rankCoreSize || b.consensusOverlap - a.consensusOverlap || b.consensusWeight - a.consensusWeight || b.recentScore - a.recentScore || b.hitScore - a.hitScore || a.typeOrder - b.typeOrder || POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) || POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) || a.patokanN - b.patokanN || a.formula.localeCompare(b.formula));
   const seen = new Set<string>();
   const unique: RankedItem[] = [];
   for (const item of sorted) {
