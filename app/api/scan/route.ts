@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { runAutoScanFromHistory } from "@/lib/engine/acke-engine";
+import { runAutoScan } from "@/lib/engine/acke-engine";
+import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import type { Posisi, ScanMode } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -61,9 +62,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Pasaran ini belum punya data keluaran." }, { status: 404 });
     }
 
-    const result = runAutoScanFromHistory(data.history_data, config);
+    const draws = parseStrictHistory(data.history_data);
+    const result = runAutoScan(draws, config);
     return NextResponse.json({ market: data.name, result });
   } catch (error) {
+    if (error instanceof HistoryDataFormatError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
     console.error("[api/scan] Request error", error);
     return NextResponse.json({ error: "Scan gagal." }, { status: 400 });
   }
