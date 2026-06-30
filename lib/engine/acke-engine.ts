@@ -3,12 +3,13 @@ import { KOLOM, POS_INDEX, type AutoScanConfig, type AutoScanItem, type AutoScan
 const POSISI: Posisi[] = ["A", "C", "K", "E"];
 const OFFSET_LIST = [0, 1, 2, -1, -2, 3, 4, 5, -3, -4, -5];
 const EXTENDED_OFFSET_LIST = [1, 2, -1, -2];
+const CROSS_N_LIST = [1, 2, 3];
 const COMBO_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["A", "K"], ["A", "E"], ["C", "K"], ["C", "E"], ["K", "E"]];
 const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "E"], ["A", "K", "E"], ["C", "K", "E"]];
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
+type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
 
 interface FormulaSpec {
   formula: string;
@@ -17,6 +18,7 @@ interface FormulaSpec {
   patokanPos: Posisi;
   patokanN: number;
   compute: (draw: Draw) => number;
+  computeAt?: (draws: Draw[], targetIndex: number) => number;
 }
 
 export function parseHistory(historyData: string): Draw[] {
@@ -84,6 +86,11 @@ function trekSignature(item: AutoScanItem): string {
   const rows = item.result.rows.map((row) => normalizedDigitSet(digitsFromDeretColumns(row.deret, item.kolomHidup)));
   const live = normalizedDigitSet(item.angkaHidup);
   return `${item.scanMode}:${item.targetPos}:${rows.join("|")}:${live}`;
+}
+
+function computeFormula(spec: FormulaSpec, draws: Draw[], targetIndex: number): number {
+  if (spec.computeAt) return spec.computeAt(draws, targetIndex);
+  return spec.compute(draws[targetIndex - spec.patokanN]);
 }
 
 function formulaSpecs(): FormulaSpec[] {
@@ -169,7 +176,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `${left}${N}+${middle}${N}+${right}${N}`,
         type: "combo3",
-        typeOrder: 8,
+        typeOrder: 9,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)),
@@ -182,7 +189,7 @@ function formulaSpecs(): FormulaSpec[] {
         specs.push({
           formula: `${left}${N}-${right}${N}`,
           type: "diff",
-          typeOrder: 9,
+          typeOrder: 10,
           patokanPos: left,
           patokanN: N,
           compute: (draw) => mod10(digitOf(draw, left) - digitOf(draw, right)),
@@ -194,7 +201,7 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `D-${left}${right}${N}`,
         type: "absdiff",
-        typeOrder: 10,
+        typeOrder: 11,
         patokanPos: left,
         patokanN: N,
         compute: (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)),
@@ -204,7 +211,7 @@ function formulaSpecs(): FormulaSpec[] {
     specs.push({
       formula: `T${N}`,
       type: "total",
-      typeOrder: 11,
+      typeOrder: 12,
       patokanPos: "A",
       patokanN: N,
       compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)),
@@ -214,11 +221,28 @@ function formulaSpecs(): FormulaSpec[] {
       specs.push({
         formula: `T${N}${offsetSuffix(offset)}`,
         type: "totalOffset",
-        typeOrder: 12,
+        typeOrder: 13,
         patokanPos: "A",
         patokanN: N,
         compute: (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset),
       });
+    }
+  }
+
+  for (const [left, right] of COMBO_PAIRS) {
+    for (const leftN of CROSS_N_LIST) {
+      for (const rightN of CROSS_N_LIST) {
+        if (leftN === rightN) continue;
+        specs.push({
+          formula: `${left}${leftN}+${right}${rightN}`,
+          type: "crossCombo",
+          typeOrder: 8,
+          patokanPos: left,
+          patokanN: Math.max(leftN, rightN),
+          compute: () => 0,
+          computeAt: (draws, targetIndex) => mod10(digitOf(draws[targetIndex - leftN], left) + digitOf(draws[targetIndex - rightN], right)),
+        });
+      }
     }
   }
 
@@ -300,7 +324,7 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
   for (const t of targets) {
     const sourceIndex = t - N;
     const displayIndex = t - 1;
-    const patokan = spec.compute(draws[sourceIndex]);
+    const patokan = computeFormula(spec, draws, t);
     const deret = buildDeret(patokan);
     const targetDigits = targetDigitsOf(draws[t], scanMode, targetPos);
     const targetDigit = targetDigits[0];
@@ -320,7 +344,7 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
 
   const latestDraw = draws[draws.length - 1];
   const patokanLiveDraw = draws[draws.length - N];
-  const deretLive = buildDeret(spec.compute(patokanLiveDraw));
+  const deretLive = buildDeret(computeFormula(spec, draws, draws.length));
   const kolom: KolomStat[] = KOLOM.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
   const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
