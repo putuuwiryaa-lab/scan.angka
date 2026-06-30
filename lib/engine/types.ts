@@ -71,6 +71,9 @@ export interface AutoScanItem {
   coreColumns?: Kolom[];
   supportColumns?: Kolom[];
   supportReasons?: string[];
+  consensusDigits?: number[];
+  consensusOverlap?: number;
+  consensusWeight?: number;
   result: EngineResult;
 }
 
