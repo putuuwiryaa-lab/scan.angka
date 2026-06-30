@@ -158,6 +158,8 @@ function formulaSpecs(): FormulaSpec[] {
   return specs;
 }
 
+const ALL_FORMULA_SPECS = formulaSpecs();
+
 function rowTargetColumns(row: BacktestRow): Kolom[] {
   const columns = uniqueDigits(row.targetDigits).map((digit) => KOLOM[(digit - row.patokan + 10) % 10]);
   return [...new Set(columns)];
@@ -346,7 +348,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
   const items: RankedItem[] = [];
   let totalChecked = 0;
   for (const targetPos of targets) {
-    for (const spec of formulaSpecs()) {
+    for (const spec of ALL_FORMULA_SPECS) {
       totalChecked += 1;
       try {
         const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
