@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import BottomNav from "./bottom-nav";
 
-type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
-type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang";
+type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang";
+type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
 type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; targetDigits?: number[]; deret: number[] };
 type ScanItem = {
@@ -30,6 +30,7 @@ const TREK: [TrekChoice, string][] = [
   ["E", "Ekor"],
   ["ai_2d_belakang", "AI 2D Belakang"],
   ["bbfs_2d_belakang", "BBFS 2D Belakang"],
+  ["jumlah_2d_belakang", "Jumlah 2D Belakang"],
 ];
 const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
 const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
@@ -38,11 +39,12 @@ const MODE_LABEL: Record<ScanMode, string> = {
   posisi: "Trek Posisi",
   ai_2d_belakang: "AI 2D Belakang",
   bbfs_2d_belakang: "BBFS 2D Belakang",
+  jumlah_2d_belakang: "Jumlah 2D Belakang",
 };
 const COLS = "ABCDEFGHIJ";
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-const NO_BADGE_SELECT_STYLE = { gridTemplateColumns: "minmax(0,1fr) 24px" };
-const NO_BADGE_OPTION_STYLE = { gridTemplateColumns: "minmax(0,1fr) auto" };
+const NO_BADGE_SELECT_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) 24px" };
+const NO_BADGE_OPTION_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) auto" };
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -128,6 +130,7 @@ function predictionResult(item: ScanItem) {
 function detailTitle(item: ScanItem) {
   if (item.scanMode === "ai_2d_belakang") return "Detail AI 2D Belakang";
   if (item.scanMode === "bbfs_2d_belakang") return "Detail BBFS 2D Belakang";
+  if (item.scanMode === "jumlah_2d_belakang") return "Detail Jumlah 2D Belakang";
   return `Detail Trek ${NAME[item.targetPos]} (${SHORT[item.targetPos]})`;
 }
 
