@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode } from "@/lib/engine/helpers";
-import type { Posisi, ScanMode } from "@/lib/engine/types";
+import { isScanMode, isTarget2D } from "@/lib/engine/helpers";
+import type { Posisi, ScanMode, Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +38,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
     }
 
+    if (body?.target2D !== undefined && !isTarget2D(body.target2D)) {
+      return NextResponse.json({ error: "Target 2D tidak valid." }, { status: 400 });
+    }
+
     const config = {
       L: clamp(body?.L, 14, 1, 100),
       targetPos: body?.targetPos as Posisi | undefined,
+      target2D: body?.target2D as Target2D | undefined,
       digitCount: clamp(body?.digitCount ?? body?.minHidup, DEFAULT_DIGIT_COUNT, 1, 9),
       stopScan: clamp(body?.stopScan, DEFAULT_STOP_SCAN, 1, 200),
       scanMode: (body?.scanMode ?? DEFAULT_SCAN_MODE) as ScanMode,
