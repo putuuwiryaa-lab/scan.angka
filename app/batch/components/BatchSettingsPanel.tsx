@@ -1,6 +1,6 @@
-import { ANALYSIS_OPTIONS, DIGIT_OPTIONS, POS_OPTIONS, TARGET_2D_OPTIONS } from "../../scan/constants";
-import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode } from "../../scan/helpers";
-import type { Posisi, ScanMode, Target2D } from "../../scan/types";
+import { ANALYSIS_OPTIONS, DIGIT_OPTIONS, POS_OPTIONS, TARGET_2D_OPTIONS } from "../../shared/scan-options";
+import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode } from "../../shared/scan-utils";
+import type { Posisi, ScanMode, Target2D } from "../../shared/types";
 
 type Props = {
   rounds: string;
