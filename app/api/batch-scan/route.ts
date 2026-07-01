@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode } from "@/lib/engine/helpers";
-import type { Posisi, ScanMode } from "@/lib/engine/types";
+import { isScanMode, isTarget2D } from "@/lib/engine/helpers";
+import type { Posisi, ScanMode, Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
-type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; digitCount?: unknown; L?: unknown; outputTitle?: unknown };
+type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; target2D?: unknown; digitCount?: unknown; L?: unknown; outputTitle?: unknown };
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
@@ -54,8 +54,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
     }
 
+    if (body.target2D !== undefined && !isTarget2D(body.target2D)) {
+      return NextResponse.json({ error: "Target 2D tidak valid." }, { status: 400 });
+    }
+
     const scanMode = (body.scanMode ?? "posisi") as ScanMode;
     const targetPos = (body.targetPos ?? "K") as Posisi;
+    const target2D = (body.target2D ?? "belakang") as Target2D;
     const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 9);
     const L = asNum(body.L, 14, 1, 100);
     const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D`;
@@ -84,7 +89,7 @@ export async function POST(req: Request) {
 
       try {
         const draws = parseStrictHistory(market.history_data);
-        const result = runAutoScan(draws, { L, targetPos, digitCount, stopScan: 1, scanMode });
+        const result = runAutoScan(draws, { L, targetPos, target2D, digitCount, stopScan: 1, scanMode });
         results.push({ id, name, digits: result.items[0]?.angkaHidup.join("") || "-" });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
