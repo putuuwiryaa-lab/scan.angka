@@ -1,5 +1,6 @@
 import { ROW_ACTIONS_STYLE } from "../constants";
-import { analysisTitle, isShioMode, labelsFromValues, savedSignature } from "../helpers";
+import { isShioMode } from "../../shared/scan-utils";
+import { analysisTitle, labelsFromValues, savedSignature } from "../helpers";
 import type { ScanItem, ScanResult } from "../types";
 
 type Props = {
