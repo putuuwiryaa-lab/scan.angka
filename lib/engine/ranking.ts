@@ -1,0 +1,167 @@
+import { KOLOM } from "./types";
+import { POSISI } from "./constants";
+import { digitsFromDeretColumns, rowTargetColumns, uniqueDigits } from "./helpers";
+import type { AutoScanItem, EngineResult, Kolom, ScanMode } from "./types";
+
+export type RankedItem = AutoScanItem & {
+  typeOrder: number;
+  strength: number;
+  rankCoreSize: number;
+  hitScore: number;
+  recentScore: number;
+  consensusOverlap: number;
+  consensusWeight: number;
+  consensusDigits: number[];
+};
+
+interface ConsensusProfile {
+  digits: number[];
+  counts: number[];
+}
+
+export interface CompressionProfile {
+  displayColumns: Kolom[];
+  coreColumns: Kolom[];
+  supportColumns: Kolom[];
+  supportReasons: string[];
+  coreSize: number;
+  hitScore: number;
+  recentScore: number;
+}
+
+function columnHit(result: EngineResult, column: Kolom): number {
+  return result.kolom.find((k) => k.kolom === column)?.hit ?? 0;
+}
+
+function columnsHitScore(result: EngineResult, columns: Kolom[]): number {
+  return columns.reduce((sum, column) => sum + columnHit(result, column), 0);
+}
+
+function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
+  const selected: Kolom[] = [];
+  const uncovered = new Set(result.rows.map((_, index) => index));
+
+  while (uncovered.size > 0) {
+    let best: Kolom | null = null;
+    let bestCover = -1;
+    let bestHit = -1;
+
+    for (const column of KOLOM) {
+      if (selected.includes(column)) continue;
+      const cover = [...uncovered].filter((rowIndex) => rowTargetColumns(result.rows[rowIndex]).includes(column)).length;
+      const hit = columnHit(result, column);
+      if (cover > bestCover || (cover === bestCover && hit > bestHit)) {
+        best = column;
+        bestCover = cover;
+        bestHit = hit;
+      }
+    }
+
+    if (!best || bestCover <= 0) return [];
+    selected.push(best);
+    for (const rowIndex of [...uncovered]) if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
+    if (selected.length > digitCount) return [];
+  }
+
+  return selected;
+}
+
+function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
+  if (scanMode === "ai_2d_belakang") return coreColumnsForAi(result, digitCount);
+  const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
+  return alive.length === digitCount ? alive : [];
+}
+
+function rowCovered(row: EngineResult["rows"][number], columns: Set<Kolom>, scanMode: ScanMode): boolean {
+  const targetColumns = rowTargetColumns(row);
+  return scanMode === "ai_2d_belakang" ? targetColumns.some((column) => columns.has(column)) : targetColumns.every((column) => columns.has(column));
+}
+
+function recentScore(result: EngineResult, columns: Kolom[], scanMode: ScanMode): number {
+  const columnSet = new Set(columns);
+  return result.rows.slice(-5).filter((row) => rowCovered(row, columnSet, scanMode)).length;
+}
+
+export function compressionProfile(result: EngineResult, digitCount: number, scanMode: ScanMode): CompressionProfile | null {
+  const core = coreColumns(result, digitCount, scanMode);
+  if (core.length !== digitCount) return null;
+
+  return {
+    displayColumns: core,
+    coreColumns: core,
+    supportColumns: [],
+    supportReasons: [],
+    coreSize: core.length,
+    hitScore: columnsHitScore(result, core),
+    recentScore: recentScore(result, core, scanMode),
+  };
+}
+
+export function digitsFromColumns(result: EngineResult, columns: Kolom[]): number[] {
+  return columns.map((column) => result.kolom.find((k) => k.kolom === column)?.digitLive).filter((digit): digit is number => Number.isFinite(digit));
+}
+
+function normalizedTrekDigits(digits: number[]): string {
+  return uniqueDigits(digits).sort((a, b) => a - b).join("");
+}
+
+function trekSignature(item: AutoScanItem): string {
+  const rows = item.result.rows.map((row) => normalizedTrekDigits(digitsFromDeretColumns(row.deret, item.kolomHidup)));
+  return `${item.scanMode}:${item.targetPos}:${rows.join("|")}`;
+}
+
+function consensusProfile(items: AutoScanItem[], digitCount: number): ConsensusProfile {
+  const counts = Array.from({ length: 10 }, () => 0);
+  for (const item of items) {
+    for (const digit of uniqueDigits(item.angkaHidup)) {
+      if (digit >= 0 && digit <= 9) counts[digit] += 1;
+    }
+  }
+  const digits = counts.map((count, digit) => ({ digit, count })).sort((a, b) => b.count - a.count || a.digit - b.digit).slice(0, digitCount).map((item) => item.digit);
+  return { digits, counts };
+}
+
+export function applyConsensusScores(items: RankedItem[], digitCount: number): void {
+  const profile = consensusProfile(items, digitCount);
+  const consensusSet = new Set(profile.digits);
+  for (const item of items) {
+    const digits = uniqueDigits(item.angkaHidup);
+    item.consensusDigits = profile.digits;
+    item.consensusOverlap = digits.filter((digit) => consensusSet.has(digit)).length;
+    item.consensusWeight = digits.reduce((sum, digit) => sum + (profile.counts[digit] ?? 0), 0);
+  }
+}
+
+function baseRank(a: RankedItem, b: RankedItem): number {
+  return b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
+export function finalRank(a: RankedItem, b: RankedItem): number {
+  return b.consensusOverlap - a.consensusOverlap ||
+    b.consensusWeight - a.consensusWeight ||
+    b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
+export function dedupeTrekCandidates(items: RankedItem[]): RankedItem[] {
+  const seen = new Set<string>();
+  const unique: RankedItem[] = [];
+  for (const item of [...items].sort(baseRank)) {
+    const signature = trekSignature(item);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    unique.push(item);
+  }
+  return unique;
+}
