@@ -1,5 +1,6 @@
 import { ROW_ACTIONS_STYLE, SECTION_COUNT_STYLE, SECTION_LINE_STYLE, SECTION_TITLE_STYLE } from "../constants";
-import { analysisTitle, isShioMode, labelsFromValues } from "../helpers";
+import { isShioMode } from "../../shared/scan-utils";
+import { analysisTitle, labelsFromValues } from "../helpers";
 import type { SavedGroup, SavedLive, SavedTrek } from "../types";
 
 type Props = {
