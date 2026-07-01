@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { clampTextNumber } from "../../shared/scan-utils";
 import {
   buildCopyText,
-  clampTextNumber,
   detailHeaderTitle,
   joinValues,
   labelsFromValues,
