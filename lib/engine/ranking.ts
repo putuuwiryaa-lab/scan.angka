@@ -1,6 +1,6 @@
 import { KOLOM } from "./types";
 import { POSISI } from "./constants";
-import { digitsFromDeretColumns, rowTargetColumns, uniqueDigits } from "./helpers";
+import { digitsFromDeretColumns, isOffMode, rowTargetColumns, uniqueDigits } from "./helpers";
 import type { AutoScanItem, EngineResult, Kolom, ScanMode } from "./types";
 
 export type RankedItem = AutoScanItem & {
@@ -68,12 +68,13 @@ function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
 
 function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
   if (scanMode === "ai_2d_belakang") return coreColumnsForAi(result, digitCount);
-  const alive = result.kolom.filter((k) => !k.lemah).map((k) => k.kolom as Kolom);
-  return alive.length === digitCount ? alive : [];
+  const columns = result.kolom.filter((k) => isOffMode(scanMode) ? k.lemah : !k.lemah).map((k) => k.kolom as Kolom);
+  return columns.length === digitCount ? columns : [];
 }
 
 function rowCovered(row: EngineResult["rows"][number], columns: Set<Kolom>, scanMode: ScanMode): boolean {
   const targetColumns = rowTargetColumns(row);
+  if (isOffMode(scanMode)) return targetColumns.every((column) => !columns.has(column));
   return scanMode === "ai_2d_belakang" ? targetColumns.some((column) => columns.has(column)) : targetColumns.every((column) => columns.has(column));
 }
 
