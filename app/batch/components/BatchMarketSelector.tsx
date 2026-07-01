@@ -1,6 +1,6 @@
 import { MAX_BATCH_MARKETS } from "../constants";
 import { batchMarketTitle } from "../helpers";
-import type { Market } from "../../scan/types";
+import type { Market } from "../../shared/types";
 
 type Props = {
   markets: Market[];
