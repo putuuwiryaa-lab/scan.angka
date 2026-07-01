@@ -1,8 +1,6 @@
 import { ANALYSIS_LABEL, COLS, LABEL, SHIO_COLS, TARGET_2D_LABEL } from "./constants";
-import { clampTextNumber, cleanDigits, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
+import { isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 import type { Market, Posisi, SavedGroup, SavedTrek, ScanItem, ScanMode, ScanRow, Target2D } from "./types";
-
-export { clampTextNumber, cleanDigits, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 
 export function pickColumns(columns: string[], deret: number[]) {
   const source = deret.length === 12 ? SHIO_COLS : COLS;
