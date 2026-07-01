@@ -165,11 +165,6 @@ function predictionResult(item: ScanItem) {
   return pickColumns(item.activeColumns, item.result.deretLive).join("");
 }
 
-function modeText(item: ScanItem) {
-  if (item.scanMode === "off_posisi") return `OFF ${LABEL[item.targetPos]}`;
-  return MODE_LABEL[item.scanMode];
-}
-
 function detailTitle(item: ScanItem) {
   if (item.scanMode === "ai_2d_belakang") return "Detail AI 2D Belakang";
   if (item.scanMode === "bbfs_2d_belakang") return "Detail BBFS 2D Belakang";
@@ -268,7 +263,7 @@ export default function Page() {
       setScanMode("posisi");
       setTargetPos(value);
     } else {
-      setScanMode(value);
+      setScanMode(value as ScanMode);
       setTargetPos("K");
     }
     setTrekOpen(false);
