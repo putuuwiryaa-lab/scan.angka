@@ -1,4 +1,4 @@
-import { KOLOM, POS_INDEX, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode } from "./types";
+import { KOLOM, POS_INDEX, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D } from "./types";
 
 export function parseHistory(historyData: string): Draw[] {
   return historyData.trim().split(/\s+/).filter((tok) => /^\d{4}$/.test(tok));
@@ -32,8 +32,24 @@ export function isScanMode(value: unknown): value is ScanMode {
     value === "off_jumlah_2d_belakang";
 }
 
+export function isTarget2D(value: unknown): value is Target2D {
+  return value === "depan" || value === "tengah" || value === "belakang";
+}
+
+export function target2DOrDefault(value: unknown): Target2D {
+  return isTarget2D(value) ? value : "belakang";
+}
+
 export function isOffMode(mode: ScanMode): boolean {
   return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang";
+}
+
+export function is2DMode(mode: ScanMode): boolean {
+  return mode === "ai_2d_belakang" ||
+    mode === "bbfs_2d_belakang" ||
+    mode === "jumlah_2d_belakang" ||
+    mode === "off_2d_belakang" ||
+    mode === "off_jumlah_2d_belakang";
 }
 
 export function scanModeOrDefault(value: unknown): ScanMode {
@@ -49,9 +65,21 @@ export function jumlah2dDigit(left: number, right: number): number {
   return total >= 10 ? Math.floor(total / 10) + (total % 10) : total;
 }
 
-export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi): number[] {
-  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang" || mode === "off_2d_belakang") return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
-  if (mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang") return [jumlah2dDigit(digitOf(draw, "K"), digitOf(draw, "E"))];
+function target2DPositions(target2D: Target2D): [Posisi, Posisi] {
+  if (target2D === "depan") return ["A", "C"];
+  if (target2D === "tengah") return ["C", "K"];
+  return ["K", "E"];
+}
+
+export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi, target2D: Target2D = "belakang"): number[] {
+  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang" || mode === "off_2d_belakang") {
+    const [left, right] = target2DPositions(target2D);
+    return uniqueDigits([digitOf(draw, left), digitOf(draw, right)]);
+  }
+  if (mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang") {
+    const [left, right] = target2DPositions(target2D);
+    return [jumlah2dDigit(digitOf(draw, left), digitOf(draw, right))];
+  }
   return [digitOf(draw, targetPos)];
 }
 
@@ -63,13 +91,14 @@ export function offsetLabel(pos: Posisi, N: number, offset: number): string {
   return offset === 0 ? `${pos}${N}` : `${pos}${N}${offsetSuffix(offset)}`;
 }
 
-export function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode): string {
-  const prefix = mode === "ai_2d_belakang" ? "ai2db" :
-    mode === "bbfs_2d_belakang" ? "bbfs2db" :
-    mode === "jumlah_2d_belakang" ? "jml2db" :
+export function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode, target2D: Target2D = "belakang"): string {
+  const area = target2D === "depan" ? "d" : target2D === "tengah" ? "t" : "b";
+  const prefix = mode === "ai_2d_belakang" ? `ai2d${area}` :
+    mode === "bbfs_2d_belakang" ? `bbfs2d${area}` :
+    mode === "jumlah_2d_belakang" ? `jml2d${area}` :
     mode === "off_posisi" ? `off${target.toLowerCase()}` :
-    mode === "off_2d_belakang" ? "off2db" :
-    mode === "off_jumlah_2d_belakang" ? "offjml2db" :
+    mode === "off_2d_belakang" ? `off2d${area}` :
+    mode === "off_jumlah_2d_belakang" ? `offjml2d${area}` :
     target.toLowerCase();
   return `#${prefix}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
