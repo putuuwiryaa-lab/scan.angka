@@ -54,7 +54,8 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
   const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
-  const targets = safeConfig.scanMode === "posisi" ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
+  const isPositionScan = safeConfig.scanMode === "posisi" || safeConfig.scanMode === "off_posisi";
+  const targets = isPositionScan ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
   const items: RankedItem[] = [];
   let totalChecked = 0;
 
