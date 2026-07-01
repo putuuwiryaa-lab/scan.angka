@@ -1,0 +1,152 @@
+.sheet-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, .62);
+  display: flex;
+  align-items: flex-end;
+  padding: 12px;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 82vh;
+  margin: 0 auto;
+  background: #111823;
+  border: 1px solid var(--line);
+  border-radius: 18px 18px 10px 10px;
+  overflow: hidden;
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-head b {
+  display: block;
+  font-size: 18px;
+}
+
+.sheet-head span {
+  display: block;
+  color: #51d2ca;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+.sheet-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sheet-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.sheet-actions .copy-btn {
+  height: 34px;
+  padding: 0 10px;
+  color: #cfe0ff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sheet-actions .close-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.trek-detail {
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 16px 12px 14px;
+}
+
+.trek-row {
+  display: grid;
+  grid-template-columns: 60px 22px minmax(0, 1fr) 28px;
+  gap: 7px;
+  align-items: center;
+  padding: 8px 2px;
+  border-bottom: 1px solid rgba(40, 48, 64, .75);
+  font-family: var(--font-mono);
+}
+
+.trek-row span {
+  color: #e5edf8;
+  font-weight: 800;
+}
+
+.trek-row > i {
+  color: #51d2ca;
+  font-style: normal;
+  font-weight: 900;
+  text-align: center;
+  font-size: 15px;
+}
+
+.trek-row b {
+  color: var(--gold);
+  letter-spacing: 1px;
+  font-size: 16px;
+}
+
+.trek-row em {
+  color: #cfd8e3;
+  font-style: normal;
+  font-weight: 900;
+  font-size: 12px;
+  text-align: right;
+}
+
+.trek-row b.row-digits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  letter-spacing: 0;
+}
+
+.row-digits span {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.row-digits .hit-digit {
+  color: #07111f;
+  background: var(--gold);
+  box-shadow: 0 0 0 1px rgba(224, 179, 65, .55);
+}
+
+.trek-row.pending {
+  position: sticky;
+  bottom: 0;
+  background: #151f2d;
+  border: 1px solid rgba(224, 179, 65, .35);
+  border-radius: 10px;
+  margin-top: 10px;
+  padding: 10px 8px;
+}
+
+.trek-row.pending span,
+.trek-row.pending em {
+  color: var(--gold);
+}
