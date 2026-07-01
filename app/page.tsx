@@ -118,12 +118,19 @@ function analysisTitle(mode: ScanMode, targetPos: Posisi, target2D: Target2D) {
   if (isPositionMode(mode)) return `${ANALYSIS_LABEL[mode]} ${LABEL[targetPos]}`;
   return `${ANALYSIS_LABEL[mode]} ${TARGET_2D_LABEL[target2D]}`;
 }
+function scanDescription(mode: ScanMode, targetPos: Posisi, target2D: Target2D, count: number) {
+  const unit = isShioMode(mode) ? "shio" : "digit";
+  return `${analysisTitle(mode, targetPos, target2D)} ${count} ${unit}`;
+}
+function detailHeaderTitle(marketName: string, selectedMarket: Market | null) {
+  return marketName || (selectedMarket ? marketTitle(selectedMarket) : "Pasaran");
+}
 function detailTitle(item: ScanItem) {
   if (item.scanMode === "posisi") return `Detail Trek ${NAME[item.targetPos]} (${SHORT[item.targetPos]})`;
   return `Detail ${analysisTitle(item.scanMode, item.targetPos, item.target2D)}`;
 }
-function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
-  const header = [detailTitle(item), `Rumus : ${item.formula.toLowerCase()}`];
+function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string, title: string, description: string) {
+  const header = [title, description];
   const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${rowStatus(item, row)}`);
   const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
@@ -185,7 +192,9 @@ export default function Page() {
 
   async function copyTrek() {
     if (!viewItem) return;
-    const text = buildCopyText(viewItem, viewRows, nextPrediction);
+    const title = detailHeaderTitle(marketName, selectedMarket);
+    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
+    const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
     try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
     catch { setError("Gagal salin trek."); }
   }
@@ -234,7 +243,7 @@ export default function Page() {
 
       {result && <div className="panel result-panel"><p className="summary"><b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.totalMatched} hasil</p><div className="scan-list compact-list">{result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}{result.items.map((item, index) => <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.formula}-${index}`}><span className="scan-formula compact-formula">{item.formula}</span><div className="compact-digits">{labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><button className="view-btn compact-view" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat</button></div>)}</div>{result.items.length > 0 && <div className="frequency-block"><div className="frequency-head"><b>Frekuensi</b><span>{result.items.length} rumus</span></div><p>Kemunculan kandidat dari hasil scan.</p><div className="frequency-grid">{frequencies.map((item) => <div className={item.count === 0 ? "frequency-item muted" : "frequency-item"} key={item.digit}><b>{labelValue(item.digit, result.config.scanMode)}</b><i>=</i><span>{item.count}x</span></div>)}</div></div>}</div>}
 
-      {viewItem && <div className="sheet-bg" onClick={() => setViewItem(null)}><div className="sheet" onClick={(e) => e.stopPropagation()}><div className="sheet-head"><div><b>{detailTitle(viewItem)}</b><span>Rumus : {viewItem.formula.toLowerCase()}</span></div><div className="sheet-actions"><button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button><button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button></div></div><div className="trek-detail">{viewRows.map((row, idx) => <div className="trek-row" key={`${row.displayDraw}-${idx}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewItem.scanMode)}</span>)}</b><em>{rowStatus(viewItem, row)}</em></div>)}<div className="trek-row pending"><span>{viewItem.result.latestDraw}</span><i>➜</i><b className="row-digits">{nextPredictionLabels.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
+      {viewItem && <div className="sheet-bg" onClick={() => setViewItem(null)}><div className="sheet" onClick={(e) => e.stopPropagation()}><div className="sheet-head"><div><b>{detailHeaderTitle(marketName, selectedMarket)}</b><span>{scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount)}</span></div><div className="sheet-actions"><button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button><button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button></div></div><div className="trek-detail">{viewRows.map((row, idx) => <div className="trek-row" key={`${row.displayDraw}-${idx}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewItem.scanMode)}</span>)}</b><em>{rowStatus(viewItem, row)}</em></div>)}<div className="trek-row pending"><span>{viewItem.result.latestDraw}</span><i>➜</i><b className="row-digits">{nextPredictionLabels.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
 
       <BottomNav />
     </div>
