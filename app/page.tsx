@@ -44,6 +44,16 @@ type SavedLive = {
   predictionText: string;
   result: { rows: ScanRow[]; latestDraw: string; deretLive: number[] };
 };
+type SavedGroup = {
+  key: string;
+  marketName: string;
+  scanMode: ScanMode;
+  targetPos: Posisi;
+  target2D: Target2D;
+  digitCount: number;
+  L: number;
+  items: SavedTrek[];
+};
 
 const SAVED_TREK_KEY = "scan-angka:saved-treks:v2";
 const ANALYSIS_OPTIONS: { value: ScanMode; label: string }[] = [
@@ -190,8 +200,19 @@ export default function Page() {
   const nextPredictionLabels = viewItem ? labelsFromValues(predictionValues(viewItem), viewItem.scanMode) : [];
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
   const savedTreksForMarket = useMemo(() => savedTreks.filter((item) => item.marketId === marketId), [savedTreks, marketId]);
-  const savedSummary = savedTreksForMarket[0] ?? null;
-  const savedSummaryMarket = savedSummary?.marketName || (selectedMarket ? marketTitle(selectedMarket).toUpperCase() : "PASARAN");
+  const savedGroups = useMemo<SavedGroup[]>(() => {
+    const groups: SavedGroup[] = [];
+    for (const item of savedTreksForMarket) {
+      const key = `${item.marketName}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.digitCount}:${item.L}`;
+      const existing = groups.find((group) => group.key === key);
+      if (existing) {
+        existing.items.push(item);
+        continue;
+      }
+      groups.push({ key, marketName: item.marketName, scanMode: item.scanMode, targetPos: item.targetPos, target2D: item.target2D, digitCount: item.digitCount, L: item.L, items: [item] });
+    }
+    return groups;
+  }, [savedTreksForMarket]);
   const savedRefreshKey = useMemo(() => `${marketId}:${selectedMarket?.latestResult ?? ""}:${savedTreksForMarket.map((item) => `${item.id}:${item.L}:${item.kolomHidup.join("")}`).join("|")}`, [marketId, selectedMarket?.latestResult, savedTreksForMarket]);
 
   useEffect(() => {
@@ -348,7 +369,7 @@ export default function Page() {
 
       {result && <div className="panel result-panel"><p className="summary"><b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.config.L} data &middot; {result.totalMatched} hasil</p><div className="scan-list compact-list">{result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}{result.items.map((item, index) => { const signature = savedSignature(item, marketId); return <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.formula}-${index}`}><span className="scan-formula compact-formula">{item.formula}</span><div className="compact-digits">{labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => saveTrek(item)}>{savedFlashId === signature ? "Tersimpan" : "Simpan"}</button><button className="view-btn compact-view" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat</button></div></div>; })}</div></div>}
 
-      {savedTreksForMarket.length > 0 && <><div style={SECTION_TITLE_STYLE}><span style={SECTION_LINE_STYLE} /><b>Trek Tersimpan</b><em style={SECTION_COUNT_STYLE}>{savedTreksForMarket.length} trek</em><span style={SECTION_LINE_STYLE} /></div><div className="panel result-panel">{savedSummary && <p className="summary"><b>{savedSummaryMarket}</b> &middot; <b>{analysisTitle(savedSummary.scanMode, savedSummary.targetPos, savedSummary.target2D)}</b> &middot; {savedSummary.digitCount} {isShioMode(savedSummary.scanMode) ? "shio" : "digit"} &middot; {savedSummary.L} data &middot; {savedTreksForMarket.length} hasil</p>}<div className="scan-list compact-list">{savedTreksForMarket.map((saved) => { const live = savedLiveMap[saved.id]; const values = live?.predictionValues ?? saved.predictionValues; return <div className="scan-item compact" key={saved.id}><span className="scan-formula compact-formula">{saved.formula}</span><div className="compact-digits">{labelsFromValues(values, saved.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => setViewSaved(saved)}>Lihat</button><button className="view-btn compact-view" type="button" onClick={() => deleteSavedTrek(saved.id)}>Hapus</button></div></div>; })}</div></div></>}
+      {savedTreksForMarket.length > 0 && <><div style={SECTION_TITLE_STYLE}><span style={SECTION_LINE_STYLE} /><b>Trek Tersimpan</b><em style={SECTION_COUNT_STYLE}>{savedTreksForMarket.length} trek</em><span style={SECTION_LINE_STYLE} /></div>{savedGroups.map((group) => <div className="panel result-panel" key={group.key}><p className="summary"><b>{group.marketName}</b> &middot; <b>{analysisTitle(group.scanMode, group.targetPos, group.target2D)}</b> &middot; {group.digitCount} {isShioMode(group.scanMode) ? "shio" : "digit"} &middot; {group.L} data &middot; {group.items.length} hasil</p><div className="scan-list compact-list">{group.items.map((saved) => { const live = savedLiveMap[saved.id]; const values = live?.predictionValues ?? saved.predictionValues; return <div className="scan-item compact" key={saved.id}><span className="scan-formula compact-formula">{saved.formula}</span><div className="compact-digits">{labelsFromValues(values, saved.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => setViewSaved(saved)}>Lihat</button><button className="view-btn compact-view" type="button" onClick={() => deleteSavedTrek(saved.id)}>Hapus</button></div></div>; })}</div></div>)}</>}
 
       {viewItem && <div className="sheet-bg" onClick={() => setViewItem(null)}><div className="sheet" onClick={(event) => event.stopPropagation()}><div className="sheet-head"><div><b>{detailHeaderTitle(marketName, selectedMarket)}</b><span>{scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount)}</span></div><div className="sheet-actions"><button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button><button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button></div></div><div className="trek-detail">{viewRows.map((row, index) => <div className="trek-row" key={`${row.displayDraw}-${index}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{rowValues(viewItem, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewItem.scanMode)}</span>)}</b><em>{rowStatus(viewItem, row)}</em></div>)}<div className="trek-row pending"><span>{viewItem.result.latestDraw}</span><i>➜</i><b className="row-digits">{nextPredictionLabels.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
 
