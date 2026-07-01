@@ -22,8 +22,22 @@ export function clamp(value: unknown, fallback: number, min: number, max: number
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
+export function isScanMode(value: unknown): value is ScanMode {
+  return value === "posisi" ||
+    value === "ai_2d_belakang" ||
+    value === "bbfs_2d_belakang" ||
+    value === "jumlah_2d_belakang" ||
+    value === "off_posisi" ||
+    value === "off_2d_belakang" ||
+    value === "off_jumlah_2d_belakang";
+}
+
+export function isOffMode(mode: ScanMode): boolean {
+  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang";
+}
+
 export function scanModeOrDefault(value: unknown): ScanMode {
-  return value === "ai_2d_belakang" || value === "bbfs_2d_belakang" || value === "jumlah_2d_belakang" ? value : "posisi";
+  return isScanMode(value) ? value : "posisi";
 }
 
 export function uniqueDigits(digits: number[]): number[] {
@@ -36,8 +50,8 @@ export function jumlah2dDigit(left: number, right: number): number {
 }
 
 export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi): number[] {
-  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang") return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
-  if (mode === "jumlah_2d_belakang") return [jumlah2dDigit(digitOf(draw, "K"), digitOf(draw, "E"))];
+  if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang" || mode === "off_2d_belakang") return uniqueDigits([digitOf(draw, "K"), digitOf(draw, "E")]);
+  if (mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang") return [jumlah2dDigit(digitOf(draw, "K"), digitOf(draw, "E"))];
   return [digitOf(draw, targetPos)];
 }
 
@@ -50,7 +64,13 @@ export function offsetLabel(pos: Posisi, N: number, offset: number): string {
 }
 
 export function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode): string {
-  const prefix = mode === "ai_2d_belakang" ? "ai2db" : mode === "bbfs_2d_belakang" ? "bbfs2db" : mode === "jumlah_2d_belakang" ? "jml2db" : target.toLowerCase();
+  const prefix = mode === "ai_2d_belakang" ? "ai2db" :
+    mode === "bbfs_2d_belakang" ? "bbfs2db" :
+    mode === "jumlah_2d_belakang" ? "jml2db" :
+    mode === "off_posisi" ? `off${target.toLowerCase()}` :
+    mode === "off_2d_belakang" ? "off2db" :
+    mode === "off_jumlah_2d_belakang" ? "offjml2db" :
+    target.toLowerCase();
   return `#${prefix}_${formula}_L${L}-P0-D0_${columns || "-"}`;
 }
 
