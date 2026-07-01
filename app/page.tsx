@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import BottomNav from "./bottom-nav";
 
-type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang";
-type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang";
+type Posisi = "A" | "C" | "K" | "E";
+type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang";
+type TrekChoice = Posisi | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_A" | "off_C" | "off_K" | "off_E" | "off_2d_belakang" | "off_jumlah_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
 type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; targetDigits?: number[]; deret: number[] };
 type ScanItem = {
-  targetPos: string;
+  targetPos: Posisi;
   scanMode: ScanMode;
   formula: string;
   angkaHidup: number[];
@@ -16,7 +17,7 @@ type ScanItem = {
   result: { rows: ScanRow[]; patokanLiveDraw: string; latestDraw: string; deretLive: number[] };
 };
 type ScanResult = {
-  config: { L: number; targetPos: string; digitCount: number; stopScan: number; scanMode: ScanMode };
+  config: { L: number; targetPos: Posisi; digitCount: number; stopScan: number; scanMode: ScanMode };
   totalChecked: number;
   totalMatched: number;
   items: ScanItem[];
@@ -31,15 +32,24 @@ const TREK: [TrekChoice, string][] = [
   ["ai_2d_belakang", "AI 2D Belakang"],
   ["bbfs_2d_belakang", "BBFS 2D Belakang"],
   ["jumlah_2d_belakang", "Jumlah 2D Belakang"],
+  ["off_A", "OFF As"],
+  ["off_C", "OFF Cop"],
+  ["off_K", "OFF Kepala"],
+  ["off_E", "OFF Ekor"],
+  ["off_2d_belakang", "OFF 2D Belakang"],
+  ["off_jumlah_2d_belakang", "OFF Jumlah 2D"],
 ];
-const LABEL: Record<string, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
-const NAME: Record<string, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
-const SHORT: Record<string, string> = { A: "a", C: "c", K: "k", E: "e" };
+const LABEL: Record<Posisi, string> = { A: "As", C: "Cop", K: "Kepala", E: "Ekor" };
+const NAME: Record<Posisi, string> = { A: "as", C: "cop", K: "kepala", E: "ekor" };
+const SHORT: Record<Posisi, string> = { A: "a", C: "c", K: "k", E: "e" };
 const MODE_LABEL: Record<ScanMode, string> = {
   posisi: "Trek Posisi",
   ai_2d_belakang: "AI 2D Belakang",
   bbfs_2d_belakang: "BBFS 2D Belakang",
   jumlah_2d_belakang: "Jumlah 2D Belakang",
+  off_posisi: "OFF Posisi",
+  off_2d_belakang: "OFF 2D Belakang",
+  off_jumlah_2d_belakang: "OFF Jumlah 2D",
 };
 const COLS = "ABCDEFGHIJ";
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -56,6 +66,22 @@ const DATA_HINT_STYLE: CSSProperties = {
   fontWeight: 900,
   pointerEvents: "none",
 };
+
+function isPosisi(value: string): value is Posisi {
+  return value === "A" || value === "C" || value === "K" || value === "E";
+}
+
+function isOffMode(mode: ScanMode) {
+  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang";
+}
+
+function offChoiceTarget(value: TrekChoice): Posisi | null {
+  if (value === "off_A") return "A";
+  if (value === "off_C") return "C";
+  if (value === "off_K") return "K";
+  if (value === "off_E") return "E";
+  return null;
+}
 
 function pickColumns(activeColumns: string, deret: number[]) {
   return activeColumns
@@ -127,6 +153,7 @@ function rowResultText(item: ScanItem, row: ScanRow) {
 
 function rowStatus(item: ScanItem, row: ScanRow) {
   const results = rowResultDigits(item, row);
+  if (isOffMode(item.scanMode)) return results.some(({ hit }) => hit) ? "❌" : "✅";
   if (item.scanMode === "bbfs_2d_belakang") {
     const resultDigits = results.map(({ digit }) => digit);
     return targetDigits(row).every((digit) => resultDigits.includes(digit)) ? "✅" : "❌";
@@ -138,16 +165,19 @@ function predictionResult(item: ScanItem) {
   return pickColumns(item.activeColumns, item.result.deretLive).join("");
 }
 
+function modeText(item: ScanItem) {
+  if (item.scanMode === "off_posisi") return `OFF ${LABEL[item.targetPos]}`;
+  return MODE_LABEL[item.scanMode];
+}
+
 function detailTitle(item: ScanItem) {
   if (item.scanMode === "ai_2d_belakang") return "Detail AI 2D Belakang";
   if (item.scanMode === "bbfs_2d_belakang") return "Detail BBFS 2D Belakang";
   if (item.scanMode === "jumlah_2d_belakang") return "Detail Jumlah 2D Belakang";
+  if (item.scanMode === "off_posisi") return `Detail OFF ${LABEL[item.targetPos]}`;
+  if (item.scanMode === "off_2d_belakang") return "Detail OFF 2D Belakang";
+  if (item.scanMode === "off_jumlah_2d_belakang") return "Detail OFF Jumlah 2D";
   return `Detail Trek ${NAME[item.targetPos]} (${SHORT[item.targetPos]})`;
-}
-
-function rowSuffix(item: ScanItem, row: ScanRow) {
-  if (item.scanMode === "posisi") return SHORT[item.targetPos];
-  return targetDigits(row).join("");
 }
 
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string) {
@@ -164,7 +194,7 @@ export default function Page() {
   const [marketOpen, setMarketOpen] = useState(false);
   const [rounds, setRounds] = useState("14");
   const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
-  const [targetPos, setTargetPos] = useState("K");
+  const [targetPos, setTargetPos] = useState<Posisi>("K");
   const [trekOpen, setTrekOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(4);
   const [digitOpen, setDigitOpen] = useState(false);
@@ -190,7 +220,7 @@ export default function Page() {
   const frequencies = useMemo(() => result ? buildFrequencies(result.items) : [], [result]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
-  const selectedTrekText = scanMode === "posisi" ? LABEL[targetPos] : MODE_LABEL[scanMode];
+  const selectedTrekText = scanMode === "posisi" ? LABEL[targetPos] : scanMode === "off_posisi" ? `OFF ${LABEL[targetPos]}` : MODE_LABEL[scanMode];
 
   useEffect(() => {
     fetch("/api/markets")
@@ -230,7 +260,11 @@ export default function Page() {
   }
 
   function pilihTrek(value: TrekChoice) {
-    if (value === "A" || value === "C" || value === "K" || value === "E") {
+    const offTarget = offChoiceTarget(value);
+    if (offTarget) {
+      setScanMode("off_posisi");
+      setTargetPos(offTarget);
+    } else if (isPosisi(value)) {
       setScanMode("posisi");
       setTargetPos(value);
     } else {
@@ -358,7 +392,7 @@ export default function Page() {
             {trekOpen && (
               <div className="trek-menu">
                 {TREK.map(([value, text]) => {
-                  const active = scanMode === "posisi" ? value === targetPos : value === scanMode;
+                  const active = scanMode === "posisi" ? value === targetPos : scanMode === "off_posisi" ? value === `off_${targetPos}` : value === scanMode;
                   return (
                     <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={active ? "trek-option active" : "trek-option"} onClick={() => pilihTrek(value)}>
                       <span className="option-label">{text}</span>
@@ -373,7 +407,7 @@ export default function Page() {
 
         <div className="row two">
           <div className="field digit-field">
-            <label>Jumlah Digit Trek</label>
+            <label>{isOffMode(scanMode) ? "Jumlah OFF" : "Jumlah Digit Trek"}</label>
             <button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}>
               <b>{digitCount} digit</b>
               <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
@@ -406,7 +440,7 @@ export default function Page() {
 
       {result && (
         <div className="panel result-panel">
-          <p className="summary"><b>{marketName}</b> &middot; <b>{result.config.scanMode === "posisi" ? LABEL[result.config.targetPos] : MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
+          <p className="summary"><b>{marketName}</b> &middot; <b>{result.config.scanMode === "posisi" ? LABEL[result.config.targetPos] : result.config.scanMode === "off_posisi" ? `OFF ${LABEL[result.config.targetPos]}` : MODE_LABEL[result.config.scanMode]}</b> &middot; {result.config.digitCount} digit &middot; {result.totalMatched} hasil</p>
           <div className="scan-list compact-list">
             {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
             {result.items.map((item, index) => (
