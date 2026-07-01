@@ -39,14 +39,13 @@ export default function Page() {
   const { marketName, result, loading, scanError, setScanError, runScan } = useScanRunner();
   const {
     savedTreks,
-    savedTreksForMarket,
     savedGroups,
     savedLiveMap,
     savedFlashId,
     setSavedFlashId,
     persistSavedTreks,
     deleteSavedTrek: removeSavedTrek,
-  } = useSavedTreks(marketId, selectedMarket?.latestResult);
+  } = useSavedTreks();
   const {
     viewItem,
     viewSaved,
@@ -151,7 +150,7 @@ export default function Page() {
       />
 
       {result && <ScanResultPanel result={result} marketName={marketName} marketId={marketId} savedFlashId={savedFlashId} onSave={saveTrek} onView={openScanItem} />}
-      <SavedTreksSection total={savedTreksForMarket.length} groups={savedGroups} liveMap={savedLiveMap} onView={setViewSaved} onDelete={deleteSavedTrek} />
+      <SavedTreksSection total={savedTreks.length} groups={savedGroups} liveMap={savedLiveMap} onView={setViewSaved} onDelete={deleteSavedTrek} />
       <TrekDetailSheet item={viewItem} selectedMarket={selectedMarket} marketName={marketName} digitCount={digitCount} resultDigitCount={result?.config.digitCount} rows={viewRows} nextPredictionLabels={nextPredictionLabels} copied={copied} onCopy={copyTrek} onClose={() => setViewItem(null)} />
       <SavedTrekSheet saved={viewSaved} liveMap={savedLiveMap} onClose={() => setViewSaved(null)} />
 
