@@ -123,14 +123,14 @@ function scanDescription(mode: ScanMode, targetPos: Posisi, target2D: Target2D, 
   return `${analysisTitle(mode, targetPos, target2D)} ${count} ${unit}`;
 }
 function detailHeaderTitle(marketName: string, selectedMarket: Market | null) {
-  return marketName || (selectedMarket ? marketTitle(selectedMarket) : "Pasaran");
+  return (marketName || (selectedMarket ? marketTitle(selectedMarket) : "Pasaran")).toUpperCase();
 }
 function detailTitle(item: ScanItem) {
   if (item.scanMode === "posisi") return `Detail Trek ${NAME[item.targetPos]} (${SHORT[item.targetPos]})`;
   return `Detail ${analysisTitle(item.scanMode, item.targetPos, item.target2D)}`;
 }
 function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string, title: string, description: string) {
-  const header = [title, description];
+  const header = [`*${title}*`, description];
   const history = rows.map((row) => `${row.displayDraw} ➜ ${rowResultText(item, row)} ${rowStatus(item, row)}`);
   const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
   return [...header, "", ...history, next].join("\n");
