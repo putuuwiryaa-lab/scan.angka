@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
+import { isScanMode } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -19,10 +20,6 @@ function titleCase(value: string): string {
 
 function isPosisi(value: unknown): value is Posisi {
   return value === "A" || value === "C" || value === "K" || value === "E";
-}
-
-function isScanMode(value: unknown): value is ScanMode {
-  return value === "posisi" || value === "ai_2d_belakang" || value === "bbfs_2d_belakang";
 }
 
 function asNum(value: unknown, fallback: number, min: number, max: number): number {
