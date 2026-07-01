@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatSyncTime, isSingapore, marketTitle } from "../helpers";
+import { formatSyncTime, isSingapore } from "../helpers";
+import { marketTitle } from "../../shared/scan-utils";
 import type { Market } from "../types";
 
 export function useMarketPicker() {
