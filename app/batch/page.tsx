@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import BottomNav from "../bottom-nav";
 
-type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang";
-type TrekChoice = "A" | "C" | "K" | "E" | "ai_2d_belakang" | "bbfs_2d_belakang";
+type Posisi = "A" | "C" | "K" | "E";
+type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang";
+type TrekChoice = Posisi | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_A" | "off_C" | "off_K" | "off_E" | "off_2d_belakang" | "off_jumlah_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null };
 type BatchResult = { title: string; copyText: string; results: { id: string; name: string; digits: string }[] };
 
@@ -16,6 +17,13 @@ const TREK_OPTIONS: { value: TrekChoice; label: string }[] = [
   { value: "E", label: "Ekor" },
   { value: "ai_2d_belakang", label: "AI 2D Belakang" },
   { value: "bbfs_2d_belakang", label: "BBFS 2D Belakang" },
+  { value: "jumlah_2d_belakang", label: "Jumlah 2D Belakang" },
+  { value: "off_A", label: "OFF As" },
+  { value: "off_C", label: "OFF Cop" },
+  { value: "off_K", label: "OFF Kepala" },
+  { value: "off_E", label: "OFF Ekor" },
+  { value: "off_2d_belakang", label: "OFF 2D Belakang" },
+  { value: "off_jumlah_2d_belakang", label: "OFF Jumlah 2D" },
 ];
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -27,8 +35,22 @@ function marketTitle(market: Market) {
   return titleCase(market.name ?? market.id);
 }
 
-function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: string } {
-  if (value === "A" || value === "C" || value === "K" || value === "E") return { scanMode: "posisi", targetPos: value };
+function isPosisi(value: string): value is Posisi {
+  return value === "A" || value === "C" || value === "K" || value === "E";
+}
+
+function offChoiceTarget(value: TrekChoice): Posisi | null {
+  if (value === "off_A") return "A";
+  if (value === "off_C") return "C";
+  if (value === "off_K") return "K";
+  if (value === "off_E") return "E";
+  return null;
+}
+
+function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: Posisi } {
+  const offTarget = offChoiceTarget(value);
+  if (offTarget) return { scanMode: "off_posisi", targetPos: offTarget };
+  if (isPosisi(value)) return { scanMode: "posisi", targetPos: value };
   return { scanMode: value, targetPos: "K" };
 }
 
@@ -40,8 +62,16 @@ function outputTitleFromTrek(value: TrekChoice, digitCount: number) {
     E: "Ekor",
     ai_2d_belakang: "AI",
     bbfs_2d_belakang: "BBFS",
+    jumlah_2d_belakang: "Jumlah 2D",
+    off_A: "OFF As",
+    off_C: "OFF Cop",
+    off_K: "OFF Kepala",
+    off_E: "OFF Ekor",
+    off_2d_belakang: "OFF 2D Belakang",
+    off_jumlah_2d_belakang: "OFF Jumlah 2D",
   };
   if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang") return `${label[value]} ${digitCount}D Belakang`;
+  if (value === "off_2d_belakang" || value === "off_jumlah_2d_belakang") return `${label[value]} ${digitCount}D`;
   return `${label[value]} ${digitCount}D`;
 }
 
@@ -193,7 +223,7 @@ export default function BatchPage() {
           </div>
         </div>
         <div style={styles.field}>
-          <label style={styles.label}>Jumlah Digit</label>
+          <label style={styles.label}>{String(trek).startsWith("off_") ? "Jumlah OFF" : "Jumlah Digit"}</label>
           <select style={styles.select} value={digitCount} onChange={(e) => setDigitCount(Number(e.target.value))}>
             {DIGIT_OPTIONS.map((value) => <option key={value} value={value}>{value} digit</option>)}
           </select>
