@@ -1,7 +1,10 @@
+import type { ScanMode } from "../shared/scan-mode";
+
+export type { ScanMode } from "../shared/scan-mode";
+
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
 export type Target2D = "depan" | "tengah" | "belakang";
-export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang" | "shio" | "off_shio";
 
 export const KOLOM = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
 export const SHIO_KOLOM = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"] as const;
