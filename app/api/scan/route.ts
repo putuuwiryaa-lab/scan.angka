@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       L: clamp(body?.L, 14, 1, 100),
       targetPos: body?.targetPos as Posisi | undefined,
       target2D: body?.target2D as Target2D | undefined,
-      digitCount: clamp(body?.digitCount ?? body?.minHidup, DEFAULT_DIGIT_COUNT, 1, 9),
+      digitCount: clamp(body?.digitCount ?? body?.minHidup, DEFAULT_DIGIT_COUNT, 1, 12),
       stopScan: clamp(body?.stopScan, DEFAULT_STOP_SCAN, 1, 200),
       scanMode: (body?.scanMode ?? DEFAULT_SCAN_MODE) as ScanMode,
     };
