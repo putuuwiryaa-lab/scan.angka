@@ -1,16 +1,6 @@
-import type { Market, ScanMode } from "./types";
+import type { Market } from "./types";
 
-export function isPositionMode(mode: ScanMode) {
-  return mode === "posisi" || mode === "off_posisi";
-}
-
-export function isOffMode(mode: ScanMode) {
-  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_shio";
-}
-
-export function isShioMode(mode: ScanMode) {
-  return mode === "shio" || mode === "off_shio";
-}
+export { isOffMode, isPositionMode, isScanMode, isShioMode } from "../../lib/shared/scan-mode";
 
 export function marketTitle(market: Market) {
   return market.name ?? market.id;
