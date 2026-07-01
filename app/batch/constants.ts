@@ -1,1 +1,1 @@
-export const MAX_BATCH_MARKETS = 30;
+export const MAX_BATCH_MARKETS = 35;
