@@ -1,5 +1,6 @@
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
+export type Target2D = "depan" | "tengah" | "belakang";
 export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang";
 
 export const KOLOM = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
@@ -13,6 +14,7 @@ export interface EngineConfig {
   targetPos: Posisi;
   L: number;
   scanMode?: ScanMode;
+  target2D?: Target2D;
 }
 
 export interface KolomStat {
@@ -49,6 +51,7 @@ export interface EngineResult {
 export interface AutoScanConfig {
   L: number;
   targetPos?: Posisi;
+  target2D?: Target2D;
   digitCount?: number;
   stopScan?: number;
   scanMode?: ScanMode;
@@ -56,6 +59,7 @@ export interface AutoScanConfig {
 
 export interface AutoScanItem {
   targetPos: Posisi;
+  target2D: Target2D;
   scanMode: ScanMode;
   patokanPos: Posisi;
   patokanN: number;
@@ -81,6 +85,7 @@ export interface AutoScanResult {
   config: {
     L: number;
     targetPos: Posisi;
+    target2D: Target2D;
     digitCount: number;
     stopScan: number;
     scanMode: ScanMode;
