@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { MAX_BATCH_MARKETS } from "../constants";
 import { outputTitle } from "../helpers";
-import { clampTextNumber, isShioMode } from "../../scan/helpers";
+import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
 import type { BatchResult } from "../types";
-import type { Posisi, ScanMode, Target2D } from "../../scan/types";
+import type { Posisi, ScanMode, Target2D } from "../../shared/types";
 
 type RunBatchParams = {
   selected: string[];
