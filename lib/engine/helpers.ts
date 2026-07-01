@@ -1,4 +1,7 @@
+import { isOffMode, isScanMode, isShioMode } from "../shared/scan-mode";
 import { KOLOM, POS_INDEX, SHIO_KOLOM, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D } from "./types";
+
+export { isOffMode, isPositionMode, isScanMode, isShioMode } from "../shared/scan-mode";
 
 export const SHIO_NAMES = ["Kuda", "Ular", "Naga", "Kelinci", "Harimau", "Kerbau", "Tikus", "Babi", "Anjing", "Ayam", "Monyet", "Kambing"] as const;
 
@@ -28,32 +31,12 @@ export function clamp(value: unknown, fallback: number, min: number, max: number
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
-export function isScanMode(value: unknown): value is ScanMode {
-  return value === "posisi" ||
-    value === "ai_2d_belakang" ||
-    value === "bbfs_2d_belakang" ||
-    value === "jumlah_2d_belakang" ||
-    value === "off_posisi" ||
-    value === "off_2d_belakang" ||
-    value === "off_jumlah_2d_belakang" ||
-    value === "shio" ||
-    value === "off_shio";
-}
-
 export function isTarget2D(value: unknown): value is Target2D {
   return value === "depan" || value === "tengah" || value === "belakang";
 }
 
 export function target2DOrDefault(value: unknown): Target2D {
   return isTarget2D(value) ? value : "belakang";
-}
-
-export function isShioMode(mode: ScanMode): boolean {
-  return mode === "shio" || mode === "off_shio";
-}
-
-export function isOffMode(mode: ScanMode): boolean {
-  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_shio";
 }
 
 export function is2DMode(mode: ScanMode): boolean {
