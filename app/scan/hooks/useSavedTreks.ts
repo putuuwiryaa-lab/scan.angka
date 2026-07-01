@@ -5,14 +5,16 @@ import { SAVED_TREK_KEY } from "../constants";
 import { buildSavedGroups } from "../helpers";
 import type { SavedLive, SavedTrek } from "../types";
 
-export function useSavedTreks(marketId: string, latestResult?: string | null) {
+export function useSavedTreks() {
   const [savedTreks, setSavedTreks] = useState<SavedTrek[]>([]);
   const [savedLiveMap, setSavedLiveMap] = useState<Record<string, SavedLive>>({});
   const [savedFlashId, setSavedFlashId] = useState("");
 
-  const savedTreksForMarket = useMemo(() => savedTreks.filter((item) => item.marketId === marketId), [savedTreks, marketId]);
-  const savedGroups = useMemo(() => buildSavedGroups(savedTreksForMarket), [savedTreksForMarket]);
-  const savedRefreshKey = useMemo(() => `${marketId}:${latestResult ?? ""}:${savedTreksForMarket.map((item) => `${item.id}:${item.L}:${item.kolomHidup.join("")}`).join("|")}`, [marketId, latestResult, savedTreksForMarket]);
+  const savedGroups = useMemo(() => buildSavedGroups(savedTreks), [savedTreks]);
+  const savedRefreshKey = useMemo(
+    () => savedTreks.map((item) => `${item.id}:${item.marketId}:${item.L}:${item.kolomHidup.join("")}`).join("|"),
+    [savedTreks],
+  );
 
   useEffect(() => {
     try {
@@ -26,11 +28,11 @@ export function useSavedTreks(marketId: string, latestResult?: string | null) {
 
   useEffect(() => {
     let cancelled = false;
-    if (savedTreksForMarket.length === 0) return;
+    if (savedTreks.length === 0) return;
 
     async function refreshSavedTreks() {
       const updates: Record<string, SavedLive> = {};
-      await Promise.all(savedTreksForMarket.map(async (saved) => {
+      await Promise.all(savedTreks.map(async (saved) => {
         try {
           const response = await fetch("/api/saved-trek", {
             method: "POST",
@@ -74,7 +76,6 @@ export function useSavedTreks(marketId: string, latestResult?: string | null) {
 
   return {
     savedTreks,
-    savedTreksForMarket,
     savedGroups,
     savedLiveMap,
     savedFlashId,
