@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     if (!data?.history_data) return NextResponse.json({ error: "Pasaran ini belum punya data keluaran." }, { status: 404 });
 
     const draws = parseStrictHistory(data.history_data);
-    const result = runFormulaByName(draws, formula, { L, targetPos, target2D, scanMode });
+    const result = runFormulaByName(draws, formula, { patokanPos: targetPos, patokanN: 1, L, targetPos, target2D, scanMode });
     const predictionValues = digitsFromColumns(result.deretLive, kolomHidup);
     const predictionText = formatPrediction(predictionValues, scanMode);
 
