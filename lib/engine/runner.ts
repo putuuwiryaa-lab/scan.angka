@@ -1,4 +1,4 @@
-import { KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi } from "./types";
+import { KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode } from "./types";
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
 import { ALL_FORMULA_SPECS, computeFormula } from "./formulas";
 import { buildDeret, clamp, digitOf, parseHistory, scanCode, scanModeOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
@@ -6,7 +6,7 @@ import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsF
 
 export { parseHistory } from "./helpers";
 
-function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number], targetPos: Posisi, L: number, scanMode: EngineResult["config"]["scanMode"]): EngineResult {
+function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number], targetPos: Posisi, L: number, scanMode: ScanMode): EngineResult {
   const N = spec.patokanN;
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
   if (N < 1 || N > 9) throw new Error(`patokanN harus 1-9, diterima ${N}`);
