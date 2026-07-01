@@ -1,10 +1,13 @@
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
 export type Target2D = "depan" | "tengah" | "belakang";
-export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang";
+export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang" | "shio" | "off_shio";
 
 export const KOLOM = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
-export type Kolom = (typeof KOLOM)[number];
+export const SHIO_KOLOM = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"] as const;
+export type DigitKolom = (typeof KOLOM)[number];
+export type ShioKolom = (typeof SHIO_KOLOM)[number];
+export type Kolom = DigitKolom | ShioKolom;
 
 export const POS_INDEX: Record<Posisi, number> = { A: 0, C: 1, K: 2, E: 3 };
 
