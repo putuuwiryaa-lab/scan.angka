@@ -103,19 +103,20 @@ export function digitsFromColumns(result: EngineResult, columns: Kolom[]): numbe
 }
 
 function normalizedTrekDigits(digits: number[]): string {
-  return uniqueDigits(digits).sort((a, b) => a - b).join("");
+  return uniqueDigits(digits).sort((a, b) => a - b).join(":");
 }
 
 function trekSignature(item: AutoScanItem): string {
   const rows = item.result.rows.map((row) => normalizedTrekDigits(digitsFromDeretColumns(row.deret, item.kolomHidup)));
-  return `${item.scanMode}:${item.targetPos}:${rows.join("|")}`;
+  return `${item.scanMode}:${item.targetPos}:${item.target2D}:${rows.join("|")}`;
 }
 
 function consensusProfile(items: AutoScanItem[], digitCount: number): ConsensusProfile {
-  const counts = Array.from({ length: 10 }, () => 0);
+  const maxDigit = items.reduce((max, item) => Math.max(max, ...item.angkaHidup), 9);
+  const counts = Array.from({ length: Math.max(10, maxDigit + 1) }, () => 0);
   for (const item of items) {
     for (const digit of uniqueDigits(item.angkaHidup)) {
-      if (digit >= 0 && digit <= 9) counts[digit] += 1;
+      if (digit >= 0 && digit < counts.length) counts[digit] += 1;
     }
   }
   const digits = counts.map((count, digit) => ({ digit, count })).sort((a, b) => b.count - a.count || a.digit - b.digit).slice(0, digitCount).map((item) => item.digit);
