@@ -36,7 +36,7 @@ function normalizeColumns(value: unknown): Kolom[] {
 }
 
 function digitsFromColumns(deret: number[], columns: Kolom[]): number[] {
-  const source = deret.length === 12 ? SHIO_KOLOM : KOLOM;
+  const source: readonly Kolom[] = deret.length === 12 ? SHIO_KOLOM : KOLOM;
   return columns.map((column) => deret[source.indexOf(column)]).filter((digit): digit is number => Number.isFinite(digit));
 }
 
