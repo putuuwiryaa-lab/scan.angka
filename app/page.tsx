@@ -10,33 +10,30 @@ import SavedTrekSheet from "./scan/components/SavedTrekSheet";
 import { LABEL, TARGET_2D_LABEL } from "./scan/constants";
 import { useMarketPicker } from "./scan/hooks/useMarketPicker";
 import { useSavedTreks } from "./scan/hooks/useSavedTreks";
+import { useScanDropdowns } from "./scan/hooks/useScanDropdowns";
 import { useScanRunner } from "./scan/hooks/useScanRunner";
 import { useTrekActions } from "./scan/hooks/useTrekActions";
 import { isPositionMode, isShioMode } from "./shared/scan-utils";
-import type { Posisi, ScanMode, Target2D } from "./scan/types";
+import type { Market, Posisi, ScanMode, Target2D } from "./scan/types";
 
 export default function Page() {
   const {
     marketId,
     marketQuery,
-    marketOpen,
     selectedMarket,
     filteredMarkets,
     syncText,
     marketError,
     setMarketQuery,
-    setMarketOpen,
     selectMarket,
   } = useMarketPicker();
+  const { isOpen, toggleDropdown, closeDropdown } = useScanDropdowns();
 
   const [rounds, setRounds] = useState("14");
   const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
   const [targetPos, setTargetPos] = useState<Posisi>("K");
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
-  const [jenisOpen, setJenisOpen] = useState(false);
-  const [targetOpen, setTargetOpen] = useState(false);
   const [digitCount, setDigitCount] = useState(4);
-  const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
 
   const { marketName, result, loading, scanError, setScanError, runScan } = useScanRunner();
@@ -79,36 +76,20 @@ export default function Page() {
 
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
 
-  function bukaMarket() {
-    if (marketOpen) {
-      setMarketOpen(false);
-      return;
-    }
-    setMarketQuery("");
-    setJenisOpen(false);
-    setTargetOpen(false);
-    setDigitOpen(false);
-    setMarketOpen(true);
+  function toggleMarket() {
+    if (!isOpen("market")) setMarketQuery("");
+    toggleDropdown("market");
   }
 
-  function toggleJenis() {
-    setMarketOpen(false);
-    setTargetOpen(false);
-    setDigitOpen(false);
-    setJenisOpen((open) => !open);
+  function pilihMarket(market: Market) {
+    selectMarket(market);
+    closeDropdown();
   }
 
   function pilihJenis(value: ScanMode) {
     setScanMode(value);
-    setJenisOpen(false);
+    closeDropdown();
     if (!isShioMode(value) && digitCount > 9) setDigitCount(9);
-  }
-
-  function toggleTarget() {
-    setMarketOpen(false);
-    setJenisOpen(false);
-    setDigitOpen(false);
-    setTargetOpen((open) => !open);
   }
 
   function mulaiScan() {
@@ -123,7 +104,10 @@ export default function Page() {
       onRoundsChange: setRounds,
       onDigitCountChange: setDigitCount,
       onStopScanChange: setStopScan,
-      onBeforeRun: resetTrekView,
+      onBeforeRun: () => {
+        resetTrekView();
+        closeDropdown();
+      },
     });
   }
 
@@ -137,10 +121,10 @@ export default function Page() {
         filteredMarkets={filteredMarkets}
         marketId={marketId}
         marketQuery={marketQuery}
-        marketOpen={marketOpen}
-        jenisOpen={jenisOpen}
-        targetOpen={targetOpen}
-        digitOpen={digitOpen}
+        marketOpen={isOpen("market")}
+        jenisOpen={isOpen("jenis")}
+        targetOpen={isOpen("target")}
+        digitOpen={isOpen("digit")}
         rounds={rounds}
         scanMode={scanMode}
         targetPos={targetPos}
@@ -150,18 +134,18 @@ export default function Page() {
         stopScan={stopScan}
         loading={loading}
         error={scanError || marketError}
-        onOpenMarket={bukaMarket}
-        onCloseMarket={() => setMarketOpen(false)}
+        onOpenMarket={toggleMarket}
+        onCloseMarket={closeDropdown}
         onMarketQueryChange={setMarketQuery}
-        onSelectMarket={selectMarket}
+        onSelectMarket={pilihMarket}
         onRoundsChange={setRounds}
         onSelectJenis={pilihJenis}
-        onToggleJenis={toggleJenis}
-        onToggleTarget={toggleTarget}
-        onSelectTargetPos={(value) => { setTargetPos(value); setTargetOpen(false); }}
-        onSelectTarget2D={(value) => { setTarget2D(value); setTargetOpen(false); }}
-        onToggleDigit={() => { setMarketOpen(false); setJenisOpen(false); setTargetOpen(false); setDigitOpen((open) => !open); }}
-        onSelectDigit={(value) => { setDigitCount(value); setDigitOpen(false); }}
+        onToggleJenis={() => toggleDropdown("jenis")}
+        onToggleTarget={() => toggleDropdown("target")}
+        onSelectTargetPos={(value) => { setTargetPos(value); closeDropdown(); }}
+        onSelectTarget2D={(value) => { setTarget2D(value); closeDropdown(); }}
+        onToggleDigit={() => toggleDropdown("digit")}
+        onSelectDigit={(value) => { setDigitCount(value); closeDropdown(); }}
         onStopScanChange={setStopScan}
         onScan={mulaiScan}
       />
