@@ -1,6 +1,6 @@
 import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D } from "./types";
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
-import { ALL_FORMULA_SPECS, computeFormula } from "./formulas";
+import { ALL_FORMULA_SPECS, computeFormula, type FormulaSpec } from "./formulas";
 import { buildDeret, buildDeretShio, clamp, digitOf, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
 import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
 
@@ -18,7 +18,7 @@ function activeColumnsText(columns: Kolom[], scanMode: ScanMode): string {
   return isShioMode(scanMode) ? columns.join(",") : columns.join("");
 }
 
-function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number], targetPos: Posisi, L: number, scanMode: ScanMode, target2D: Target2D): EngineResult {
+function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode, target2D: Target2D): EngineResult {
   const N = spec.patokanN;
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
   if (N < 1 || N > 9) throw new Error(`patokanN harus 1-9, diterima ${N}`);
@@ -53,6 +53,14 @@ function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
 
   return { config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, target2D, L: safeL, scanMode }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
+}
+
+export function runFormulaByName(draws: Draw[], formula: string, config: EngineConfig): EngineResult {
+  const spec = ALL_FORMULA_SPECS.find((item) => item.formula === formula);
+  if (!spec) throw new Error(`Rumus ${formula} tidak ditemukan.`);
+  const scanMode = scanModeOrDefault(config.scanMode);
+  const target2D = target2DOrDefault(config.target2D);
+  return runFormulaEngine(draws, spec, config.targetPos, config.L, scanMode, target2D);
 }
 
 export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
