@@ -6,11 +6,12 @@ const EXTENDED_OFFSET_LIST = [1, 2, -1, -2];
 const CROSS_N_LIST = [1, 2, 3];
 const COMBO_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["A", "K"], ["A", "E"], ["C", "K"], ["C", "E"], ["K", "E"]];
 const COMBO_TRIPLES: [Posisi, Posisi, Posisi][] = [["A", "C", "K"], ["A", "C", "E"], ["A", "K", "E"], ["C", "K", "E"]];
+const TREK_PAIRS: [Posisi, Posisi][] = [["A", "C"], ["C", "K"], ["K", "E"]];
 const TESSON_MAP = [7, 4, 9, 6, 1, 8, 3, 0, 5, 2];
 const MIRROR_MAP = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 const DEFAULT_DIGIT_COUNT = 7;
 
-type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset";
+type FormulaType = "base" | "offset" | "tesson" | "tessonOffset" | "mirror" | "mirrorOffset" | "combo" | "comboOffset" | "crossCombo" | "crossDiff" | "tessonCombo" | "mirrorCombo" | "combo3" | "diff" | "absdiff" | "total" | "totalOffset" | "momentum" | "pairMomentum" | "rootPair" | "product" | "mixProduct";
 
 type RankedItem = AutoScanItem & { typeOrder: number; strength: number; rankCoreSize: number; hitScore: number; recentScore: number; consensusOverlap: number; consensusWeight: number; consensusDigits: number[] };
 
@@ -131,6 +132,7 @@ function formulaSpecs(): FormulaSpec[] {
       add(`${left}${N}+M-${right}${N}`, "mirrorCombo", 11, left, N, (draw) => mod10(digitOf(draw, left) + MIRROR_MAP[digitOf(draw, right)]));
       add(`${right}${N}+M-${left}${N}`, "mirrorCombo", 11, right, N, (draw) => mod10(digitOf(draw, right) + MIRROR_MAP[digitOf(draw, left)]));
       add(`M-${left}${N}+M-${right}${N}`, "mirrorCombo", 11, left, N, (draw) => mod10(MIRROR_MAP[digitOf(draw, left)] + MIRROR_MAP[digitOf(draw, right)]));
+      add(`PX-${left}${right}${N}`, "product", 20, left, N, (draw) => mod10(digitOf(draw, left) * digitOf(draw, right)));
     }
 
     for (const [left, middle, right] of COMBO_TRIPLES) add(`${left}${N}+${middle}${N}+${right}${N}`, "combo3", 12, left, N, (draw) => mod10(digitOf(draw, left) + digitOf(draw, middle) + digitOf(draw, right)));
@@ -138,6 +140,27 @@ function formulaSpecs(): FormulaSpec[] {
     for (const [left, right] of COMBO_PAIRS) add(`D-${left}${right}${N}`, "absdiff", 14, left, N, (draw) => Math.abs(digitOf(draw, left) - digitOf(draw, right)));
     add(`T${N}`, "total", 15, "A", N, (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0)));
     for (const offset of EXTENDED_OFFSET_LIST) add(`T${N}${offsetSuffix(offset)}`, "totalOffset", 16, "A", N, (draw) => mod10(POSISI.reduce((sum, pos) => sum + digitOf(draw, pos), 0) + offset));
+    for (const [left, right] of TREK_PAIRS) add(`JR-${left}${right}${N}`, "rootPair", 19, left, N, (draw) => jumlah2dDigit(digitOf(draw, left), digitOf(draw, right)));
+    add(`MP-ACKE${N}`, "mixProduct", 21, "A", N, (draw) => mod10(digitOf(draw, "A") * digitOf(draw, "C") + digitOf(draw, "K") * digitOf(draw, "E")));
+    add(`MP-AKCE${N}`, "mixProduct", 21, "A", N, (draw) => mod10(digitOf(draw, "A") * digitOf(draw, "K") + digitOf(draw, "C") * digitOf(draw, "E")));
+    add(`MP-AECK${N}`, "mixProduct", 21, "A", N, (draw) => mod10(digitOf(draw, "A") * digitOf(draw, "E") + digitOf(draw, "C") * digitOf(draw, "K")));
+  }
+
+  for (let N = 1; N <= 8; N += 1) {
+    for (const pos of POSISI) {
+      add(`MO-${pos}${N}`, "momentum", 17, pos, N + 1, () => 0, (draws, targetIndex) => {
+        const current = digitOf(draws[targetIndex - N], pos);
+        const previous = digitOf(draws[targetIndex - N - 1], pos);
+        return mod10(current + (current - previous));
+      });
+    }
+    for (const [left, right] of TREK_PAIRS) {
+      add(`PM-${left}${right}${N}`, "pairMomentum", 18, left, N + 1, () => 0, (draws, targetIndex) => {
+        const current = mod10(digitOf(draws[targetIndex - N], left) + digitOf(draws[targetIndex - N], right));
+        const previous = mod10(digitOf(draws[targetIndex - N - 1], left) + digitOf(draws[targetIndex - N - 1], right));
+        return mod10(current + (current - previous));
+      });
+    }
   }
 
   for (const [left, right] of COMBO_PAIRS) {
