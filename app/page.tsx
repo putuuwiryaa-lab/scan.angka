@@ -12,7 +12,7 @@ import { useMarketPicker } from "./scan/hooks/useMarketPicker";
 import { useSavedTreks } from "./scan/hooks/useSavedTreks";
 import { useScanRunner } from "./scan/hooks/useScanRunner";
 import { useTrekActions } from "./scan/hooks/useTrekActions";
-import { isPositionMode, isShioMode } from "./scan/helpers";
+import { isPositionMode, isShioMode } from "./shared/scan-utils";
 import type { Posisi, ScanMode, Target2D } from "./scan/types";
 
 export default function Page() {
