@@ -1,6 +1,6 @@
-import { ANALYSIS_LABEL, LABEL, TARGET_2D_LABEL } from "../scan/constants";
-import { isPositionMode, isShioMode } from "../scan/helpers";
-import type { Market, Posisi, ScanMode, Target2D } from "../scan/types";
+import { ANALYSIS_LABEL, LABEL, TARGET_2D_LABEL } from "../shared/scan-options";
+import { isPositionMode, isShioMode } from "../shared/scan-utils";
+import type { Market, Posisi, ScanMode, Target2D } from "../shared/types";
 
 export function titleCase(value: string) {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
