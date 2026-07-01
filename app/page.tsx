@@ -28,13 +28,16 @@ import {
   cleanDigits,
   detailHeaderTitle,
   formatSyncTime,
+  isOffMode,
   isPositionMode,
   isShioMode,
   isSingapore,
+  labelsFromValues,
   marketTitle,
   predictionResult,
   predictionValues,
   savedSignature,
+  scanDescription,
   joinValues,
 } from "./scan/helpers";
 import type { Market, Posisi, SavedLive, SavedTrek, ScanItem, ScanResult, Target2D, ScanMode } from "./scan/types";
@@ -74,7 +77,7 @@ export default function Page() {
   const syncText = useMemo(() => formatSyncTime(syncUpdatedAt), [syncUpdatedAt]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
-  const nextPredictionLabels = viewItem ? predictionValues(viewItem).map((value) => String(value)) : [];
+  const nextPredictionLabels = viewItem ? labelsFromValues(predictionValues(viewItem), viewItem.scanMode) : [];
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
   const savedTreksForMarket = useMemo(() => savedTreks.filter((item) => item.marketId === marketId), [savedTreks, marketId]);
   const savedGroups = useMemo(() => buildSavedGroups(savedTreksForMarket), [savedTreksForMarket]);
@@ -221,7 +224,7 @@ export default function Page() {
   async function copyTrek() {
     if (!viewItem) return;
     const title = detailHeaderTitle(marketName, selectedMarket);
-    const description = `${targetText} ${result?.config.digitCount ?? digitCount} digit`;
+    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
     const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
     try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
     catch { setError("Gagal salin trek."); }
@@ -264,7 +267,7 @@ export default function Page() {
 
         <div className="row two">
           <div className="field trek-field"><label>Target</label><button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleTarget}><b>{targetText}</b><span className="select-arrow">{targetOpen ? "⌃" : "⌄"}</span></button>{targetOpen && <div className="trek-menu">{isPositionMode(scanMode) ? POS_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === targetPos ? "trek-option active" : "trek-option"} onClick={() => { setTargetPos(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === targetPos && <b>✓</b>}</button>) : TARGET_2D_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => { setTarget2D(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === target2D && <b>✓</b>}</button>)}</div>}</div>
-          <div className="field digit-field"><label>{isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit"}</label><button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}><b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b><span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span></button>{digitOpen && <div className="digit-menu">{DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => { setDigitCount(value); setDigitOpen(false); }}><span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}</button>)}</div>}</div>
+          <div className="field digit-field"><label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label><button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}><b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b><span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span></button>{digitOpen && <div className="digit-menu">{DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => { setDigitCount(value); setDigitOpen(false); }}><span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}</button>)}</div>}</div>
         </div>
 
         <div className="field"><label>Batas Hasil</label><input inputMode="numeric" value={stopScan} onChange={(event) => setStopScan(cleanDigits(event.target.value, 3))} onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))} /></div>
