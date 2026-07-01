@@ -21,7 +21,6 @@ type ScanItem = {
 type ScanResult = { config: { L: number; targetPos: Posisi; target2D: Target2D; digitCount: number; stopScan: number; scanMode: ScanMode }; totalChecked: number; totalMatched: number; items: ScanItem[] };
 type FrequencyRow = { digit: number; count: number };
 
-const SHIO_NAMES = ["Kuda", "Ular", "Naga", "Kelinci", "Harimau", "Kerbau", "Tikus", "Babi", "Anjing", "Ayam", "Monyet", "Kambing"];
 const ANALYSIS_OPTIONS: { value: ScanMode; label: string }[] = [
   { value: "posisi", label: "Trek Posisi" },
   { value: "ai_2d_belakang", label: "AI 2D" },
@@ -85,7 +84,8 @@ function formatSyncTime(value: string | null) {
   if (Number.isNaN(date.getTime())) return "Sinkron data belum tersedia";
   return `Terakhir sinkron data: ${date.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
 }
-function labelValue(value: number, mode: ScanMode) { return isShioMode(mode) ? (SHIO_NAMES[value] ?? String(value)) : String(value); }
+function shioLabel(value: number) { return String(value + 1).padStart(2, "0"); }
+function labelValue(value: number, mode: ScanMode) { return isShioMode(mode) ? shioLabel(value) : String(value); }
 function labelsFromValues(values: number[], mode: ScanMode) { return values.map((value) => labelValue(value, mode)); }
 function joinValues(values: number[], mode: ScanMode) { return labelsFromValues(values, mode).join(isShioMode(mode) ? "-" : ""); }
 function buildFrequencies(items: ScanItem[]): FrequencyRow[] {
