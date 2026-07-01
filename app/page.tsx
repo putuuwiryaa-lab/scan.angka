@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import BottomNav from "./bottom-nav";
 import ScanControlPanel from "./scan/components/ScanControlPanel";
 import ScanResultPanel from "./scan/components/ScanResultPanel";
@@ -11,20 +11,9 @@ import { LABEL, TARGET_2D_LABEL } from "./scan/constants";
 import { useMarketPicker } from "./scan/hooks/useMarketPicker";
 import { useSavedTreks } from "./scan/hooks/useSavedTreks";
 import { useScanRunner } from "./scan/hooks/useScanRunner";
-import {
-  buildCopyText,
-  clampTextNumber,
-  detailHeaderTitle,
-  isPositionMode,
-  isShioMode,
-  labelsFromValues,
-  predictionResult,
-  predictionValues,
-  savedSignature,
-  scanDescription,
-  joinValues,
-} from "./scan/helpers";
-import type { Posisi, SavedTrek, ScanItem, Target2D, ScanMode } from "./scan/types";
+import { useTrekActions } from "./scan/hooks/useTrekActions";
+import { isPositionMode, isShioMode } from "./scan/helpers";
+import type { Posisi, ScanMode, Target2D } from "./scan/types";
 
 export default function Page() {
   const {
@@ -49,9 +38,6 @@ export default function Page() {
   const [digitCount, setDigitCount] = useState(4);
   const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
-  const [viewItem, setViewItem] = useState<ScanItem | null>(null);
-  const [viewSaved, setViewSaved] = useState<SavedTrek | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const { marketName, result, loading, scanError, setScanError, runScan } = useScanRunner();
   const {
@@ -64,10 +50,33 @@ export default function Page() {
     persistSavedTreks,
     deleteSavedTrek: removeSavedTrek,
   } = useSavedTreks(marketId, selectedMarket?.latestResult);
+  const {
+    viewItem,
+    viewSaved,
+    copied,
+    viewRows,
+    nextPredictionLabels,
+    setViewItem,
+    setViewSaved,
+    resetTrekView,
+    openScanItem,
+    saveTrek,
+    deleteSavedTrek,
+    copyTrek,
+  } = useTrekActions({
+    marketId,
+    marketName,
+    selectedMarket,
+    result,
+    rounds,
+    digitCount,
+    savedTreks,
+    persistSavedTreks,
+    removeSavedTrek,
+    setSavedFlashId,
+    setActionError: setScanError,
+  });
 
-  const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
-  const nextPrediction = viewItem ? predictionResult(viewItem) : "";
-  const nextPredictionLabels = viewItem ? labelsFromValues(predictionValues(viewItem), viewItem.scanMode) : [];
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
 
   function bukaMarket() {
@@ -102,51 +111,6 @@ export default function Page() {
     setTargetOpen((open) => !open);
   }
 
-  function saveTrek(item: ScanItem) {
-    if (!marketId) return;
-    const count = result?.config.digitCount ?? digitCount;
-    const L = result?.config.L ?? clampTextNumber(rounds, 14, 1, 100);
-    const title = detailHeaderTitle(marketName, selectedMarket);
-    const prediction = predictionValues(item);
-    const signature = savedSignature(item, marketId);
-    const saved: SavedTrek = {
-      id: signature,
-      marketId,
-      marketName: title,
-      savedAt: new Date().toISOString(),
-      savedLatestDraw: item.result.latestDraw,
-      scanMode: item.scanMode,
-      targetPos: item.targetPos,
-      target2D: item.target2D,
-      digitCount: count,
-      L,
-      formula: item.formula,
-      kolomHidup: item.kolomHidup,
-      activeColumns: item.activeColumns,
-      predictionValues: prediction,
-      predictionText: joinValues(prediction, item.scanMode),
-      snapshotRows: item.result.rows,
-    };
-    const next = [saved, ...savedTreks.filter((savedItem) => savedItem.id !== signature)].slice(0, 50);
-    persistSavedTreks(next);
-    setSavedFlashId(signature);
-    window.setTimeout(() => setSavedFlashId(""), 1200);
-  }
-
-  function deleteSavedTrek(id: string) {
-    removeSavedTrek(id);
-    if (viewSaved?.id === id) setViewSaved(null);
-  }
-
-  async function copyTrek() {
-    if (!viewItem) return;
-    const title = detailHeaderTitle(marketName, selectedMarket);
-    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
-    const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
-    try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
-    catch { setScanError("Gagal salin trek."); }
-  }
-
   function mulaiScan() {
     runScan({
       marketId,
@@ -159,12 +123,7 @@ export default function Page() {
       onRoundsChange: setRounds,
       onDigitCountChange: setDigitCount,
       onStopScanChange: setStopScan,
-      onBeforeRun: () => {
-        setViewItem(null);
-        setViewSaved(null);
-        setCopied(false);
-        setSavedFlashId("");
-      },
+      onBeforeRun: resetTrekView,
     });
   }
 
@@ -207,7 +166,7 @@ export default function Page() {
         onScan={mulaiScan}
       />
 
-      {result && <ScanResultPanel result={result} marketName={marketName} marketId={marketId} savedFlashId={savedFlashId} onSave={saveTrek} onView={(item) => { setCopied(false); setViewItem(item); }} />}
+      {result && <ScanResultPanel result={result} marketName={marketName} marketId={marketId} savedFlashId={savedFlashId} onSave={saveTrek} onView={openScanItem} />}
       <SavedTreksSection total={savedTreksForMarket.length} groups={savedGroups} liveMap={savedLiveMap} onView={setViewSaved} onDelete={deleteSavedTrek} />
       <TrekDetailSheet item={viewItem} selectedMarket={selectedMarket} marketName={marketName} digitCount={digitCount} resultDigitCount={result?.config.digitCount} rows={viewRows} nextPredictionLabels={nextPredictionLabels} copied={copied} onCopy={copyTrek} onClose={() => setViewItem(null)} />
       <SavedTrekSheet saved={viewSaved} liveMap={savedLiveMap} onClose={() => setViewSaved(null)} />
