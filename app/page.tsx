@@ -2,33 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import BottomNav from "./bottom-nav";
+import ScanControlPanel from "./scan/components/ScanControlPanel";
 import ScanResultPanel from "./scan/components/ScanResultPanel";
 import SavedTreksSection from "./scan/components/SavedTreksSection";
 import TrekDetailSheet from "./scan/components/TrekDetailSheet";
 import SavedTrekSheet from "./scan/components/SavedTrekSheet";
-import {
-  ANALYSIS_LABEL,
-  ANALYSIS_OPTIONS,
-  DATA_HINT_FIELD_STYLE,
-  DATA_HINT_INPUT_STYLE,
-  DATA_HINT_STYLE,
-  DIGIT_OPTIONS,
-  LABEL,
-  NO_BADGE_OPTION_STYLE,
-  NO_BADGE_SELECT_STYLE,
-  POS_OPTIONS,
-  SAVED_TREK_KEY,
-  TARGET_2D_LABEL,
-  TARGET_2D_OPTIONS,
-} from "./scan/constants";
+import { LABEL, SAVED_TREK_KEY, TARGET_2D_LABEL } from "./scan/constants";
 import {
   buildCopyText,
   buildSavedGroups,
   clampTextNumber,
-  cleanDigits,
   detailHeaderTitle,
   formatSyncTime,
-  isOffMode,
   isPositionMode,
   isShioMode,
   isSingapore,
@@ -173,13 +158,6 @@ export default function Page() {
     setTargetOpen((open) => !open);
   }
 
-  function toggleDigit() {
-    setMarketOpen(false);
-    setJenisOpen(false);
-    setTargetOpen(false);
-    setDigitOpen((open) => !open);
-  }
-
   function saveTrek(item: ScanItem) {
     if (!marketId) return;
     const count = result?.config.digitCount ?? digitCount;
@@ -253,27 +231,39 @@ export default function Page() {
       <header className="hero"><div className="hero-kicker">Scanner Rumus Otomatis</div><h1>Scan Angka</h1><p>Cari trek angka dari riwayat result terbaru.</p></header>
       <div className="sync-status">{syncText}</div>
 
-      <div className="panel">
-        <div className="field market-field">
-          <label>Pasaran</label>
-          <button className="market-select" type="button" onClick={bukaMarket}><span className="select-badge" /><b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b><span className="latest-result">{selectedMarket?.latestResult ?? "----"}</span><span className="select-arrow">{marketOpen ? "⌃" : "⌄"}</span></button>
-          {marketOpen && <div className="market-menu"><div className="market-menu-top"><input className="market-search" value={marketQuery} onChange={(event) => setMarketQuery(event.target.value)} placeholder="Cari pasaran..." autoFocus /><button type="button" onClick={() => setMarketOpen(false)}>×</button></div>{filteredMarkets.length === 0 && <div className="market-empty">Pasaran tidak ditemukan</div>}{filteredMarkets.map((market) => <button key={market.id} type="button" className={market.id === marketId ? "market-option active" : "market-option"} onClick={() => pilihMarket(market)}><span className="option-badge" /><span className="option-label">{marketTitle(market)}</span>{market.latestResult && <em>{market.latestResult}</em>}{market.id === marketId && <b>✓</b>}</button>)}</div>}
-        </div>
-
-        <div className="row two">
-          <div className="field" style={DATA_HINT_FIELD_STYLE}><label>Data Uji</label><input inputMode="numeric" style={DATA_HINT_INPUT_STYLE} value={rounds} onChange={(event) => setRounds(cleanDigits(event.target.value, 3))} onBlur={() => setRounds(String(clampTextNumber(rounds, 14, 1, 100)))} /><span style={DATA_HINT_STYLE}>maks.100</span></div>
-          <div className="field trek-field"><label>Jenis</label><button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleJenis}><b>{ANALYSIS_LABEL[scanMode]}</b><span className="select-arrow">{jenisOpen ? "⌃" : "⌄"}</span></button>{jenisOpen && <div className="trek-menu">{ANALYSIS_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === scanMode ? "trek-option active" : "trek-option"} onClick={() => pilihJenis(item.value)}><span className="option-label">{item.label}</span>{item.value === scanMode && <b>✓</b>}</button>)}</div>}</div>
-        </div>
-
-        <div className="row two">
-          <div className="field trek-field"><label>Target</label><button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleTarget}><b>{targetText}</b><span className="select-arrow">{targetOpen ? "⌃" : "⌄"}</span></button>{targetOpen && <div className="trek-menu">{isPositionMode(scanMode) ? POS_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === targetPos ? "trek-option active" : "trek-option"} onClick={() => { setTargetPos(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === targetPos && <b>✓</b>}</button>) : TARGET_2D_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => { setTarget2D(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === target2D && <b>✓</b>}</button>)}</div>}</div>
-          <div className="field digit-field"><label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label><button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}><b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b><span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span></button>{digitOpen && <div className="digit-menu">{DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => { setDigitCount(value); setDigitOpen(false); }}><span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}</button>)}</div>}</div>
-        </div>
-
-        <div className="field"><label>Batas Hasil</label><input inputMode="numeric" value={stopScan} onChange={(event) => setStopScan(cleanDigits(event.target.value, 3))} onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))} /></div>
-        <button className="run" onClick={mulaiScan} disabled={loading || !marketId}>{loading ? "Sedang scan..." : "Scan Sekarang"}</button>
-        {error && <div className="err">{error}</div>}
-      </div>
+      <ScanControlPanel
+        selectedMarket={selectedMarket}
+        filteredMarkets={filteredMarkets}
+        marketId={marketId}
+        marketQuery={marketQuery}
+        marketOpen={marketOpen}
+        jenisOpen={jenisOpen}
+        targetOpen={targetOpen}
+        digitOpen={digitOpen}
+        rounds={rounds}
+        scanMode={scanMode}
+        targetPos={targetPos}
+        target2D={target2D}
+        targetText={targetText}
+        digitCount={digitCount}
+        stopScan={stopScan}
+        loading={loading}
+        error={error}
+        onOpenMarket={bukaMarket}
+        onCloseMarket={() => setMarketOpen(false)}
+        onMarketQueryChange={setMarketQuery}
+        onSelectMarket={pilihMarket}
+        onRoundsChange={setRounds}
+        onSelectJenis={pilihJenis}
+        onToggleJenis={toggleJenis}
+        onToggleTarget={toggleTarget}
+        onSelectTargetPos={(value) => { setTargetPos(value); setTargetOpen(false); }}
+        onSelectTarget2D={(value) => { setTarget2D(value); setTargetOpen(false); }}
+        onToggleDigit={() => { setMarketOpen(false); setJenisOpen(false); setTargetOpen(false); setDigitOpen((open) => !open); }}
+        onSelectDigit={(value) => { setDigitCount(value); setDigitOpen(false); }}
+        onStopScanChange={setStopScan}
+        onScan={mulaiScan}
+      />
 
       {result && <ScanResultPanel result={result} marketName={marketName} marketId={marketId} savedFlashId={savedFlashId} onSave={saveTrek} onView={(item) => { setCopied(false); setViewItem(item); }} />}
       <SavedTreksSection total={savedTreksForMarket.length} groups={savedGroups} liveMap={savedLiveMap} onView={setViewSaved} onDelete={deleteSavedTrek} />
