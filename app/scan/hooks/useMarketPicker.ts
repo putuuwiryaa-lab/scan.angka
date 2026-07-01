@@ -9,7 +9,6 @@ export function useMarketPicker() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketId, setMarketId] = useState("");
   const [marketQuery, setMarketQuery] = useState("");
-  const [marketOpen, setMarketOpen] = useState(false);
   const [syncUpdatedAt, setSyncUpdatedAt] = useState<string | null>(null);
   const [marketError, setMarketError] = useState("");
 
@@ -32,34 +31,21 @@ export function useMarketPicker() {
     }).catch(() => setMarketError("Gagal memuat daftar pasaran."));
   }, []);
 
-  function openMarket() {
-    if (marketOpen) {
-      setMarketOpen(false);
-      return;
-    }
-    setMarketQuery("");
-    setMarketOpen(true);
-  }
-
   function selectMarket(market: Market) {
     setMarketId(market.id);
     setMarketQuery("");
-    setMarketOpen(false);
   }
 
   return {
     markets,
     marketId,
     marketQuery,
-    marketOpen,
     selectedMarket,
     filteredMarkets,
     syncText,
     marketError,
     setMarketId,
     setMarketQuery,
-    setMarketOpen,
-    openMarket,
     selectMarket,
   };
 }
