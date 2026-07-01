@@ -3,7 +3,7 @@ import { isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/sc
 import type { Market, Posisi, SavedGroup, SavedTrek, ScanItem, ScanMode, ScanRow, Target2D } from "./types";
 
 export function pickColumns(columns: string[], deret: number[]) {
-  const source = deret.length === 12 ? SHIO_COLS : COLS;
+  const source: readonly string[] = deret.length === 12 ? SHIO_COLS : COLS;
   return columns.map((column) => deret[source.indexOf(column)]).filter((digit) => Number.isFinite(digit));
 }
 
