@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode, isShioMode, isTarget2D, SHIO_NAMES } from "@/lib/engine/helpers";
+import { isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode, Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -33,9 +33,13 @@ function normalizeMarketIds(value: unknown): string[] {
   return [...new Set(value.map((item: unknown) => String(item).trim()).filter(Boolean))];
 }
 
+function shioLabel(value: number): string {
+  return String(value + 1).padStart(2, "0");
+}
+
 function formatCandidates(values: number[], scanMode: ScanMode): string {
   if (!values.length) return "-";
-  if (isShioMode(scanMode)) return values.map((value) => SHIO_NAMES[value] ?? String(value)).join("-");
+  if (isShioMode(scanMode)) return values.map(shioLabel).join("-");
   return values.join("");
 }
 
