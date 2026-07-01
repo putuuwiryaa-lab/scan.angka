@@ -1,37 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import BottomNav from "./bottom-nav";
 import ScanControlPanel from "./scan/components/ScanControlPanel";
 import ScanResultPanel from "./scan/components/ScanResultPanel";
 import SavedTreksSection from "./scan/components/SavedTreksSection";
 import TrekDetailSheet from "./scan/components/TrekDetailSheet";
 import SavedTrekSheet from "./scan/components/SavedTrekSheet";
-import { LABEL, SAVED_TREK_KEY, TARGET_2D_LABEL } from "./scan/constants";
+import { LABEL, TARGET_2D_LABEL } from "./scan/constants";
+import { useMarketPicker } from "./scan/hooks/useMarketPicker";
+import { useSavedTreks } from "./scan/hooks/useSavedTreks";
 import {
   buildCopyText,
-  buildSavedGroups,
   clampTextNumber,
   detailHeaderTitle,
-  formatSyncTime,
   isPositionMode,
   isShioMode,
-  isSingapore,
   labelsFromValues,
-  marketTitle,
   predictionResult,
   predictionValues,
   savedSignature,
   scanDescription,
   joinValues,
 } from "./scan/helpers";
-import type { Market, Posisi, SavedLive, SavedTrek, ScanItem, ScanResult, Target2D, ScanMode } from "./scan/types";
+import type { Posisi, SavedTrek, ScanItem, ScanResult, Target2D, ScanMode } from "./scan/types";
 
 export default function Page() {
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [marketId, setMarketId] = useState("");
-  const [marketQuery, setMarketQuery] = useState("");
-  const [marketOpen, setMarketOpen] = useState(false);
+  const {
+    marketId,
+    marketQuery,
+    marketOpen,
+    selectedMarket,
+    filteredMarkets,
+    syncText,
+    marketError,
+    setMarketQuery,
+    setMarketOpen,
+    selectMarket,
+  } = useMarketPicker();
+
   const [rounds, setRounds] = useState("14");
   const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
   const [targetPos, setTargetPos] = useState<Posisi>("K");
@@ -41,84 +48,29 @@ export default function Page() {
   const [digitCount, setDigitCount] = useState(4);
   const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
-  const [syncUpdatedAt, setSyncUpdatedAt] = useState<string | null>(null);
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
   const [viewSaved, setViewSaved] = useState<SavedTrek | null>(null);
-  const [savedTreks, setSavedTreks] = useState<SavedTrek[]>([]);
-  const [savedLiveMap, setSavedLiveMap] = useState<Record<string, SavedLive>>({});
-  const [savedFlashId, setSavedFlashId] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedMarket = useMemo(() => markets.find((market) => market.id === marketId) ?? null, [markets, marketId]);
-  const filteredMarkets = useMemo(() => {
-    const query = marketQuery.trim().toLowerCase();
-    if (!query) return markets.slice(0, 30);
-    return markets.filter((market) => marketTitle(market).toLowerCase().includes(query)).slice(0, 30);
-  }, [markets, marketQuery]);
-  const syncText = useMemo(() => formatSyncTime(syncUpdatedAt), [syncUpdatedAt]);
+  const {
+    savedTreks,
+    savedTreksForMarket,
+    savedGroups,
+    savedLiveMap,
+    savedFlashId,
+    setSavedFlashId,
+    persistSavedTreks,
+    deleteSavedTrek: removeSavedTrek,
+  } = useSavedTreks(marketId, selectedMarket?.latestResult);
+
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
   const nextPredictionLabels = viewItem ? labelsFromValues(predictionValues(viewItem), viewItem.scanMode) : [];
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
-  const savedTreksForMarket = useMemo(() => savedTreks.filter((item) => item.marketId === marketId), [savedTreks, marketId]);
-  const savedGroups = useMemo(() => buildSavedGroups(savedTreksForMarket), [savedTreksForMarket]);
-  const savedRefreshKey = useMemo(() => `${marketId}:${selectedMarket?.latestResult ?? ""}:${savedTreksForMarket.map((item) => `${item.id}:${item.L}:${item.kolomHidup.join("")}`).join("|")}`, [marketId, selectedMarket?.latestResult, savedTreksForMarket]);
-
-  useEffect(() => {
-    fetch("/api/markets").then((response) => response.json()).then((data) => {
-      if (data.error) return setError(data.error);
-      const list: Market[] = data.markets ?? [];
-      setMarkets(list);
-      setSyncUpdatedAt(data.syncUpdatedAt ?? null);
-      const defaultMarket = list.find(isSingapore) ?? list[0];
-      if (defaultMarket) setMarketId(defaultMarket.id);
-    }).catch(() => setError("Gagal memuat daftar pasaran."));
-  }, []);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SAVED_TREK_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) setSavedTreks(parsed.filter((item) => item?.kolomHidup?.length && item?.L).slice(0, 50));
-    } catch {
-      setSavedTreks([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (savedTreksForMarket.length === 0) return;
-
-    async function refreshSavedTreks() {
-      const updates: Record<string, SavedLive> = {};
-      await Promise.all(savedTreksForMarket.map(async (saved) => {
-        try {
-          const response = await fetch("/api/saved-trek", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ marketId: saved.marketId, formula: saved.formula, scanMode: saved.scanMode, targetPos: saved.targetPos, target2D: saved.target2D, L: saved.L, kolomHidup: saved.kolomHidup }),
-          });
-          const data = await response.json();
-          if (!data.error) updates[saved.id] = data;
-        } catch {
-          // Tetap pakai snapshot tersimpan jika refresh gagal.
-        }
-      }));
-      if (!cancelled && Object.keys(updates).length) setSavedLiveMap((current) => ({ ...current, ...updates }));
-    }
-
-    refreshSavedTreks();
-    return () => { cancelled = true; };
-  }, [savedRefreshKey]);
-
-  function persistSavedTreks(next: SavedTrek[]) {
-    setSavedTreks(next);
-    try { localStorage.setItem(SAVED_TREK_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-  }
 
   function bukaMarket() {
     if (marketOpen) {
@@ -130,12 +82,6 @@ export default function Page() {
     setTargetOpen(false);
     setDigitOpen(false);
     setMarketOpen(true);
-  }
-
-  function pilihMarket(market: Market) {
-    setMarketId(market.id);
-    setMarketQuery("");
-    setMarketOpen(false);
   }
 
   function toggleJenis() {
@@ -190,12 +136,7 @@ export default function Page() {
   }
 
   function deleteSavedTrek(id: string) {
-    persistSavedTreks(savedTreks.filter((item) => item.id !== id));
-    setSavedLiveMap((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
+    removeSavedTrek(id);
     if (viewSaved?.id === id) setViewSaved(null);
   }
 
@@ -248,11 +189,11 @@ export default function Page() {
         digitCount={digitCount}
         stopScan={stopScan}
         loading={loading}
-        error={error}
+        error={error || marketError}
         onOpenMarket={bukaMarket}
         onCloseMarket={() => setMarketOpen(false)}
         onMarketQueryChange={setMarketQuery}
-        onSelectMarket={pilihMarket}
+        onSelectMarket={selectMarket}
         onRoundsChange={setRounds}
         onSelectJenis={pilihJenis}
         onToggleJenis={toggleJenis}
