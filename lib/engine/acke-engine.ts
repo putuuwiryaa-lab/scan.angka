@@ -1,1 +1,1 @@
-export { parseHistory, runAutoScan, runAutoScanFromHistory, runEngine, runEngineFromHistory } from "./runner";
+export { parseHistory, runAutoScan, runAutoScanFromHistory, runEngine, runEngineFromHistory, runFormulaByName } from "./runner";
