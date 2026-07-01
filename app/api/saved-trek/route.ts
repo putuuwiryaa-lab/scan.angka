@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { runFormulaByName } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
-import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode } from "@/lib/engine/types";
+import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode, type Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     const L = clamp(body.L, 14, 1, 100);
     const scanMode = body.scanMode as ScanMode;
     const targetPos = body.targetPos as Posisi;
-    const target2D = body.target2D;
+    const target2D = body.target2D as Target2D;
 
     const { data, error } = await getSupabase()
       .from("markets")
