@@ -7,8 +7,8 @@ import BatchMarketSelector from "./components/BatchMarketSelector";
 import BatchOutputPanel from "./components/BatchOutputPanel";
 import { useBatchMarkets } from "./hooks/useBatchMarkets";
 import { useBatchRunner } from "./hooks/useBatchRunner";
-import { isShioMode } from "../scan/helpers";
-import type { Posisi, ScanMode, Target2D } from "../scan/types";
+import { isShioMode } from "../shared/scan-utils";
+import type { Posisi, ScanMode, Target2D } from "../shared/types";
 
 export default function BatchPage() {
   const {
