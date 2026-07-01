@@ -10,7 +10,7 @@ import {
   POS_OPTIONS,
   TARGET_2D_OPTIONS,
 } from "../constants";
-import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode, marketTitle } from "../helpers";
+import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode, marketTitle } from "../../shared/scan-utils";
 import type { Market, Posisi, ScanMode, Target2D } from "../types";
 
 type Props = {
