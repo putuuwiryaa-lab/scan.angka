@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode, isTarget2D } from "@/lib/engine/helpers";
+import { isScanMode, isShioMode, isTarget2D, SHIO_NAMES } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode, Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -33,6 +33,12 @@ function normalizeMarketIds(value: unknown): string[] {
   return [...new Set(value.map((item: unknown) => String(item).trim()).filter(Boolean))];
 }
 
+function formatCandidates(values: number[], scanMode: ScanMode): string {
+  if (!values.length) return "-";
+  if (isShioMode(scanMode)) return values.map((value) => SHIO_NAMES[value] ?? String(value)).join("-");
+  return values.join("");
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
@@ -61,7 +67,7 @@ export async function POST(req: Request) {
     const scanMode = (body.scanMode ?? "posisi") as ScanMode;
     const targetPos = (body.targetPos ?? "K") as Posisi;
     const target2D = (body.target2D ?? "belakang") as Target2D;
-    const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 9);
+    const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 12);
     const L = asNum(body.L, 14, 1, 100);
     const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D`;
 
@@ -90,7 +96,7 @@ export async function POST(req: Request) {
       try {
         const draws = parseStrictHistory(market.history_data);
         const result = runAutoScan(draws, { L, targetPos, target2D, digitCount, stopScan: 1, scanMode });
-        results.push({ id, name, digits: result.items[0]?.angkaHidup.join("") || "-" });
+        results.push({ id, name, digits: formatCandidates(result.items[0]?.angkaHidup ?? [], scanMode) });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
