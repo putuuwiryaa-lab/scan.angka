@@ -1,10 +1,22 @@
-import { KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D } from "./types";
+import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D } from "./types";
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
 import { ALL_FORMULA_SPECS, computeFormula } from "./formulas";
-import { buildDeret, clamp, digitOf, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
+import { buildDeret, buildDeretShio, clamp, digitOf, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
 import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
 
 export { parseHistory } from "./helpers";
+
+function columnsForMode(scanMode: ScanMode): readonly Kolom[] {
+  return isShioMode(scanMode) ? SHIO_KOLOM : KOLOM;
+}
+
+function deretForMode(start: number, scanMode: ScanMode): number[] {
+  return isShioMode(scanMode) ? buildDeretShio(start) : buildDeret(start);
+}
+
+function activeColumnsText(columns: Kolom[], scanMode: ScanMode): string {
+  return isShioMode(scanMode) ? columns.join(",") : columns.join("");
+}
 
 function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number], targetPos: Posisi, L: number, scanMode: ScanMode, target2D: Target2D): EngineResult {
   const N = spec.patokanN;
@@ -17,25 +29,26 @@ function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number
 
   const safeL = clamp(L, 14, 1, 100);
   const targets = validTargets.slice(-safeL);
-  const hit = new Array(10).fill(0);
+  const sourceColumns = columnsForMode(scanMode);
+  const hit = new Array(sourceColumns.length).fill(0);
   const rows: BacktestRow[] = [];
 
   for (const t of targets) {
     const sourceIndex = t - N;
     const displayIndex = t - 1;
     const patokan = computeFormula(spec, draws, t);
-    const deret = buildDeret(patokan);
+    const deret = deretForMode(patokan, scanMode);
     const targetDigits = targetDigitsOf(draws[t], scanMode, targetPos, target2D);
     const targetDigit = targetDigits[0];
-    const hitColumns = uniqueDigits(targetDigits).map((digit) => (digit - patokan + 10) % 10);
+    const hitColumns = uniqueDigits(targetDigits).map((digit) => deret.indexOf(digit)).filter((index) => index >= 0);
     for (const col of hitColumns) hit[col] += 1;
-    rows.push({ displayDraw: draws[displayIndex], patokanDraw: draws[sourceIndex], targetDraw: draws[t], patokan, deret, targetDigit, targetDigits, kolomKena: KOLOM[hitColumns[0]] });
+    rows.push({ displayDraw: draws[displayIndex], patokanDraw: draws[sourceIndex], targetDraw: draws[t], patokan, deret, targetDigit, targetDigits, kolomKena: sourceColumns[hitColumns[0]] });
   }
 
   const latestDraw = draws[draws.length - 1];
   const patokanLiveDraw = draws[draws.length - N];
-  const deretLive = buildDeret(computeFormula(spec, draws, draws.length));
-  const kolom: KolomStat[] = KOLOM.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
+  const deretLive = deretForMode(computeFormula(spec, draws, draws.length), scanMode);
+  const kolom: KolomStat[] = sourceColumns.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
   const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
 
@@ -54,7 +67,7 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 }
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
-  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", target2D: target2DOrDefault(config.target2D), digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
+  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", target2D: target2DOrDefault(config.target2D), digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 12), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
   const isPositionScan = safeConfig.scanMode === "posisi" || safeConfig.scanMode === "off_posisi";
   const targets = isPositionScan ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
   const items: RankedItem[] = [];
@@ -80,12 +93,12 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
           patokanPos: spec.patokanPos,
           patokanN: spec.patokanN,
           formula: spec.formula,
-          code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode, safeConfig.target2D),
+          code: scanCode(targetPos, spec.formula, safeConfig.L, activeColumnsText(columns, safeConfig.scanMode), safeConfig.scanMode, safeConfig.target2D),
           angkaHidup,
           kolomHidup: columns,
           angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive),
           kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom),
-          activeColumns: columns.join(""),
+          activeColumns: activeColumnsText(columns, safeConfig.scanMode),
           jumlahHidup: columns.length,
           coreSize: profile.coreSize,
           coreColumns: profile.coreColumns,
