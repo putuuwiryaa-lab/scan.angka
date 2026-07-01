@@ -4,86 +4,55 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import BottomNav from "../bottom-nav";
 
 type Posisi = "A" | "C" | "K" | "E";
+type Target2D = "depan" | "tengah" | "belakang";
 type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang";
-type TrekChoice = Posisi | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_A" | "off_C" | "off_K" | "off_E" | "off_2d_belakang" | "off_jumlah_2d_belakang";
 type Market = { id: string; name: string | null; latestResult?: string | null };
 type BatchResult = { title: string; copyText: string; results: { id: string; name: string; digits: string }[] };
 
 const MAX_BATCH_MARKETS = 30;
-const TREK_OPTIONS: { value: TrekChoice; label: string }[] = [
-  { value: "A", label: "As" },
-  { value: "C", label: "Cop" },
-  { value: "K", label: "Kepala" },
-  { value: "E", label: "Ekor" },
-  { value: "ai_2d_belakang", label: "AI 2D Belakang" },
-  { value: "bbfs_2d_belakang", label: "BBFS 2D Belakang" },
-  { value: "jumlah_2d_belakang", label: "Jumlah 2D Belakang" },
-  { value: "off_A", label: "OFF As" },
-  { value: "off_C", label: "OFF Cop" },
-  { value: "off_K", label: "OFF Kepala" },
-  { value: "off_E", label: "OFF Ekor" },
-  { value: "off_2d_belakang", label: "OFF 2D Belakang" },
+const ANALYSIS_OPTIONS: { value: ScanMode; label: string }[] = [
+  { value: "posisi", label: "Trek Posisi" },
+  { value: "ai_2d_belakang", label: "AI 2D" },
+  { value: "bbfs_2d_belakang", label: "BBFS 2D" },
+  { value: "jumlah_2d_belakang", label: "Jumlah 2D" },
+  { value: "off_posisi", label: "OFF Posisi" },
+  { value: "off_2d_belakang", label: "OFF 2D" },
   { value: "off_jumlah_2d_belakang", label: "OFF Jumlah 2D" },
 ];
+const POS_OPTIONS: { value: Posisi; label: string }[] = [
+  { value: "A", label: "AS" },
+  { value: "C", label: "COP" },
+  { value: "K", label: "KPL" },
+  { value: "E", label: "EKR" },
+];
+const TARGET_2D_OPTIONS: { value: Target2D; label: string }[] = [
+  { value: "depan", label: "Depan" },
+  { value: "tengah", label: "Tengah" },
+  { value: "belakang", label: "Belakang" },
+];
 const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const POS_LABEL: Record<Posisi, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
+const MODE_LABEL: Record<ScanMode, string> = {
+  posisi: "Trek Posisi",
+  ai_2d_belakang: "AI 2D",
+  bbfs_2d_belakang: "BBFS 2D",
+  jumlah_2d_belakang: "Jumlah 2D",
+  off_posisi: "OFF Posisi",
+  off_2d_belakang: "OFF 2D",
+  off_jumlah_2d_belakang: "OFF Jumlah 2D",
+};
+const TARGET_2D_LABEL: Record<Target2D, string> = { depan: "Depan", tengah: "Tengah", belakang: "Belakang" };
 
-function titleCase(value: string) {
-  return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+function titleCase(value: string) { return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`); }
+function marketTitle(market: Market) { return titleCase(market.name ?? market.id); }
+function isPositionMode(mode: ScanMode) { return mode === "posisi" || mode === "off_posisi"; }
+function isOffMode(mode: ScanMode) { return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang"; }
+function outputTitle(scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, digitCount: number) {
+  const target = isPositionMode(scanMode) ? POS_LABEL[targetPos] : TARGET_2D_LABEL[target2D];
+  return `${MODE_LABEL[scanMode]} ${target} ${digitCount}D`;
 }
-
-function marketTitle(market: Market) {
-  return titleCase(market.name ?? market.id);
-}
-
-function isPosisi(value: string): value is Posisi {
-  return value === "A" || value === "C" || value === "K" || value === "E";
-}
-
-function offChoiceTarget(value: TrekChoice): Posisi | null {
-  if (value === "off_A") return "A";
-  if (value === "off_C") return "C";
-  if (value === "off_K") return "K";
-  if (value === "off_E") return "E";
-  return null;
-}
-
-function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: Posisi } {
-  const offTarget = offChoiceTarget(value);
-  if (offTarget) return { scanMode: "off_posisi", targetPos: offTarget };
-  if (isPosisi(value)) return { scanMode: "posisi", targetPos: value };
-  return { scanMode: value as ScanMode, targetPos: "K" };
-}
-
-function outputTitleFromTrek(value: TrekChoice, digitCount: number) {
-  const label: Record<TrekChoice, string> = {
-    A: "As",
-    C: "Cop",
-    K: "Kepala",
-    E: "Ekor",
-    ai_2d_belakang: "AI",
-    bbfs_2d_belakang: "BBFS",
-    jumlah_2d_belakang: "Jumlah 2D",
-    off_A: "OFF As",
-    off_C: "OFF Cop",
-    off_K: "OFF Kepala",
-    off_E: "OFF Ekor",
-    off_2d_belakang: "OFF 2D Belakang",
-    off_jumlah_2d_belakang: "OFF Jumlah 2D",
-  };
-  if (value === "ai_2d_belakang" || value === "bbfs_2d_belakang") return `${label[value]} ${digitCount}D Belakang`;
-  if (value === "off_2d_belakang" || value === "off_jumlah_2d_belakang") return `${label[value]} ${digitCount}D`;
-  return `${label[value]} ${digitCount}D`;
-}
-
-function cleanDigits(value: string, maxLength = 3) {
-  return value.replace(/\D/g, "").slice(0, maxLength);
-}
-
-function clampTextNumber(value: string, fallback: number, min: number, max: number) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < min) return fallback;
-  return Math.max(min, Math.min(max, Math.trunc(parsed)));
-}
+function cleanDigits(value: string, maxLength = 3) { return value.replace(/\D/g, "").slice(0, maxLength); }
+function clampTextNumber(value: string, fallback: number, min: number, max: number) { const parsed = Number(value); if (!Number.isFinite(parsed) || parsed < min) return fallback; return Math.max(min, Math.min(max, Math.trunc(parsed))); }
 
 const styles: Record<string, CSSProperties> = {
   page: { maxWidth: 820, margin: "0 auto", padding: "18px 12px 118px" },
@@ -114,169 +83,75 @@ export default function BatchPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [rounds, setRounds] = useState("14");
-  const [trek, setTrek] = useState<TrekChoice>("bbfs_2d_belakang");
+  const [scanMode, setScanMode] = useState<ScanMode>("bbfs_2d_belakang");
+  const [targetPos, setTargetPos] = useState<Posisi>("K");
+  const [target2D, setTarget2D] = useState<Target2D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
   const [result, setResult] = useState<BatchResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return markets;
-    return markets.filter((market) => marketTitle(market).toLowerCase().includes(needle));
-  }, [markets, query]);
+  const filtered = useMemo(() => { const needle = query.trim().toLowerCase(); if (!needle) return markets; return markets.filter((market) => marketTitle(market).toLowerCase().includes(needle)); }, [markets, query]);
 
-  useEffect(() => {
-    fetch("/api/markets")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) return setError(d.error);
-        setMarkets(d.markets ?? []);
-      })
-      .catch(() => setError("Gagal memuat pasaran."));
-  }, []);
+  useEffect(() => { fetch("/api/markets").then((r) => r.json()).then((d) => { if (d.error) return setError(d.error); setMarkets(d.markets ?? []); }).catch(() => setError("Gagal memuat pasaran.")); }, []);
 
   function toggleMarket(id: string) {
     setError("");
     setSelected((current) => {
       if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= MAX_BATCH_MARKETS) {
-        setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
-        return current;
-      }
+      if (current.length >= MAX_BATCH_MARKETS) { setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`); return current; }
       return [...current, id];
     });
   }
-
-  function pilihSemua() {
-    setError("");
-    const ids = filtered.map((market) => market.id).slice(0, MAX_BATCH_MARKETS);
-    setSelected(ids);
-    if (filtered.length > MAX_BATCH_MARKETS) setError(`Pilih Semua dibatasi ${MAX_BATCH_MARKETS} pasaran pertama.`);
-  }
-
-  function kosongkan() {
-    setError("");
-    setSelected([]);
-  }
+  function pilihSemua() { setError(""); const ids = filtered.map((market) => market.id).slice(0, MAX_BATCH_MARKETS); setSelected(ids); if (filtered.length > MAX_BATCH_MARKETS) setError(`Pilih Semua dibatasi ${MAX_BATCH_MARKETS} pasaran pertama.`); }
+  function kosongkan() { setError(""); setSelected([]); }
 
   async function runBatch() {
-    setLoading(true);
-    setError("");
-    setResult(null);
-    setCopied(false);
+    setLoading(true); setError(""); setResult(null); setCopied(false);
     try {
-      if (selected.length > MAX_BATCH_MARKETS) {
-        setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
-        return;
-      }
+      if (selected.length > MAX_BATCH_MARKETS) { setError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`); return; }
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       setRounds(String(safeRounds));
-      const { scanMode, targetPos } = modeFromTrek(trek);
-      const outputTitle = outputTitleFromTrek(trek, digitCount);
-      const res = await fetch("/api/batch-scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marketIds: selected, L: safeRounds, scanMode, targetPos, digitCount, outputTitle }),
-      });
+      const title = outputTitle(scanMode, targetPos, target2D, digitCount);
+      const res = await fetch("/api/batch-scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketIds: selected, L: safeRounds, scanMode, targetPos, target2D, digitCount, outputTitle: title }) });
       const data = await res.json();
-      if (data.error) setError(data.error);
-      else setResult(data);
-    } catch {
-      setError("Batch scan gagal.");
-    } finally {
-      setLoading(false);
-    }
+      if (data.error) setError(data.error); else setResult(data);
+    } catch { setError("Batch scan gagal."); }
+    finally { setLoading(false); }
   }
 
   async function copyOutput() {
     if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.copyText);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setError("Gagal copy output.");
-    }
+    try { await navigator.clipboard.writeText(result.copyText); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
+    catch { setError("Gagal copy output."); }
   }
 
   return (
     <main style={styles.page}>
-      <header style={styles.header}>
-        <div style={styles.kicker}>Scan Batch Publik</div>
-        <h1 style={styles.title}>Batch Scan</h1>
-        <p style={styles.sub}>Pilih banyak pasaran, scan sekali, output langsung siap copy.</p>
-      </header>
+      <header style={styles.header}><div style={styles.kicker}>Scan Batch Publik</div><h1 style={styles.title}>Batch Scan</h1><p style={styles.sub}>Pilih banyak pasaran, scan sekali, output langsung siap copy.</p></header>
 
       <section style={styles.panel}>
         <div style={styles.rowTwo}>
-          <div style={styles.field}>
-            <label style={styles.label}>Data Uji</label>
-            <input style={styles.input} inputMode="numeric" value={rounds} onChange={(e) => setRounds(cleanDigits(e.target.value, 3))} />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Jenis Trek</label>
-            <select style={styles.select} value={trek} onChange={(e) => setTrek(e.target.value as TrekChoice)}>
-              {TREK_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-          </div>
+          <div style={styles.field}><label style={styles.label}>Data Uji</label><input style={styles.input} inputMode="numeric" value={rounds} onChange={(e) => setRounds(cleanDigits(e.target.value, 3))} /></div>
+          <div style={styles.field}><label style={styles.label}>Jenis</label><select style={styles.select} value={scanMode} onChange={(e) => setScanMode(e.target.value as ScanMode)}>{ANALYSIS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
         </div>
-        <div style={styles.field}>
-          <label style={styles.label}>{String(trek).startsWith("off_") ? "Jumlah OFF" : "Jumlah Digit"}</label>
-          <select style={styles.select} value={digitCount} onChange={(e) => setDigitCount(Number(e.target.value))}>
-            {DIGIT_OPTIONS.map((value) => <option key={value} value={value}>{value} digit</option>)}
-          </select>
+        <div style={styles.rowTwo}>
+          <div style={styles.field}><label style={styles.label}>Target</label>{isPositionMode(scanMode) ? <select style={styles.select} value={targetPos} onChange={(e) => setTargetPos(e.target.value as Posisi)}>{POS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : <select style={styles.select} value={target2D} onChange={(e) => setTarget2D(e.target.value as Target2D)}>{TARGET_2D_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>}</div>
+          <div style={styles.field}><label style={styles.label}>{isOffMode(scanMode) ? "Jumlah OFF" : "Jumlah Digit"}</label><select style={styles.select} value={digitCount} onChange={(e) => setDigitCount(Number(e.target.value))}>{DIGIT_OPTIONS.map((value) => <option key={value} value={value}>{value} digit</option>)}</select></div>
         </div>
       </section>
 
       <section style={styles.panel}>
-        <div style={styles.tools}>
-          <button style={styles.smallBtn} type="button" onClick={pilihSemua}>Pilih Semua</button>
-          <button style={styles.smallBtn} type="button" onClick={kosongkan}>Kosongkan</button>
-          <span style={{ ...styles.smallBtn, marginLeft: "auto" }}>{selected.length}/{MAX_BATCH_MARKETS} dipilih</span>
-        </div>
+        <div style={styles.tools}><button style={styles.smallBtn} type="button" onClick={pilihSemua}>Pilih Semua</button><button style={styles.smallBtn} type="button" onClick={kosongkan}>Kosongkan</button><span style={{ ...styles.smallBtn, marginLeft: "auto" }}>{selected.length}/{MAX_BATCH_MARKETS} dipilih</span></div>
         <input style={styles.search} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari pasaran..." />
-        <div style={styles.grid}>
-          {filtered.map((market) => {
-            const active = selected.includes(market.id);
-            return (
-              <button
-                key={market.id}
-                type="button"
-                onClick={() => toggleMarket(market.id)}
-                style={{
-                  minHeight: 72,
-                  borderRadius: 999,
-                  border: active ? "1px solid rgba(224,179,65,.72)" : "1px solid rgba(255,255,255,.10)",
-                  background: active ? "linear-gradient(180deg, rgba(224,179,65,.20), rgba(22,27,34,.96))" : "linear-gradient(180deg, rgba(255,255,255,.045), rgba(22,27,34,.88))",
-                  color: active ? "#fff2c6" : "#e9eef5",
-                  boxShadow: active ? "0 0 0 1px rgba(224,179,65,.12), inset 0 1px 0 rgba(255,255,255,.05)" : "inset 0 1px 0 rgba(255,255,255,.04)",
-                  padding: "10px 8px",
-                  fontSize: 13,
-                  fontWeight: 950,
-                  textAlign: "center",
-                  position: "relative",
-                }}
-              >
-                {active && <span style={{ position: "absolute", right: 12, top: 8, color: "#e0b341", fontSize: 13 }}>✓</span>}
-                {marketTitle(market)}
-              </button>
-            );
-          })}
-        </div>
+        <div style={styles.grid}>{filtered.map((market) => { const active = selected.includes(market.id); return <button key={market.id} type="button" onClick={() => toggleMarket(market.id)} style={{ minHeight: 72, borderRadius: 999, border: active ? "1px solid rgba(224,179,65,.72)" : "1px solid rgba(255,255,255,.10)", background: active ? "linear-gradient(180deg, rgba(224,179,65,.20), rgba(22,27,34,.96))" : "linear-gradient(180deg, rgba(255,255,255,.045), rgba(22,27,34,.88))", color: active ? "#fff2c6" : "#e9eef5", boxShadow: active ? "0 0 0 1px rgba(224,179,65,.12), inset 0 1px 0 rgba(255,255,255,.05)" : "inset 0 1px 0 rgba(255,255,255,.04)", padding: "10px 8px", fontSize: 13, fontWeight: 950, textAlign: "center", position: "relative" }}>{active && <span style={{ position: "absolute", right: 12, top: 8, color: "#e0b341", fontSize: 13 }}>✓</span>}{marketTitle(market)}</button>; })}</div>
         <p style={styles.notice}>Batas aman: maksimal {MAX_BATCH_MARKETS} pasaran per batch scan.</p>
         <button style={styles.run} type="button" onClick={runBatch} disabled={loading || selected.length === 0}>{loading ? "Sedang batch scan..." : "Batch Scan"}</button>
         {error && <div style={styles.error}>{error}</div>}
       </section>
 
-      {result && (
-        <section style={styles.panel}>
-          <p style={styles.meta}>{result.results.length} pasaran · stop scan otomatis 1</p>
-          <pre style={styles.output}>{result.copyText}</pre>
-          <button style={styles.copy} type="button" onClick={copyOutput}>{copied ? "Tersalin" : "Copy Output"}</button>
-        </section>
-      )}
+      {result && <section style={styles.panel}><p style={styles.meta}>{result.results.length} pasaran · stop scan otomatis 1</p><pre style={styles.output}>{result.copyText}</pre><button style={styles.copy} type="button" onClick={copyOutput}>{copied ? "Tersalin" : "Copy Output"}</button></section>}
 
       <BottomNav />
     </main>
