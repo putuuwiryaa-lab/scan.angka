@@ -51,7 +51,7 @@ function modeFromTrek(value: TrekChoice): { scanMode: ScanMode; targetPos: Posis
   const offTarget = offChoiceTarget(value);
   if (offTarget) return { scanMode: "off_posisi", targetPos: offTarget };
   if (isPosisi(value)) return { scanMode: "posisi", targetPos: value };
-  return { scanMode: value, targetPos: "K" };
+  return { scanMode: value as ScanMode, targetPos: "K" };
 }
 
 function outputTitleFromTrek(value: TrekChoice, digitCount: number) {
