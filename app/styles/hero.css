@@ -1,0 +1,71 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 142px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(135deg, #172132 0%, #111827 52%, #0f1520 100%);
+  border: 1px solid rgba(110, 155, 255, .24);
+  border-radius: 20px;
+  padding: 20px 18px 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .24);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -62px;
+  top: -70px;
+  background: radial-gradient(circle, rgba(110, 155, 255, .42), transparent 68%);
+  pointer-events: none;
+}
+
+.hero-kicker {
+  width: max-content;
+  max-width: 100%;
+  color: #cfe0ff;
+  background: rgba(110, 155, 255, .14);
+  border: 1px solid rgba(110, 155, 255, .26);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  position: relative;
+  z-index: 1;
+  margin: 9px 0 0;
+  font-size: 44px;
+  line-height: .95;
+  font-weight: 950;
+  letter-spacing: -1.4px;
+}
+
+.hero p {
+  position: relative;
+  z-index: 1;
+  max-width: 310px;
+  margin: 9px 0 0;
+  color: #aeb9c9;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sync-status {
+  margin-top: 10px;
+  color: #cfe0ff;
+  background: rgba(110, 155, 255, .10);
+  border: 1px solid rgba(110, 155, 255, .20);
+  border-radius: 999px;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
