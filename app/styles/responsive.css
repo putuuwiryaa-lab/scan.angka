@@ -1,0 +1,82 @@
+@media (max-width: 430px) {
+  .wrap {
+    padding: 18px 12px 56px;
+  }
+
+  .hero {
+    min-height: 136px;
+    padding: 18px 16px 17px;
+    border-radius: 18px;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+  }
+
+  .hero p {
+    font-size: 13px;
+    max-width: 270px;
+  }
+
+  .row.two {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .field {
+    margin-bottom: 10px;
+  }
+
+  .scan-item.compact {
+    grid-template-columns: minmax(48px, auto) minmax(0, 1fr) 48px;
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .scan-formula {
+    font-size: 13px;
+    padding: 3px 7px;
+  }
+
+  .compact-digits {
+    font-size: 17px;
+    gap: 5px;
+  }
+
+  .view-btn.compact-view {
+    width: 48px;
+    height: 29px;
+    font-size: 11px;
+  }
+
+  .frequency-block {
+    margin-top: 9px;
+  }
+
+  .sheet-head {
+    padding: 13px 14px;
+    gap: 8px;
+  }
+
+  .sheet-head b {
+    font-size: 16px;
+  }
+
+  .sheet-head span {
+    font-size: 16px;
+  }
+
+  .trek-row {
+    grid-template-columns: 58px 22px minmax(0, 1fr) 24px;
+    gap: 5px;
+  }
+
+  .row-digits span {
+    width: 19px;
+    height: 23px;
+  }
+}
