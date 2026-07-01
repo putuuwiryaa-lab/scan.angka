@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MAX_BATCH_MARKETS } from "../constants";
 import { batchMarketTitle } from "../helpers";
-import type { Market } from "../../scan/types";
+import type { Market } from "../../shared/types";
 
 export function useBatchMarkets() {
   const [markets, setMarkets] = useState<Market[]>([]);
