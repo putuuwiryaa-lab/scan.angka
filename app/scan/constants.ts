@@ -1,56 +1,18 @@
 import type { CSSProperties } from "react";
-import type { Posisi, ScanMode, Target2D } from "./types";
+
+export {
+  ANALYSIS_OPTIONS,
+  POS_OPTIONS,
+  TARGET_2D_OPTIONS,
+  LABEL,
+  ANALYSIS_LABEL,
+  TARGET_2D_LABEL,
+  DIGIT_OPTIONS,
+} from "../shared/scan-options";
 
 export const SAVED_TREK_KEY = "scan-angka:saved-treks:v2";
-
-export const ANALYSIS_OPTIONS: { value: ScanMode; label: string }[] = [
-  { value: "posisi", label: "Trek Posisi" },
-  { value: "ai_2d_belakang", label: "AI 2D" },
-  { value: "bbfs_2d_belakang", label: "BBFS 2D" },
-  { value: "jumlah_2d_belakang", label: "Jumlah 2D" },
-  { value: "shio", label: "Shio" },
-  { value: "off_posisi", label: "OFF Posisi" },
-  { value: "off_2d_belakang", label: "OFF 2D" },
-  { value: "off_jumlah_2d_belakang", label: "OFF Jumlah 2D" },
-  { value: "off_shio", label: "OFF Shio" },
-];
-
-export const POS_OPTIONS: { value: Posisi; label: string }[] = [
-  { value: "A", label: "AS" },
-  { value: "C", label: "COP" },
-  { value: "K", label: "KPL" },
-  { value: "E", label: "EKR" },
-];
-
-export const TARGET_2D_OPTIONS: { value: Target2D; label: string }[] = [
-  { value: "depan", label: "Depan" },
-  { value: "tengah", label: "Tengah" },
-  { value: "belakang", label: "Belakang" },
-];
-
-export const LABEL: Record<Posisi, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
-
-export const ANALYSIS_LABEL: Record<ScanMode, string> = {
-  posisi: "Trek Posisi",
-  ai_2d_belakang: "AI 2D",
-  bbfs_2d_belakang: "BBFS 2D",
-  jumlah_2d_belakang: "Jumlah 2D",
-  shio: "Shio",
-  off_posisi: "OFF Posisi",
-  off_2d_belakang: "OFF 2D",
-  off_jumlah_2d_belakang: "OFF Jumlah 2D",
-  off_shio: "OFF Shio",
-};
-
-export const TARGET_2D_LABEL: Record<Target2D, string> = {
-  depan: "Depan",
-  tengah: "Tengah",
-  belakang: "Belakang",
-};
-
 export const COLS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 export const SHIO_COLS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"];
-export const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export const NO_BADGE_SELECT_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) 24px" };
 export const NO_BADGE_OPTION_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) auto" };
