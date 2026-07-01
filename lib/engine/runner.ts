@@ -1,0 +1,116 @@
+import { KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi } from "./types";
+import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
+import { ALL_FORMULA_SPECS, computeFormula } from "./formulas";
+import { buildDeret, clamp, digitOf, parseHistory, scanCode, scanModeOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
+import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
+
+export { parseHistory } from "./helpers";
+
+function runFormulaEngine(draws: Draw[], spec: (typeof ALL_FORMULA_SPECS)[number], targetPos: Posisi, L: number, scanMode: EngineResult["config"]["scanMode"]): EngineResult {
+  const N = spec.patokanN;
+  if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
+  if (N < 1 || N > 9) throw new Error(`patokanN harus 1-9, diterima ${N}`);
+  if (draws.length <= N) throw new Error(`Data tidak cukup: butuh > ${N} hasil, hanya ada ${draws.length}.`);
+
+  const validTargets: number[] = [];
+  for (let t = N; t < draws.length; t++) validTargets.push(t);
+
+  const safeL = clamp(L, 14, 1, 100);
+  const targets = validTargets.slice(-safeL);
+  const hit = new Array(10).fill(0);
+  const rows: BacktestRow[] = [];
+
+  for (const t of targets) {
+    const sourceIndex = t - N;
+    const displayIndex = t - 1;
+    const patokan = computeFormula(spec, draws, t);
+    const deret = buildDeret(patokan);
+    const targetDigits = targetDigitsOf(draws[t], scanMode, targetPos);
+    const targetDigit = targetDigits[0];
+    const hitColumns = uniqueDigits(targetDigits).map((digit) => (digit - patokan + 10) % 10);
+    for (const col of hitColumns) hit[col] += 1;
+    rows.push({ displayDraw: draws[displayIndex], patokanDraw: draws[sourceIndex], targetDraw: draws[t], patokan, deret, targetDigit, targetDigits, kolomKena: KOLOM[hitColumns[0]] });
+  }
+
+  const latestDraw = draws[draws.length - 1];
+  const patokanLiveDraw = draws[draws.length - N];
+  const deretLive = buildDeret(computeFormula(spec, draws, draws.length));
+  const kolom: KolomStat[] = KOLOM.map((k, i) => ({ kolom: k, hit: hit[i], lemah: hit[i] === 0, digitLive: deretLive[i] }));
+  const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
+  const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
+
+  return { config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, L: safeL, scanMode }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
+}
+
+export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
+  const { patokanPos, patokanN, targetPos, L } = config;
+  const scanMode = scanModeOrDefault(config.scanMode);
+  return runFormulaEngine(draws, { formula: `${patokanPos}${patokanN}`, type: "base", typeOrder: 0, patokanPos, patokanN, compute: (draw) => digitOf(draw, patokanPos) }, targetPos, L, scanMode);
+}
+
+export function runEngineFromHistory(historyData: string, config: EngineConfig): EngineResult {
+  return runEngine(parseHistory(historyData), config);
+}
+
+export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
+  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 9), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
+  const targets = safeConfig.scanMode === "posisi" ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
+  const items: RankedItem[] = [];
+  let totalChecked = 0;
+
+  for (const targetPos of targets) {
+    for (const spec of ALL_FORMULA_SPECS) {
+      totalChecked += 1;
+      try {
+        const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode);
+        const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
+        if (!profile) continue;
+
+        const columns = profile.displayColumns;
+        const angkaHidup = digitsFromColumns(result, columns);
+        if (safeConfig.scanMode === "jumlah_2d_belakang" && angkaHidup.includes(0)) continue;
+
+        const columnSet = new Set<Kolom>(columns);
+        items.push({
+          targetPos,
+          scanMode: safeConfig.scanMode,
+          patokanPos: spec.patokanPos,
+          patokanN: spec.patokanN,
+          formula: spec.formula,
+          code: scanCode(targetPos, spec.formula, safeConfig.L, columns.join(""), safeConfig.scanMode),
+          angkaHidup,
+          kolomHidup: columns,
+          angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive),
+          kolomMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.kolom as Kolom),
+          activeColumns: columns.join(""),
+          jumlahHidup: columns.length,
+          coreSize: profile.coreSize,
+          coreColumns: profile.coreColumns,
+          supportColumns: profile.supportColumns,
+          supportReasons: profile.supportReasons,
+          consensusDigits: [],
+          consensusOverlap: 0,
+          consensusWeight: 0,
+          result,
+          typeOrder: spec.typeOrder,
+          strength: profile.coreSize,
+          rankCoreSize: profile.coreSize,
+          hitScore: profile.hitScore,
+          recentScore: profile.recentScore,
+        });
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  const uniqueItems = dedupeTrekCandidates(items);
+  applyConsensusScores(uniqueItems, safeConfig.digitCount);
+  const sorted = uniqueItems.sort(finalRank);
+  const limited = sorted.slice(0, safeConfig.stopScan).map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
+  return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
+}
+
+export function runAutoScanFromHistory(historyData: string, config: AutoScanConfig): AutoScanResult {
+  return runAutoScan(parseHistory(historyData), config);
+}
