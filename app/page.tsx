@@ -10,6 +10,7 @@ import SavedTrekSheet from "./scan/components/SavedTrekSheet";
 import { LABEL, TARGET_2D_LABEL } from "./scan/constants";
 import { useMarketPicker } from "./scan/hooks/useMarketPicker";
 import { useSavedTreks } from "./scan/hooks/useSavedTreks";
+import { useScanRunner } from "./scan/hooks/useScanRunner";
 import {
   buildCopyText,
   clampTextNumber,
@@ -23,7 +24,7 @@ import {
   scanDescription,
   joinValues,
 } from "./scan/helpers";
-import type { Posisi, SavedTrek, ScanItem, ScanResult, Target2D, ScanMode } from "./scan/types";
+import type { Posisi, SavedTrek, ScanItem, Target2D, ScanMode } from "./scan/types";
 
 export default function Page() {
   const {
@@ -48,14 +49,11 @@ export default function Page() {
   const [digitCount, setDigitCount] = useState(4);
   const [digitOpen, setDigitOpen] = useState(false);
   const [stopScan, setStopScan] = useState("1");
-  const [marketName, setMarketName] = useState("");
-  const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
   const [viewSaved, setViewSaved] = useState<SavedTrek | null>(null);
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
+  const { marketName, result, loading, scanError, setScanError, runScan } = useScanRunner();
   const {
     savedTreks,
     savedTreksForMarket,
@@ -146,25 +144,28 @@ export default function Page() {
     const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
     const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
     try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
-    catch { setError("Gagal salin trek."); }
+    catch { setScanError("Gagal salin trek."); }
   }
 
-  async function mulaiScan() {
-    setLoading(true); setError(""); setResult(null); setViewItem(null); setViewSaved(null); setCopied(false); setSavedFlashId("");
-    try {
-      const safeRounds = clampTextNumber(rounds, 14, 1, 100);
-      const maxDigit = isShioMode(scanMode) ? 12 : 9;
-      const safeDigit = Math.max(1, Math.min(maxDigit, Number(digitCount) || 4));
-      const safeStop = clampTextNumber(stopScan, 1, 1, 200);
-      setRounds(String(safeRounds)); setDigitCount(safeDigit); setStopScan(String(safeStop));
-      const response = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketId, L: safeRounds, targetPos, target2D, digitCount: safeDigit, stopScan: safeStop, scanMode }) });
-      const data = await response.json();
-      if (data.error) setError(data.error); else { setMarketName(data.market ?? ""); setResult(data.result); }
-    } catch {
-      setError("Scan gagal. Coba lagi.");
-    } finally {
-      setLoading(false);
-    }
+  function mulaiScan() {
+    runScan({
+      marketId,
+      rounds,
+      scanMode,
+      targetPos,
+      target2D,
+      digitCount,
+      stopScan,
+      onRoundsChange: setRounds,
+      onDigitCountChange: setDigitCount,
+      onStopScanChange: setStopScan,
+      onBeforeRun: () => {
+        setViewItem(null);
+        setViewSaved(null);
+        setCopied(false);
+        setSavedFlashId("");
+      },
+    });
   }
 
   return (
@@ -189,7 +190,7 @@ export default function Page() {
         digitCount={digitCount}
         stopScan={stopScan}
         loading={loading}
-        error={error || marketError}
+        error={scanError || marketError}
         onOpenMarket={bukaMarket}
         onCloseMarket={() => setMarketOpen(false)}
         onMarketQueryChange={setMarketQuery}
