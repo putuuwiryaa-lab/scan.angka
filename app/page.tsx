@@ -1,166 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BottomNav from "./bottom-nav";
-
-type Posisi = "A" | "C" | "K" | "E";
-type Target2D = "depan" | "tengah" | "belakang";
-type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang" | "shio" | "off_shio";
-type Market = { id: string; name: string | null; latestResult?: string | null; updatedAt?: string | null };
-type ScanRow = { displayDraw: string; patokanDraw: string; targetDraw: string; targetDigit: number; targetDigits?: number[]; deret: number[] };
-type ScanItem = {
-  targetPos: Posisi;
-  target2D: Target2D;
-  scanMode: ScanMode;
-  formula: string;
-  angkaHidup: number[];
-  kolomHidup: string[];
-  activeColumns: string;
-  result: { rows: ScanRow[]; patokanLiveDraw: string; latestDraw: string; deretLive: number[] };
-};
-type ScanResult = { config: { L: number; targetPos: Posisi; target2D: Target2D; digitCount: number; stopScan: number; scanMode: ScanMode }; totalChecked: number; totalMatched: number; items: ScanItem[] };
-type SavedTrek = {
-  id: string;
-  marketId: string;
-  marketName: string;
-  savedAt: string;
-  savedLatestDraw: string;
-  scanMode: ScanMode;
-  targetPos: Posisi;
-  target2D: Target2D;
-  digitCount: number;
-  L: number;
-  formula: string;
-  kolomHidup: string[];
-  activeColumns: string;
-  predictionValues: number[];
-  predictionText: string;
-  snapshotRows?: ScanRow[];
-};
-type SavedLive = {
-  market: string;
-  latestDraw: string;
-  predictionValues: number[];
-  predictionText: string;
-  result: { rows: ScanRow[]; latestDraw: string; deretLive: number[] };
-};
-type SavedGroup = {
-  key: string;
-  marketName: string;
-  scanMode: ScanMode;
-  targetPos: Posisi;
-  target2D: Target2D;
-  digitCount: number;
-  L: number;
-  items: SavedTrek[];
-};
-
-const SAVED_TREK_KEY = "scan-angka:saved-treks:v2";
-const ANALYSIS_OPTIONS: { value: ScanMode; label: string }[] = [
-  { value: "posisi", label: "Trek Posisi" },
-  { value: "ai_2d_belakang", label: "AI 2D" },
-  { value: "bbfs_2d_belakang", label: "BBFS 2D" },
-  { value: "jumlah_2d_belakang", label: "Jumlah 2D" },
-  { value: "shio", label: "Shio" },
-  { value: "off_posisi", label: "OFF Posisi" },
-  { value: "off_2d_belakang", label: "OFF 2D" },
-  { value: "off_jumlah_2d_belakang", label: "OFF Jumlah 2D" },
-  { value: "off_shio", label: "OFF Shio" },
-];
-const POS_OPTIONS: { value: Posisi; label: string }[] = [
-  { value: "A", label: "AS" },
-  { value: "C", label: "COP" },
-  { value: "K", label: "KPL" },
-  { value: "E", label: "EKR" },
-];
-const TARGET_2D_OPTIONS: { value: Target2D; label: string }[] = [
-  { value: "depan", label: "Depan" },
-  { value: "tengah", label: "Tengah" },
-  { value: "belakang", label: "Belakang" },
-];
-const LABEL: Record<Posisi, string> = { A: "AS", C: "COP", K: "KPL", E: "EKR" };
-const ANALYSIS_LABEL: Record<ScanMode, string> = {
-  posisi: "Trek Posisi",
-  ai_2d_belakang: "AI 2D",
-  bbfs_2d_belakang: "BBFS 2D",
-  jumlah_2d_belakang: "Jumlah 2D",
-  shio: "Shio",
-  off_posisi: "OFF Posisi",
-  off_2d_belakang: "OFF 2D",
-  off_jumlah_2d_belakang: "OFF Jumlah 2D",
-  off_shio: "OFF Shio",
-};
-const TARGET_2D_LABEL: Record<Target2D, string> = { depan: "Depan", tengah: "Tengah", belakang: "Belakang" };
-const COLS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-const SHIO_COLS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"];
-const DIGIT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const NO_BADGE_SELECT_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) 24px" };
-const NO_BADGE_OPTION_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) auto" };
-const DATA_HINT_FIELD_STYLE: CSSProperties = { position: "relative" };
-const DATA_HINT_INPUT_STYLE: CSSProperties = { paddingRight: 76 };
-const DATA_HINT_STYLE: CSSProperties = { position: "absolute", right: 12, bottom: 14, color: "rgba(233,238,245,.34)", fontSize: 12, fontWeight: 900, pointerEvents: "none" };
-const ROW_ACTIONS_STYLE: CSSProperties = { display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" };
-const SECTION_TITLE_STYLE: CSSProperties = { display: "flex", alignItems: "center", gap: 10, margin: "18px 0 10px", color: "#e9eef5", fontSize: 15, fontWeight: 950 };
-const SECTION_LINE_STYLE: CSSProperties = { flex: 1, height: 1, background: "rgba(255,255,255,.10)" };
-const SECTION_COUNT_STYLE: CSSProperties = { color: "#8b97a8", fontSize: 13, fontWeight: 900 };
-
-function isPositionMode(mode: ScanMode) { return mode === "posisi" || mode === "off_posisi"; }
-function isOffMode(mode: ScanMode) { return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_shio"; }
-function isShioMode(mode: ScanMode) { return mode === "shio" || mode === "off_shio"; }
-function pickColumns(columns: string[], deret: number[]) {
-  const source = deret.length === 12 ? SHIO_COLS : COLS;
-  return columns.map((column) => deret[source.indexOf(column)]).filter((digit) => Number.isFinite(digit));
-}
-function marketTitle(market: Market) { return market.name ?? market.id; }
-function isSingapore(market: Market) { const text = `${market.id} ${market.name ?? ""}`.toLowerCase(); return text.includes("singapore") || text.includes("sgp"); }
-function cleanDigits(value: string, maxLength = 3) { return value.replace(/\D/g, "").slice(0, maxLength); }
-function clampTextNumber(value: string, fallback: number, min: number, max: number) { const parsed = Number(value); if (!Number.isFinite(parsed) || parsed < min) return fallback; return Math.max(min, Math.min(max, Math.trunc(parsed))); }
-function formatSyncTime(value: string | null) {
-  if (!value) return "Sinkron data belum tersedia";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sinkron data belum tersedia";
-  return `Terakhir sinkron data: ${date.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
-}
-function shioLabel(value: number) { return String(value + 1).padStart(2, "0"); }
-function labelValue(value: number, mode: ScanMode) { return isShioMode(mode) ? shioLabel(value) : String(value); }
-function labelsFromValues(values: number[], mode: ScanMode) { return values.map((value) => labelValue(value, mode)); }
-function joinValues(values: number[], mode: ScanMode) { return labelsFromValues(values, mode).join(isShioMode(mode) ? "-" : ""); }
-function targetDigits(row: ScanRow) { return row.targetDigits?.length ? row.targetDigits : [row.targetDigit]; }
-function rowValues(item: ScanItem, row: ScanRow) {
-  const targets = targetDigits(row);
-  return pickColumns(item.kolomHidup, row.deret).map((digit) => ({ digit, hit: targets.includes(digit) }));
-}
-function savedRowValues(saved: SavedTrek, row: ScanRow) {
-  const targets = targetDigits(row);
-  return pickColumns(saved.kolomHidup, row.deret).map((digit) => ({ digit, hit: targets.includes(digit) }));
-}
-function rowText(item: ScanItem, row: ScanRow) { return joinValues(rowValues(item, row).map(({ digit }) => digit), item.scanMode); }
-function statusFor(mode: ScanMode, targets: number[], values: number[]) {
-  if (isOffMode(mode)) return values.some((digit) => targets.includes(digit)) ? "❌" : "✅";
-  if (mode === "bbfs_2d_belakang") return targets.every((digit) => values.includes(digit)) ? "✅" : "❌";
-  return values.some((digit) => targets.includes(digit)) ? "✅" : "❌";
-}
-function rowStatus(item: ScanItem, row: ScanRow) { return statusFor(item.scanMode, targetDigits(row), rowValues(item, row).map(({ digit }) => digit)); }
-function savedRowStatus(saved: SavedTrek, row: ScanRow) { return statusFor(saved.scanMode, targetDigits(row), savedRowValues(saved, row).map(({ digit }) => digit)); }
-function predictionValues(item: ScanItem) { return pickColumns(item.kolomHidup, item.result.deretLive); }
-function predictionResult(item: ScanItem) { return joinValues(predictionValues(item), item.scanMode); }
-function analysisTitle(mode: ScanMode, targetPos: Posisi, target2D: Target2D) {
-  if (isPositionMode(mode)) return `${ANALYSIS_LABEL[mode]} ${LABEL[targetPos]}`;
-  return `${ANALYSIS_LABEL[mode]} ${TARGET_2D_LABEL[target2D]}`;
-}
-function scanDescription(mode: ScanMode, targetPos: Posisi, target2D: Target2D, count: number) {
-  const unit = isShioMode(mode) ? "shio" : "digit";
-  return `${analysisTitle(mode, targetPos, target2D)} ${count} ${unit}`;
-}
-function savedDescription(saved: SavedTrek) { return `${scanDescription(saved.scanMode, saved.targetPos, saved.target2D, saved.digitCount)} · ${saved.L} data · kolom ${saved.activeColumns}`; }
-function detailHeaderTitle(marketName: string, selectedMarket: Market | null) { return (marketName || (selectedMarket ? marketTitle(selectedMarket) : "Pasaran")).toUpperCase(); }
-function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: string, title: string, description: string) {
-  const header = [`*${title}*`, description];
-  const history = rows.map((row) => `${row.displayDraw} ➜ ${rowText(item, row)} ${rowStatus(item, row)}`);
-  const next = `${item.result.latestDraw} ➜ ${nextPrediction} ??`;
-  return [...header, "", ...history, next].join("\n");
-}
-function savedSignature(item: ScanItem, marketId: string) { return `${marketId}:${item.result.latestDraw}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.formula}`; }
+import ScanResultPanel from "./scan/components/ScanResultPanel";
+import SavedTreksSection from "./scan/components/SavedTreksSection";
+import TrekDetailSheet from "./scan/components/TrekDetailSheet";
+import SavedTrekSheet from "./scan/components/SavedTrekSheet";
+import {
+  ANALYSIS_LABEL,
+  ANALYSIS_OPTIONS,
+  DATA_HINT_FIELD_STYLE,
+  DATA_HINT_INPUT_STYLE,
+  DATA_HINT_STYLE,
+  DIGIT_OPTIONS,
+  LABEL,
+  NO_BADGE_OPTION_STYLE,
+  NO_BADGE_SELECT_STYLE,
+  POS_OPTIONS,
+  SAVED_TREK_KEY,
+  TARGET_2D_LABEL,
+  TARGET_2D_OPTIONS,
+} from "./scan/constants";
+import {
+  buildCopyText,
+  buildSavedGroups,
+  clampTextNumber,
+  cleanDigits,
+  detailHeaderTitle,
+  formatSyncTime,
+  isPositionMode,
+  isShioMode,
+  isSingapore,
+  marketTitle,
+  predictionResult,
+  predictionValues,
+  savedSignature,
+  joinValues,
+} from "./scan/helpers";
+import type { Market, Posisi, SavedLive, SavedTrek, ScanItem, ScanResult, Target2D, ScanMode } from "./scan/types";
 
 export default function Page() {
   const [markets, setMarkets] = useState<Market[]>([]);
@@ -197,22 +74,10 @@ export default function Page() {
   const syncText = useMemo(() => formatSyncTime(syncUpdatedAt), [syncUpdatedAt]);
   const viewRows = useMemo(() => viewItem?.result.rows ?? [], [viewItem]);
   const nextPrediction = viewItem ? predictionResult(viewItem) : "";
-  const nextPredictionLabels = viewItem ? labelsFromValues(predictionValues(viewItem), viewItem.scanMode) : [];
+  const nextPredictionLabels = viewItem ? predictionValues(viewItem).map((value) => String(value)) : [];
   const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
   const savedTreksForMarket = useMemo(() => savedTreks.filter((item) => item.marketId === marketId), [savedTreks, marketId]);
-  const savedGroups = useMemo<SavedGroup[]>(() => {
-    const groups: SavedGroup[] = [];
-    for (const item of savedTreksForMarket) {
-      const key = `${item.marketName}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.digitCount}:${item.L}`;
-      const existing = groups.find((group) => group.key === key);
-      if (existing) {
-        existing.items.push(item);
-        continue;
-      }
-      groups.push({ key, marketName: item.marketName, scanMode: item.scanMode, targetPos: item.targetPos, target2D: item.target2D, digitCount: item.digitCount, L: item.L, items: [item] });
-    }
-    return groups;
-  }, [savedTreksForMarket]);
+  const savedGroups = useMemo(() => buildSavedGroups(savedTreksForMarket), [savedTreksForMarket]);
   const savedRefreshKey = useMemo(() => `${marketId}:${selectedMarket?.latestResult ?? ""}:${savedTreksForMarket.map((item) => `${item.id}:${item.L}:${item.kolomHidup.join("")}`).join("|")}`, [marketId, selectedMarket?.latestResult, savedTreksForMarket]);
 
   useEffect(() => {
@@ -266,13 +131,52 @@ export default function Page() {
     setSavedTreks(next);
     try { localStorage.setItem(SAVED_TREK_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   }
-  function bukaMarket() { if (marketOpen) { setMarketOpen(false); return; } setMarketQuery(""); setJenisOpen(false); setTargetOpen(false); setDigitOpen(false); setMarketOpen(true); }
-  function pilihMarket(market: Market) { setMarketId(market.id); setMarketQuery(""); setMarketOpen(false); }
-  function toggleJenis() { setMarketOpen(false); setTargetOpen(false); setDigitOpen(false); setJenisOpen((open) => !open); }
-  function pilihJenis(value: ScanMode) { setScanMode(value); setJenisOpen(false); if (!isShioMode(value) && digitCount > 9) setDigitCount(9); }
-  function toggleTarget() { setMarketOpen(false); setJenisOpen(false); setDigitOpen(false); setTargetOpen((open) => !open); }
-  function toggleDigit() { setMarketOpen(false); setJenisOpen(false); setTargetOpen(false); setDigitOpen((open) => !open); }
-  function pilihDigit(value: number) { setDigitCount(value); setDigitOpen(false); }
+
+  function bukaMarket() {
+    if (marketOpen) {
+      setMarketOpen(false);
+      return;
+    }
+    setMarketQuery("");
+    setJenisOpen(false);
+    setTargetOpen(false);
+    setDigitOpen(false);
+    setMarketOpen(true);
+  }
+
+  function pilihMarket(market: Market) {
+    setMarketId(market.id);
+    setMarketQuery("");
+    setMarketOpen(false);
+  }
+
+  function toggleJenis() {
+    setMarketOpen(false);
+    setTargetOpen(false);
+    setDigitOpen(false);
+    setJenisOpen((open) => !open);
+  }
+
+  function pilihJenis(value: ScanMode) {
+    setScanMode(value);
+    setJenisOpen(false);
+    if (!isShioMode(value) && digitCount > 9) setDigitCount(9);
+  }
+
+  function toggleTarget() {
+    setMarketOpen(false);
+    setJenisOpen(false);
+    setDigitOpen(false);
+    setTargetOpen((open) => !open);
+  }
+
+  function toggleDigit() {
+    setMarketOpen(false);
+    setJenisOpen(false);
+    setTargetOpen(false);
+    setDigitOpen((open) => !open);
+  }
+
   function saveTrek(item: ScanItem) {
     if (!marketId) return;
     const count = result?.config.digitCount ?? digitCount;
@@ -303,6 +207,7 @@ export default function Page() {
     setSavedFlashId(signature);
     window.setTimeout(() => setSavedFlashId(""), 1200);
   }
+
   function deleteSavedTrek(id: string) {
     persistSavedTreks(savedTreks.filter((item) => item.id !== id));
     setSavedLiveMap((current) => {
@@ -316,7 +221,7 @@ export default function Page() {
   async function copyTrek() {
     if (!viewItem) return;
     const title = detailHeaderTitle(marketName, selectedMarket);
-    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
+    const description = `${targetText} ${result?.config.digitCount ?? digitCount} digit`;
     const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
     try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
     catch { setError("Gagal salin trek."); }
@@ -359,7 +264,7 @@ export default function Page() {
 
         <div className="row two">
           <div className="field trek-field"><label>Target</label><button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleTarget}><b>{targetText}</b><span className="select-arrow">{targetOpen ? "⌃" : "⌄"}</span></button>{targetOpen && <div className="trek-menu">{isPositionMode(scanMode) ? POS_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === targetPos ? "trek-option active" : "trek-option"} onClick={() => { setTargetPos(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === targetPos && <b>✓</b>}</button>) : TARGET_2D_OPTIONS.map((item) => <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => { setTarget2D(item.value); setTargetOpen(false); }}><span className="option-label">{item.label}</span>{item.value === target2D && <b>✓</b>}</button>)}</div>}</div>
-          <div className="field digit-field"><label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label><button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}><b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b><span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span></button>{digitOpen && <div className="digit-menu">{DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => pilihDigit(value)}><span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}</button>)}</div>}</div>
+          <div className="field digit-field"><label>{isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit"}</label><button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={toggleDigit}><b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b><span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span></button>{digitOpen && <div className="digit-menu">{DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => { setDigitCount(value); setDigitOpen(false); }}><span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}</button>)}</div>}</div>
         </div>
 
         <div className="field"><label>Batas Hasil</label><input inputMode="numeric" value={stopScan} onChange={(event) => setStopScan(cleanDigits(event.target.value, 3))} onBlur={() => setStopScan(String(clampTextNumber(stopScan, 1, 1, 200)))} /></div>
@@ -367,13 +272,10 @@ export default function Page() {
         {error && <div className="err">{error}</div>}
       </div>
 
-      {result && <div className="panel result-panel"><p className="summary"><b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.config.L} data &middot; {result.totalMatched} hasil</p><div className="scan-list compact-list">{result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}{result.items.map((item, index) => { const signature = savedSignature(item, marketId); return <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.formula}-${index}`}><span className="scan-formula compact-formula">{item.formula}</span><div className="compact-digits">{labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => saveTrek(item)}>{savedFlashId === signature ? "Tersimpan" : "Simpan"}</button><button className="view-btn compact-view" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat</button></div></div>; })}</div></div>}
-
-      {savedTreksForMarket.length > 0 && <><div style={SECTION_TITLE_STYLE}><span style={SECTION_LINE_STYLE} /><b>Trek Tersimpan</b><em style={SECTION_COUNT_STYLE}>{savedTreksForMarket.length} trek</em><span style={SECTION_LINE_STYLE} /></div>{savedGroups.map((group) => <div className="panel result-panel" key={group.key}><p className="summary"><b>{group.marketName}</b> &middot; <b>{analysisTitle(group.scanMode, group.targetPos, group.target2D)}</b> &middot; {group.digitCount} {isShioMode(group.scanMode) ? "shio" : "digit"} &middot; {group.L} data &middot; {group.items.length} hasil</p><div className="scan-list compact-list">{group.items.map((saved) => { const live = savedLiveMap[saved.id]; const values = live?.predictionValues ?? saved.predictionValues; return <div className="scan-item compact" key={saved.id}><span className="scan-formula compact-formula">{saved.formula}</span><div className="compact-digits">{labelsFromValues(values, saved.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => setViewSaved(saved)}>Lihat</button><button className="view-btn compact-view" type="button" onClick={() => deleteSavedTrek(saved.id)}>Hapus</button></div></div>; })}</div></div>)}</>}
-
-      {viewItem && <div className="sheet-bg" onClick={() => setViewItem(null)}><div className="sheet" onClick={(event) => event.stopPropagation()}><div className="sheet-head"><div><b>{detailHeaderTitle(marketName, selectedMarket)}</b><span>{scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount)}</span></div><div className="sheet-actions"><button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button><button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button></div></div><div className="trek-detail">{viewRows.map((row, index) => <div className="trek-row" key={`${row.displayDraw}-${index}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{rowValues(viewItem, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewItem.scanMode)}</span>)}</b><em>{rowStatus(viewItem, row)}</em></div>)}<div className="trek-row pending"><span>{viewItem.result.latestDraw}</span><i>➜</i><b className="row-digits">{nextPredictionLabels.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
-
-      {viewSaved && (() => { const live = savedLiveMap[viewSaved.id]; const rows = live?.result?.rows ?? viewSaved.snapshotRows ?? []; const prediction = live?.predictionValues ?? viewSaved.predictionValues; const latestDraw = live?.latestDraw ?? viewSaved.savedLatestDraw; return <div className="sheet-bg" onClick={() => setViewSaved(null)}><div className="sheet" onClick={(event) => event.stopPropagation()}><div className="sheet-head"><div><b>{viewSaved.marketName}</b><span>{savedDescription(viewSaved)}</span></div><div className="sheet-actions"><button className="close-btn" type="button" onClick={() => setViewSaved(null)}>×</button></div></div><div className="trek-detail">{rows.map((row, index) => <div className="trek-row" key={`${row.displayDraw}-${index}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{savedRowValues(viewSaved, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewSaved.scanMode)}</span>)}</b><em>{savedRowStatus(viewSaved, row)}</em></div>)}<div className="trek-row pending"><span>{latestDraw}</span><i>➜</i><b className="row-digits">{labelsFromValues(prediction, viewSaved.scanMode).map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>; })()}
+      {result && <ScanResultPanel result={result} marketName={marketName} marketId={marketId} savedFlashId={savedFlashId} onSave={saveTrek} onView={(item) => { setCopied(false); setViewItem(item); }} />}
+      <SavedTreksSection total={savedTreksForMarket.length} groups={savedGroups} liveMap={savedLiveMap} onView={setViewSaved} onDelete={deleteSavedTrek} />
+      <TrekDetailSheet item={viewItem} selectedMarket={selectedMarket} marketName={marketName} digitCount={digitCount} resultDigitCount={result?.config.digitCount} rows={viewRows} nextPredictionLabels={nextPredictionLabels} copied={copied} onCopy={copyTrek} onClose={() => setViewItem(null)} />
+      <SavedTrekSheet saved={viewSaved} liveMap={savedLiveMap} onClose={() => setViewSaved(null)} />
 
       <BottomNav />
     </div>
