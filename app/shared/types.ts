@@ -1,6 +1,9 @@
+import type { ScanMode } from "../../lib/shared/scan-mode";
+
+export type { ScanMode } from "../../lib/shared/scan-mode";
+
 export type Posisi = "A" | "C" | "K" | "E";
 export type Target2D = "depan" | "tengah" | "belakang";
-export type ScanMode = "posisi" | "ai_2d_belakang" | "bbfs_2d_belakang" | "jumlah_2d_belakang" | "off_posisi" | "off_2d_belakang" | "off_jumlah_2d_belakang" | "shio" | "off_shio";
 
 export type Market = {
   id: string;
