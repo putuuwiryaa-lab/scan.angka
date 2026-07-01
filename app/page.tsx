@@ -158,6 +158,7 @@ export default function Page() {
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
+  const [viewSaved, setViewSaved] = useState<SavedTrek | null>(null);
   const [savedTreks, setSavedTreks] = useState<SavedTrek[]>([]);
   const [savedFlashId, setSavedFlashId] = useState("");
   const [copied, setCopied] = useState(false);
@@ -236,6 +237,7 @@ export default function Page() {
   }
   function deleteSavedTrek(id: string) {
     persistSavedTreks(savedTreks.filter((item) => item.id !== id));
+    if (viewSaved?.id === id) setViewSaved(null);
   }
 
   async function copyTrek() {
@@ -248,7 +250,7 @@ export default function Page() {
   }
 
   async function mulaiScan() {
-    setLoading(true); setError(""); setResult(null); setViewItem(null); setCopied(false); setSavedFlashId("");
+    setLoading(true); setError(""); setResult(null); setViewItem(null); setViewSaved(null); setCopied(false); setSavedFlashId("");
     try {
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const maxDigit = isShioMode(scanMode) ? 12 : 9;
@@ -289,11 +291,13 @@ export default function Page() {
         {error && <div className="err">{error}</div>}
       </div>
 
-      {savedTreksForMarket.length > 0 && <div className="panel result-panel"><p className="summary"><b>Trek Tersimpan</b> &middot; {savedTreksForMarket.length} trek</p><div className="scan-list compact-list">{savedTreksForMarket.map((saved) => <div className="scan-item compact" key={saved.id}><span className="scan-formula compact-formula">{saved.formula}</span><div className="compact-digits"><span>{saved.predictionText}</span></div><button className="view-btn compact-view" type="button" onClick={() => deleteSavedTrek(saved.id)}>Hapus</button><div style={SAVED_META_STYLE}>{scanDescription(saved.scanMode, saved.targetPos, saved.target2D, saved.digitCount)} · dari {saved.savedLatestDraw}</div></div>)}</div></div>}
-
       {result && <div className="panel result-panel"><p className="summary"><b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.totalMatched} hasil</p><div className="scan-list compact-list">{result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}{result.items.map((item, index) => { const signature = savedSignature(item, marketId); return <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.formula}-${index}`}><span className="scan-formula compact-formula">{item.formula}</span><div className="compact-digits">{labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}</div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => saveTrek(item)}>{savedFlashId === signature ? "Tersimpan" : "Simpan"}</button><button className="view-btn compact-view" type="button" onClick={() => { setCopied(false); setViewItem(item); }}>Lihat</button></div></div>; })}</div></div>}
 
+      {savedTreksForMarket.length > 0 && <div className="panel result-panel"><p className="summary"><b>Trek Tersimpan</b> &middot; {savedTreksForMarket.length} trek</p><div className="scan-list compact-list">{savedTreksForMarket.map((saved) => <div className="scan-item compact" key={saved.id}><span className="scan-formula compact-formula">{saved.formula}</span><div className="compact-digits"><span>{saved.predictionText}</span></div><div style={ROW_ACTIONS_STYLE}><button className="view-btn compact-view" type="button" onClick={() => setViewSaved(saved)}>Lihat</button><button className="view-btn compact-view" type="button" onClick={() => deleteSavedTrek(saved.id)}>Hapus</button></div><div style={SAVED_META_STYLE}>{scanDescription(saved.scanMode, saved.targetPos, saved.target2D, saved.digitCount)} · dari {saved.savedLatestDraw}</div></div>)}</div></div>}
+
       {viewItem && <div className="sheet-bg" onClick={() => setViewItem(null)}><div className="sheet" onClick={(e) => e.stopPropagation()}><div className="sheet-head"><div><b>{detailHeaderTitle(marketName, selectedMarket)}</b><span>{scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount)}</span></div><div className="sheet-actions"><button className="copy-btn" type="button" onClick={copyTrek}>{copied ? "Tersalin" : "Salin Trek"}</button><button className="close-btn" type="button" onClick={() => setViewItem(null)}>×</button></div></div><div className="trek-detail">{viewRows.map((row, idx) => <div className="trek-row" key={`${row.displayDraw}-${idx}`}><span>{row.displayDraw}</span><i>➜</i><b className="row-digits">{rowResultDigits(viewItem, row).map(({ digit, hit }, digitIndex) => <span key={`${digit}-${digitIndex}`} className={hit ? "hit-digit" : ""}>{labelValue(digit, viewItem.scanMode)}</span>)}</b><em>{rowStatus(viewItem, row)}</em></div>)}<div className="trek-row pending"><span>{viewItem.result.latestDraw}</span><i>➜</i><b className="row-digits">{nextPredictionLabels.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
+
+      {viewSaved && <div className="sheet-bg" onClick={() => setViewSaved(null)}><div className="sheet" onClick={(e) => e.stopPropagation()}><div className="sheet-head"><div><b>{viewSaved.marketName}</b><span>{scanDescription(viewSaved.scanMode, viewSaved.targetPos, viewSaved.target2D, viewSaved.digitCount)}</span></div><div className="sheet-actions"><button className="close-btn" type="button" onClick={() => setViewSaved(null)}>×</button></div></div><div className="trek-detail"><div className="trek-row pending"><span>{viewSaved.savedLatestDraw}</span><i>➜</i><b className="row-digits">{labelsFromValues(viewSaved.predictionValues, viewSaved.scanMode).map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}</b><em>??</em></div></div></div></div>}
 
       <BottomNav />
     </div>
