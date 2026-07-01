@@ -10,9 +10,9 @@ export {
   DIGIT_OPTIONS,
 } from "../shared/scan-options";
 
+export { COLS, SHIO_COLS } from "../../lib/shared/columns";
+
 export const SAVED_TREK_KEY = "scan-angka:saved-treks:v2";
-export const COLS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-export const SHIO_COLS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"];
 
 export const NO_BADGE_SELECT_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) 24px" };
 export const NO_BADGE_OPTION_STYLE: CSSProperties = { gridTemplateColumns: "minmax(0,1fr) auto" };
