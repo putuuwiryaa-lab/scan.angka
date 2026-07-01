@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { clampTextNumber, isShioMode } from "../helpers";
+import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
 import type { Posisi, ScanMode, ScanResult, Target2D } from "../types";
 
 type RunScanParams = {
