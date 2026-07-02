@@ -1,7 +1,7 @@
-import { isOffMode, isScanMode, isShioMode } from "../shared/scan-mode";
+import { isJumlah2DMode, isOffMode, isScanMode, isShioMode } from "../shared/scan-mode";
 import { KOLOM, POS_INDEX, SHIO_KOLOM, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D } from "./types";
 
-export { isOffMode, isPositionMode, isScanMode, isShioMode } from "../shared/scan-mode";
+export { isJumlah2DMode, isOffMode, isPositionMode, isScanMode, isShioMode } from "../shared/scan-mode";
 
 export const SHIO_NAMES = ["Kuda", "Ular", "Naga", "Kelinci", "Harimau", "Kerbau", "Tikus", "Babi", "Anjing", "Ayam", "Monyet", "Kambing"] as const;
 
@@ -42,9 +42,8 @@ export function target2DOrDefault(value: unknown): Target2D {
 export function is2DMode(mode: ScanMode): boolean {
   return mode === "ai_2d_belakang" ||
     mode === "bbfs_2d_belakang" ||
-    mode === "jumlah_2d_belakang" ||
+    isJumlah2DMode(mode) ||
     mode === "off_2d_belakang" ||
-    mode === "off_jumlah_2d_belakang" ||
     isShioMode(mode);
 }
 
@@ -83,7 +82,7 @@ export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi, ta
     const [left, right] = target2DPositions(target2D);
     return uniqueDigits([digitOf(draw, left), digitOf(draw, right)]);
   }
-  if (mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang") {
+  if (isJumlah2DMode(mode)) {
     const [left, right] = target2DPositions(target2D);
     return [jumlah2dDigit(digitOf(draw, left), digitOf(draw, right))];
   }
