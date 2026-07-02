@@ -9,13 +9,22 @@ Tambahkan environment variable berikut di Vercel:
 ```txt
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
+APP_ACCESS_PIN
+APP_AUTH_SECRET
 ```
+
+Keterangan:
+
+- `APP_ACCESS_PIN`: PIN akses 8 digit.
+- `APP_AUTH_SECRET`: secret panjang untuk tanda tangan cookie akses. Ganti nilai ini untuk memutus semua sesi lama.
 
 Contoh `.env.local`:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+APP_ACCESS_PIN=12345678
+APP_AUTH_SECRET=random-secret-panjang
 ```
 
 ## Instalasi Lokal
@@ -66,6 +75,8 @@ npm run start
 3. Tambahkan environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `APP_ACCESS_PIN`
+   - `APP_AUTH_SECRET`
 4. Deploy.
 5. Setelah deploy selesai, buka domain Vercel atau custom domain.
 
