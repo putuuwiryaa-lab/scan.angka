@@ -1,4 +1,4 @@
-import { labelValue, labelsFromValues, predictionDisplayValues, savedDescription, savedRowStatus, savedRowValues } from "../helpers";
+import { labelValue, labelsFromValues, savedDescription, savedRowStatus, savedRowValues } from "../helpers";
 import type { SavedLive, SavedTrek } from "../types";
 
 type Props = {
@@ -12,7 +12,7 @@ export default function SavedTrekSheet({ saved, liveMap, onClose }: Props) {
 
   const live = liveMap[saved.id];
   const rows = live?.result?.rows ?? saved.snapshotRows ?? [];
-  const prediction = predictionDisplayValues(live?.predictionValues ?? saved.predictionValues, saved.scanMode);
+  const prediction = live?.predictionValues ?? saved.predictionValues;
   const latestDraw = live?.latestDraw ?? saved.savedLatestDraw;
 
   return (
