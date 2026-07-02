@@ -1,6 +1,6 @@
 import type { Market } from "./types";
 
-export { isOffMode, isPositionMode, isScanMode, isShioMode } from "../../lib/shared/scan-mode";
+export { isJumlah2DMode, isOffMode, isPositionMode, isScanMode, isShioMode } from "../../lib/shared/scan-mode";
 
 export function marketTitle(market: Market) {
   return market.name ?? market.id;
