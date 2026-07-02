@@ -35,7 +35,7 @@
 
 .scan-item.compact {
   display: grid;
-  grid-template-columns: minmax(54px, auto) minmax(0, 1fr) 52px;
+  grid-template-columns: minmax(54px, auto) minmax(0, 1fr) minmax(106px, auto);
   align-items: center;
   gap: 8px;
 }
@@ -80,11 +80,16 @@
 }
 
 .view-btn.compact-view {
-  width: 52px;
+  width: 50px;
   height: 30px;
   margin: 0;
   font-size: 12px;
+  line-height: 1;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .frequency-block {
