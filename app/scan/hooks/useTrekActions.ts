@@ -7,6 +7,7 @@ import {
   detailHeaderTitle,
   joinValues,
   labelsFromValues,
+  pickColumns,
   predictionResult,
   predictionValues,
   savedSignature,
@@ -66,7 +67,7 @@ export function useTrekActions({
     const count = result?.config.digitCount ?? digitCount;
     const L = result?.config.L ?? clampTextNumber(rounds, 14, 1, 100);
     const title = detailHeaderTitle(marketName, selectedMarket);
-    const prediction = predictionValues(item);
+    const prediction = pickColumns(item.kolomHidup, item.result.deretLive);
     const signature = savedSignature(item, marketId);
     const saved: SavedTrek = {
       id: signature,
