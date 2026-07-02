@@ -14,7 +14,7 @@ export default function LoginPage() {
     setError("");
     const cleanedPin = pin.replace(/\D/g, "").slice(0, 8);
     if (cleanedPin.length !== 8) {
-      setError("Kode akses harus 8 digit.");
+      setError("Kode akses tidak lengkap.");
       return;
     }
 
@@ -56,7 +56,7 @@ export default function LoginPage() {
             pattern="\d{8}"
             autoComplete="one-time-code"
             maxLength={8}
-            placeholder="8 digit"
+            placeholder=""
             value={pin}
             onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
           />
