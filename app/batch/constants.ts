@@ -1,1 +1,1 @@
-export const MAX_BATCH_MARKETS = 35;
+export { MAX_BATCH_MARKETS } from "../../lib/shared/batch";
