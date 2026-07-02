@@ -1,10 +1,14 @@
 import { ANALYSIS_LABEL, COLS, LABEL, SHIO_COLS, TARGET_2D_LABEL } from "./constants";
-import { isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
+import { isJumlah2DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 import type { Market, Posisi, SavedGroup, SavedTrek, ScanItem, ScanMode, ScanRow, Target2D } from "./types";
 
 export function pickColumns(columns: string[], deret: number[]) {
   const source: readonly string[] = deret.length === 12 ? SHIO_COLS : COLS;
   return columns.map((column) => deret[source.indexOf(column)]).filter((digit) => Number.isFinite(digit));
+}
+
+export function predictionDisplayValues(values: number[], mode: ScanMode) {
+  return isJumlah2DMode(mode) ? values.filter((digit) => digit !== 0) : values;
 }
 
 export function isSingapore(market: Market) {
@@ -74,7 +78,7 @@ export function savedRowStatus(saved: SavedTrek, row: ScanRow) {
 }
 
 export function predictionValues(item: ScanItem) {
-  return pickColumns(item.kolomHidup, item.result.deretLive);
+  return predictionDisplayValues(pickColumns(item.kolomHidup, item.result.deretLive), item.scanMode);
 }
 
 export function predictionResult(item: ScanItem) {
