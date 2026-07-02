@@ -1,7 +1,7 @@
 import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D } from "./types";
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
 import { ALL_FORMULA_SPECS, computeFormula, type FormulaSpec } from "./formulas";
-import { buildDeret, buildDeretShio, clamp, digitOf, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
+import { buildDeret, buildDeretShio, clamp, digitOf, isJumlah2DMode, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
 import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
 
 export { parseHistory } from "./helpers";
@@ -91,7 +91,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
 
         const columns = profile.displayColumns;
         const angkaHidup = digitsFromColumns(result, columns);
-        if (safeConfig.scanMode === "jumlah_2d_belakang" && angkaHidup.includes(0)) continue;
+        if (isJumlah2DMode(safeConfig.scanMode) && angkaHidup.includes(0)) continue;
 
         const columnSet = new Set<Kolom>(columns);
         items.push({
