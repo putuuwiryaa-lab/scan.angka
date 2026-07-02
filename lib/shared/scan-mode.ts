@@ -24,6 +24,10 @@ export function isOffMode(mode: ScanMode) {
   return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_shio";
 }
 
+export function isJumlah2DMode(mode: ScanMode) {
+  return mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang";
+}
+
 export function isShioMode(mode: ScanMode) {
   return mode === "shio" || mode === "off_shio";
 }
