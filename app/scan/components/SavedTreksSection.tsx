@@ -1,6 +1,6 @@
 import { ROW_ACTIONS_STYLE, SECTION_COUNT_STYLE, SECTION_LINE_STYLE, SECTION_TITLE_STYLE } from "../constants";
 import { isShioMode } from "../../shared/scan-utils";
-import { analysisTitle, labelsFromValues } from "../helpers";
+import { analysisTitle, labelsFromValues, predictionDisplayValues } from "../helpers";
 import type { SavedGroup, SavedLive, SavedTrek } from "../types";
 
 type Props = {
@@ -31,7 +31,7 @@ export default function SavedTreksSection({ total, groups, liveMap, onView, onDe
           <div className="scan-list compact-list">
             {group.items.map((saved) => {
               const live = liveMap[saved.id];
-              const values = live?.predictionValues ?? saved.predictionValues;
+              const values = predictionDisplayValues(live?.predictionValues ?? saved.predictionValues, saved.scanMode);
               return (
                 <div className="scan-item compact" key={saved.id}>
                   <span className="scan-formula compact-formula">{saved.formula}</span>
