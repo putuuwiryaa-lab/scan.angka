@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runFormulaByName } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
+import { isJumlah2DMode, isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
 import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode, type Target2D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -83,7 +83,8 @@ export async function POST(req: Request) {
 
     const draws = parseStrictHistory(data.history_data);
     const result = runFormulaByName(draws, formula, { patokanPos: targetPos, patokanN: 1, L, targetPos, target2D, scanMode });
-    const predictionValues = digitsFromColumns(result.deretLive, kolomHidup);
+    const rawPredictionValues = digitsFromColumns(result.deretLive, kolomHidup);
+    const predictionValues = isJumlah2DMode(scanMode) ? rawPredictionValues.filter((digit) => digit !== 0) : rawPredictionValues;
     const predictionText = formatPrediction(predictionValues, scanMode);
 
     return NextResponse.json({
