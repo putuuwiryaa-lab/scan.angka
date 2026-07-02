@@ -3,11 +3,11 @@ import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode, Target2D } from "@/lib/engine/types";
+import { MAX_BATCH_MARKETS } from "@/lib/shared/batch";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
-const MAX_BATCH_MARKETS = 30;
 const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
