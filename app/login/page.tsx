@@ -14,7 +14,7 @@ export default function LoginPage() {
     setError("");
     const cleanedPin = pin.replace(/\D/g, "").slice(0, 8);
     if (cleanedPin.length !== 8) {
-      setError("PIN akses harus 8 digit.");
+      setError("Kode akses harus 8 digit.");
       return;
     }
 
@@ -28,14 +28,14 @@ export default function LoginPage() {
       const data = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        setError(data.error || "PIN akses tidak valid.");
+        setError(data.error || "Kode akses tidak valid.");
         return;
       }
 
       const next = new URLSearchParams(window.location.search).get("next") || "/";
       window.location.replace(next.startsWith("/") ? next : "/");
     } catch {
-      setError("Gagal memeriksa PIN akses.");
+      setError("Gagal memeriksa akses.");
     } finally {
       setLoading(false);
     }
@@ -46,10 +46,10 @@ export default function LoginPage() {
       <section className="access-card">
         <span className="access-kicker">Scan Angka</span>
         <h1>Akses Terbatas</h1>
-        <p>Aplikasi masih dalam tahap pengembangan. Masukkan PIN akses untuk melanjutkan.</p>
+        <p>Aplikasi masih dalam tahap pengembangan. Akses hanya tersedia untuk pengguna tertentu.</p>
 
         <form className="access-form" onSubmit={submitAccess}>
-          <label htmlFor="access-pin">PIN Akses</label>
+          <label htmlFor="access-pin">Kode Akses</label>
           <input
             id="access-pin"
             inputMode="numeric"
@@ -61,7 +61,7 @@ export default function LoginPage() {
             onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
           />
           {error ? <div className="access-error">{error}</div> : null}
-          <button type="submit" disabled={loading}>{loading ? "Memeriksa..." : "Masuk"}</button>
+          <button type="submit" disabled={loading}>{loading ? "Memeriksa..." : "Lanjut"}</button>
         </form>
       </section>
     </main>
