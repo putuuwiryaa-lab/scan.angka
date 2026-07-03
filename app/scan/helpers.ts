@@ -1,6 +1,6 @@
-import { ANALYSIS_LABEL, COLS, LABEL, SHIO_COLS, TARGET_2D_LABEL } from "./constants";
-import { isJumlah2DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
-import type { Market, Posisi, SavedGroup, SavedTrek, ScanItem, ScanMode, ScanRow, Target2D } from "./types";
+import { ANALYSIS_LABEL, COLS, LABEL, SHIO_COLS, TARGET_2D_LABEL, TARGET_3D_LABEL } from "./constants";
+import { is3DMode, isJumlah2DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
+import type { Market, Posisi, SavedGroup, SavedTrek, ScanItem, ScanMode, ScanRow, Target2D, Target3D } from "./types";
 
 export function pickColumns(columns: string[], deret: number[]) {
   const source: readonly string[] = deret.length === 12 ? SHIO_COLS : COLS;
@@ -63,9 +63,14 @@ export function rowText(item: ScanItem, row: ScanRow) {
   return joinValues(rowValues(item, row).map(({ digit }) => digit), item.scanMode);
 }
 
+function hitCount(targets: number[], values: number[]) {
+  return targets.filter((digit) => values.includes(digit)).length;
+}
+
 export function statusFor(mode: ScanMode, targets: number[], values: number[]) {
   if (isOffMode(mode)) return values.some((digit) => targets.includes(digit)) ? "❌" : "✅";
-  if (mode === "bbfs_2d_belakang") return targets.every((digit) => values.includes(digit)) ? "✅" : "❌";
+  if (mode === "bbfs_2d_belakang" || mode === "bbfs_3d") return targets.every((digit) => values.includes(digit)) ? "✅" : "❌";
+  if (mode === "ai_3d") return hitCount(targets, values) >= Math.min(2, targets.length) ? "✅" : "❌";
   return values.some((digit) => targets.includes(digit)) ? "✅" : "❌";
 }
 
@@ -85,18 +90,23 @@ export function predictionResult(item: ScanItem) {
   return joinValues(predictionValues(item), item.scanMode);
 }
 
-export function analysisTitle(mode: ScanMode, targetPos: Posisi, target2D: Target2D) {
+export function target3DOf(value?: Target3D) {
+  return value === "depan" || value === "belakang" ? value : "belakang";
+}
+
+export function analysisTitle(mode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D = "belakang") {
   if (isPositionMode(mode)) return `${ANALYSIS_LABEL[mode]} ${LABEL[targetPos]}`;
+  if (is3DMode(mode)) return `${ANALYSIS_LABEL[mode]} ${TARGET_3D_LABEL[target3D]}`;
   return `${ANALYSIS_LABEL[mode]} ${TARGET_2D_LABEL[target2D]}`;
 }
 
-export function scanDescription(mode: ScanMode, targetPos: Posisi, target2D: Target2D, count: number) {
+export function scanDescription(mode: ScanMode, targetPos: Posisi, target2D: Target2D, count: number, target3D: Target3D = "belakang") {
   const unit = isShioMode(mode) ? "shio" : "digit";
-  return `${analysisTitle(mode, targetPos, target2D)} ${count} ${unit}`;
+  return `${analysisTitle(mode, targetPos, target2D, target3D)} ${count} ${unit}`;
 }
 
 export function savedDescription(saved: SavedTrek) {
-  return `${scanDescription(saved.scanMode, saved.targetPos, saved.target2D, saved.digitCount)} · ${saved.L} data · kolom ${saved.activeColumns}`;
+  return `${scanDescription(saved.scanMode, saved.targetPos, saved.target2D, saved.digitCount, target3DOf(saved.target3D))} · ${saved.L} data · kolom ${saved.activeColumns}`;
 }
 
 export function detailHeaderTitle(marketName: string, selectedMarket: Market | null) {
@@ -111,13 +121,14 @@ export function buildCopyText(item: ScanItem, rows: ScanRow[], nextPrediction: s
 }
 
 export function savedSignature(item: ScanItem, marketId: string) {
-  return `${marketId}:${item.result.latestDraw}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.formula}`;
+  return `${marketId}:${item.result.latestDraw}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.target3D}:${item.formula}`;
 }
 
 export function buildSavedGroups(savedTreks: SavedTrek[]): SavedGroup[] {
   const groups: SavedGroup[] = [];
   for (const item of savedTreks) {
-    const key = `${item.marketName}:${item.scanMode}:${item.targetPos}:${item.target2D}:${item.digitCount}:${item.L}`;
+    const target3D = target3DOf(item.target3D);
+    const key = `${item.marketName}:${item.scanMode}:${item.targetPos}:${item.target2D}:${target3D}:${item.digitCount}:${item.L}`;
     const existing = groups.find((group) => group.key === key);
     if (existing) {
       existing.items.push(item);
@@ -129,6 +140,7 @@ export function buildSavedGroups(savedTreks: SavedTrek[]): SavedGroup[] {
       scanMode: item.scanMode,
       targetPos: item.targetPos,
       target2D: item.target2D,
+      target3D,
       digitCount: item.digitCount,
       L: item.L,
       items: [item],
