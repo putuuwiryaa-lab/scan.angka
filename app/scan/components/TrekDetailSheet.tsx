@@ -23,7 +23,7 @@ export default function TrekDetailSheet({ item, selectedMarket, marketName, digi
         <div className="sheet-head">
           <div>
             <b>{detailHeaderTitle(marketName, selectedMarket)}</b>
-            <span>{scanDescription(item.scanMode, item.targetPos, item.target2D, resultDigitCount ?? digitCount)}</span>
+            <span>{scanDescription(item.scanMode, item.targetPos, item.target2D, resultDigitCount ?? digitCount, item.target3D)}</span>
           </div>
           <div className="sheet-actions">
             <button className="copy-btn" type="button" onClick={onCopy}>{copied ? "Tersalin" : "Salin Trek"}</button>
