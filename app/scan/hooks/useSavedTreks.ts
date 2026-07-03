@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SAVED_TREK_KEY } from "../constants";
-import { buildSavedGroups } from "../helpers";
+import { buildSavedGroups, target3DOf } from "../helpers";
 import type { SavedLive, SavedTrek } from "../types";
 
 export function useSavedTreks() {
@@ -12,7 +12,7 @@ export function useSavedTreks() {
 
   const savedGroups = useMemo(() => buildSavedGroups(savedTreks), [savedTreks]);
   const savedRefreshKey = useMemo(
-    () => savedTreks.map((item) => `${item.id}:${item.marketId}:${item.L}:${item.kolomHidup.join("")}`).join("|"),
+    () => savedTreks.map((item) => `${item.id}:${item.marketId}:${item.L}:${target3DOf(item.target3D)}:${item.kolomHidup.join("")}`).join("|"),
     [savedTreks],
   );
 
@@ -43,6 +43,7 @@ export function useSavedTreks() {
               scanMode: saved.scanMode,
               targetPos: saved.targetPos,
               target2D: saved.target2D,
+              target3D: target3DOf(saved.target3D),
               L: saved.L,
               kolomHidup: saved.kolomHidup,
             }),
