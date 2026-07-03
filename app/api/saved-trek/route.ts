@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { runFormulaByName } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
-import { isScanMode, isShioMode, isTarget2D } from "@/lib/engine/helpers";
-import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode, type Target2D } from "@/lib/engine/types";
+import { isScanMode, isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
+import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode, type Target2D, type Target3D } from "@/lib/engine/types";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ type Body = {
   scanMode?: unknown;
   targetPos?: unknown;
   target2D?: unknown;
+  target3D?: unknown;
   L?: unknown;
   kolomHidup?: unknown;
 };
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
     if (!isScanMode(body.scanMode)) return NextResponse.json({ error: "Jenis scan tidak valid." }, { status: 400 });
     if (!isPosisi(body.targetPos)) return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
     if (!isTarget2D(body.target2D)) return NextResponse.json({ error: "Target 2D tidak valid." }, { status: 400 });
+    if (body.target3D !== undefined && !isTarget3D(body.target3D)) return NextResponse.json({ error: "Target 3D tidak valid." }, { status: 400 });
 
     const kolomHidup = normalizeColumns(body.kolomHidup);
     if (kolomHidup.length === 0) return NextResponse.json({ error: "Kolom trek tidak lengkap." }, { status: 400 });
@@ -68,6 +70,7 @@ export async function POST(req: Request) {
     const scanMode = body.scanMode as ScanMode;
     const targetPos = body.targetPos as Posisi;
     const target2D = body.target2D as Target2D;
+    const target3D = (isTarget3D(body.target3D) ? body.target3D : "belakang") as Target3D;
 
     const { data, error } = await getSupabase()
       .from("markets")
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
     if (!data?.history_data) return NextResponse.json({ error: "Pasaran ini belum punya data keluaran." }, { status: 404 });
 
     const draws = parseStrictHistory(data.history_data);
-    const result = runFormulaByName(draws, formula, { patokanPos: targetPos, patokanN: 1, L, targetPos, target2D, scanMode });
+    const result = runFormulaByName(draws, formula, { patokanPos: targetPos, patokanN: 1, L, targetPos, target2D, target3D, scanMode });
     const predictionValues = digitsFromColumns(result.deretLive, kolomHidup);
     const predictionText = formatPrediction(predictionValues, scanMode);
 
