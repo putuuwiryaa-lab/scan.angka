@@ -7,14 +7,14 @@ import ScanResultPanel from "./scan/components/ScanResultPanel";
 import SavedTreksSection from "./scan/components/SavedTreksSection";
 import TrekDetailSheet from "./scan/components/TrekDetailSheet";
 import SavedTrekSheet from "./scan/components/SavedTrekSheet";
-import { LABEL, TARGET_2D_LABEL } from "./scan/constants";
+import { LABEL, TARGET_2D_LABEL, TARGET_3D_LABEL } from "./scan/constants";
 import { useMarketPicker } from "./scan/hooks/useMarketPicker";
 import { useSavedTreks } from "./scan/hooks/useSavedTreks";
 import { useScanDropdowns } from "./scan/hooks/useScanDropdowns";
 import { useScanRunner } from "./scan/hooks/useScanRunner";
 import { useTrekActions } from "./scan/hooks/useTrekActions";
-import { isPositionMode, isShioMode } from "./shared/scan-utils";
-import type { Market, Posisi, ScanMode, Target2D } from "./scan/types";
+import { is3DMode, isPositionMode, isShioMode } from "./shared/scan-utils";
+import type { Market, Posisi, ScanMode, Target2D, Target3D } from "./scan/types";
 
 export default function Page() {
   const {
@@ -33,6 +33,7 @@ export default function Page() {
   const [scanMode, setScanMode] = useState<ScanMode>("ai_2d_belakang");
   const [targetPos, setTargetPos] = useState<Posisi>("K");
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
+  const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(4);
   const [stopScan, setStopScan] = useState("1");
 
@@ -73,7 +74,7 @@ export default function Page() {
     setActionError: setScanError,
   });
 
-  const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : TARGET_2D_LABEL[target2D];
+  const targetText = isPositionMode(scanMode) ? LABEL[targetPos] : is3DMode(scanMode) ? TARGET_3D_LABEL[target3D] : TARGET_2D_LABEL[target2D];
 
   function toggleMarket() {
     if (!isOpen("market")) setMarketQuery("");
@@ -98,6 +99,7 @@ export default function Page() {
       scanMode,
       targetPos,
       target2D,
+      target3D,
       digitCount,
       stopScan,
       onRoundsChange: setRounds,
@@ -128,6 +130,7 @@ export default function Page() {
         scanMode={scanMode}
         targetPos={targetPos}
         target2D={target2D}
+        target3D={target3D}
         targetText={targetText}
         digitCount={digitCount}
         stopScan={stopScan}
@@ -143,6 +146,7 @@ export default function Page() {
         onToggleTarget={() => toggleDropdown("target")}
         onSelectTargetPos={(value) => { setTargetPos(value); closeDropdown(); }}
         onSelectTarget2D={(value) => { setTarget2D(value); closeDropdown(); }}
+        onSelectTarget3D={(value) => { setTarget3D(value); closeDropdown(); }}
         onToggleDigit={() => toggleDropdown("digit")}
         onSelectDigit={(value) => { setDigitCount(value); closeDropdown(); }}
         onStopScanChange={setStopScan}
