@@ -37,10 +37,17 @@ function shioLabel(value: number): string {
   return String(value + 1).padStart(2, "0");
 }
 
-function formatCandidates(values: number[], scanMode: ScanMode): string {
+function groupByFour(value: string): string {
+  return value.replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+function formatCandidates(values: number[], scanMode: ScanMode, digitCount: number): string {
   if (!values.length) return "-";
   if (isShioMode(scanMode)) return values.map(shioLabel).join("-");
-  return values.join("");
+
+  const raw = values.join("");
+  if (scanMode === "ai_3d" && digitCount === 8) return groupByFour(raw);
+  return raw;
 }
 
 export async function POST(req: Request) {
@@ -105,7 +112,7 @@ export async function POST(req: Request) {
       try {
         const draws = parseStrictHistory(market.history_data);
         const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan: 1, scanMode });
-        results.push({ id, name, digits: formatCandidates(result.items[0]?.angkaHidup ?? [], scanMode) });
+        results.push({ id, name, digits: formatCandidates(result.items[0]?.angkaHidup ?? [], scanMode, digitCount) });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
