@@ -33,6 +33,8 @@ export default function BatchPage() {
   function changeMode(value: ScanMode) {
     setScanMode(value);
     if (!isShioMode(value) && digitCount > 9) setDigitCount(9);
+    if ((value === "ai_3d" || value === "bbfs_3d") && digitCount < 7) setDigitCount(7);
+    if (value === "off_3d" && digitCount > 3) setDigitCount(3);
   }
 
   return (
