@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
-import type { Posisi, ScanMode, ScanResult, Target2D } from "../types";
+import type { Posisi, ScanMode, ScanResult, Target2D, Target3D } from "../types";
 
 type RunScanParams = {
   marketId: string;
@@ -10,6 +10,7 @@ type RunScanParams = {
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   digitCount: number;
   stopScan: string;
   onRoundsChange: (value: string) => void;
@@ -30,6 +31,7 @@ export function useScanRunner() {
     scanMode,
     targetPos,
     target2D,
+    target3D,
     digitCount,
     stopScan,
     onRoundsChange,
@@ -60,6 +62,7 @@ export function useScanRunner() {
           L: safeRounds,
           targetPos,
           target2D,
+          target3D,
           digitCount: safeDigit,
           stopScan: safeStop,
           scanMode,
