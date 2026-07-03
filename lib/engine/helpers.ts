@@ -1,7 +1,7 @@
-import { isJumlah2DMode, isOffMode, isScanMode, isShioMode } from "../shared/scan-mode";
-import { KOLOM, POS_INDEX, SHIO_KOLOM, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D } from "./types";
+import { is3DMode, isJumlah2DMode, isOffMode, isScanMode, isShioMode } from "../shared/scan-mode";
+import { KOLOM, POS_INDEX, SHIO_KOLOM, type BacktestRow, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D, type Target3D } from "./types";
 
-export { isJumlah2DMode, isOffMode, isPositionMode, isScanMode, isShioMode } from "../shared/scan-mode";
+export { is3DMode, isAi3DMode, isBbfs3DMode, isJumlah2DMode, isOff3DMode, isOffMode, isPositionMode, isScanMode, isShioMode } from "../shared/scan-mode";
 
 export const SHIO_NAMES = ["Kuda", "Ular", "Naga", "Kelinci", "Harimau", "Kerbau", "Tikus", "Babi", "Anjing", "Ayam", "Monyet", "Kambing"] as const;
 
@@ -39,6 +39,14 @@ export function target2DOrDefault(value: unknown): Target2D {
   return isTarget2D(value) ? value : "belakang";
 }
 
+export function isTarget3D(value: unknown): value is Target3D {
+  return value === "depan" || value === "belakang";
+}
+
+export function target3DOrDefault(value: unknown): Target3D {
+  return isTarget3D(value) ? value : "belakang";
+}
+
 export function is2DMode(mode: ScanMode): boolean {
   return mode === "ai_2d_belakang" ||
     mode === "bbfs_2d_belakang" ||
@@ -66,6 +74,11 @@ export function target2DPositions(target2D: Target2D): [Posisi, Posisi] {
   return ["K", "E"];
 }
 
+export function target3DPositions(target3D: Target3D): [Posisi, Posisi, Posisi] {
+  if (target3D === "depan") return ["A", "C", "K"];
+  return ["C", "K", "E"];
+}
+
 export function shioIndexFrom2D(value: number): number {
   const normalized = value === 0 ? 100 : value;
   return ((normalized - 1) % 12 + 12) % 12;
@@ -76,8 +89,12 @@ export function targetShioIndexOf(draw: Draw, target2D: Target2D = "belakang"): 
   return shioIndexFrom2D(digitOf(draw, left) * 10 + digitOf(draw, right));
 }
 
-export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi, target2D: Target2D = "belakang"): number[] {
+export function targetDigitsOf(draw: Draw, mode: ScanMode, targetPos: Posisi, target2D: Target2D = "belakang", target3D: Target3D = "belakang"): number[] {
   if (isShioMode(mode)) return [targetShioIndexOf(draw, target2D)];
+  if (is3DMode(mode)) {
+    const positions = target3DPositions(target3D);
+    return uniqueDigits(positions.map((pos) => digitOf(draw, pos)));
+  }
   if (mode === "ai_2d_belakang" || mode === "bbfs_2d_belakang" || mode === "off_2d_belakang") {
     const [left, right] = target2DPositions(target2D);
     return uniqueDigits([digitOf(draw, left), digitOf(draw, right)]);
@@ -97,14 +114,18 @@ export function offsetLabel(pos: Posisi, N: number, offset: number): string {
   return offset === 0 ? `${pos}${N}` : `${pos}${N}${offsetSuffix(offset)}`;
 }
 
-export function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode, target2D: Target2D = "belakang"): string {
+export function scanCode(target: Posisi, formula: string, L: number, columns: string, mode: ScanMode, target2D: Target2D = "belakang", target3D: Target3D = "belakang"): string {
   const area = target2D === "depan" ? "d" : target2D === "tengah" ? "t" : "b";
+  const area3D = target3D === "depan" ? "d" : "b";
   const prefix = mode === "ai_2d_belakang" ? `ai2d${area}` :
     mode === "bbfs_2d_belakang" ? `bbfs2d${area}` :
     mode === "jumlah_2d_belakang" ? `jml2d${area}` :
+    mode === "ai_3d" ? `ai3d${area3D}` :
+    mode === "bbfs_3d" ? `bbfs3d${area3D}` :
     mode === "off_posisi" ? `off${target.toLowerCase()}` :
     mode === "off_2d_belakang" ? `off2d${area}` :
     mode === "off_jumlah_2d_belakang" ? `offjml2d${area}` :
+    mode === "off_3d" ? `off3d${area3D}` :
     mode === "shio" ? `shio${area}` :
     mode === "off_shio" ? `offshio${area}` :
     target.toLowerCase();
