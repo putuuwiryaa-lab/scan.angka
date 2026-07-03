@@ -7,6 +7,7 @@ export { KOLOM, SHIO_KOLOM } from "../shared/columns";
 export type Posisi = "A" | "C" | "K" | "E";
 export type Draw = string;
 export type Target2D = "depan" | "tengah" | "belakang";
+export type Target3D = "depan" | "belakang";
 
 export type DigitKolom = (typeof KOLOM)[number];
 export type ShioKolom = (typeof SHIO_KOLOM)[number];
@@ -21,6 +22,7 @@ export interface EngineConfig {
   L: number;
   scanMode?: ScanMode;
   target2D?: Target2D;
+  target3D?: Target3D;
 }
 
 export interface KolomStat {
@@ -58,6 +60,7 @@ export interface AutoScanConfig {
   L: number;
   targetPos?: Posisi;
   target2D?: Target2D;
+  target3D?: Target3D;
   digitCount?: number;
   stopScan?: number;
   scanMode?: ScanMode;
@@ -66,6 +69,7 @@ export interface AutoScanConfig {
 export interface AutoScanItem {
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   scanMode: ScanMode;
   patokanPos: Posisi;
   patokanN: number;
@@ -92,6 +96,7 @@ export interface AutoScanResult {
     L: number;
     targetPos: Posisi;
     target2D: Target2D;
+    target3D: Target3D;
     digitCount: number;
     stopScan: number;
     scanMode: ScanMode;
