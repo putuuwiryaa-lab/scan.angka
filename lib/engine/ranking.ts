@@ -37,7 +37,20 @@ function columnsHitScore(result: EngineResult, columns: Kolom[]): number {
   return columns.reduce((sum, column) => sum + columnHit(result, column), 0);
 }
 
-function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
+function targetCoverCount(targetColumns: Kolom[], columns: Set<Kolom>): number {
+  return targetColumns.filter((column) => columns.has(column)).length;
+}
+
+function requiredAiCover(targetColumns: Kolom[], scanMode: ScanMode): number {
+  return scanMode === "ai_3d" ? Math.min(2, targetColumns.length) : 1;
+}
+
+function aiRowCovered(row: EngineResult["rows"][number], columns: Set<Kolom>, scanMode: ScanMode): boolean {
+  const targetColumns = rowTargetColumns(row);
+  return targetCoverCount(targetColumns, columns) >= requiredAiCover(targetColumns, scanMode);
+}
+
+function coreColumnsForAi(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
   const selected: Kolom[] = [];
   const uncovered = new Set(result.rows.map((_, index) => index));
 
@@ -48,7 +61,8 @@ function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
 
     for (const column of KOLOM) {
       if (selected.includes(column)) continue;
-      const cover = [...uncovered].filter((rowIndex) => rowTargetColumns(result.rows[rowIndex]).includes(column)).length;
+      const nextColumns = new Set<Kolom>([...selected, column]);
+      const cover = [...uncovered].filter((rowIndex) => aiRowCovered(result.rows[rowIndex], nextColumns, scanMode)).length;
       const hit = columnHit(result, column);
       if (cover > bestCover || (cover === bestCover && hit > bestHit)) {
         best = column;
@@ -59,7 +73,8 @@ function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
 
     if (!best || bestCover <= 0) return [];
     selected.push(best);
-    for (const rowIndex of [...uncovered]) if (rowTargetColumns(result.rows[rowIndex]).includes(best)) uncovered.delete(rowIndex);
+    const selectedSet = new Set(selected);
+    for (const rowIndex of [...uncovered]) if (aiRowCovered(result.rows[rowIndex], selectedSet, scanMode)) uncovered.delete(rowIndex);
     if (selected.length > digitCount) return [];
   }
 
@@ -67,7 +82,7 @@ function coreColumnsForAi(result: EngineResult, digitCount: number): Kolom[] {
 }
 
 function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
-  if (scanMode === "ai_2d_belakang") return coreColumnsForAi(result, digitCount);
+  if (scanMode === "ai_2d_belakang" || scanMode === "ai_3d") return coreColumnsForAi(result, digitCount, scanMode);
   const columns = result.kolom.filter((k) => isOffMode(scanMode) ? k.lemah : !k.lemah).map((k) => k.kolom as Kolom);
   return columns.length === digitCount ? columns : [];
 }
@@ -75,7 +90,8 @@ function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMod
 function rowCovered(row: EngineResult["rows"][number], columns: Set<Kolom>, scanMode: ScanMode): boolean {
   const targetColumns = rowTargetColumns(row);
   if (isOffMode(scanMode)) return targetColumns.every((column) => !columns.has(column));
-  return scanMode === "ai_2d_belakang" ? targetColumns.some((column) => columns.has(column)) : targetColumns.every((column) => columns.has(column));
+  if (scanMode === "ai_2d_belakang" || scanMode === "ai_3d") return targetCoverCount(targetColumns, columns) >= requiredAiCover(targetColumns, scanMode);
+  return targetColumns.every((column) => columns.has(column));
 }
 
 function recentScore(result: EngineResult, columns: Kolom[], scanMode: ScanMode): number {
@@ -108,7 +124,7 @@ function normalizedTrekDigits(digits: number[]): string {
 
 function trekSignature(item: AutoScanItem): string {
   const rows = item.result.rows.map((row) => normalizedTrekDigits(digitsFromDeretColumns(row.deret, item.kolomHidup)));
-  return `${item.scanMode}:${item.targetPos}:${item.target2D}:${rows.join("|")}`;
+  return `${item.scanMode}:${item.targetPos}:${item.target2D}:${item.target3D}:${rows.join("|")}`;
 }
 
 function consensusProfile(items: AutoScanItem[], digitCount: number): ConsensusProfile {
