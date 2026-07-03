@@ -5,7 +5,7 @@ import { MAX_BATCH_MARKETS } from "../constants";
 import { outputTitle } from "../helpers";
 import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
 import type { BatchResult } from "../types";
-import type { Posisi, ScanMode, Target2D } from "../../shared/types";
+import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
 
 type RunBatchParams = {
   selected: string[];
@@ -13,6 +13,7 @@ type RunBatchParams = {
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   digitCount: number;
   onRoundsChange: (value: string) => void;
   onDigitCountChange: (value: number) => void;
@@ -30,6 +31,7 @@ export function useBatchRunner() {
     scanMode,
     targetPos,
     target2D,
+    target3D,
     digitCount,
     onRoundsChange,
     onDigitCountChange,
@@ -47,7 +49,7 @@ export function useBatchRunner() {
 
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const safeDigit = Math.max(1, Math.min(isShioMode(scanMode) ? 12 : 9, digitCount));
-      const title = outputTitle(scanMode, targetPos, target2D, safeDigit);
+      const title = outputTitle(scanMode, targetPos, target2D, target3D, safeDigit);
 
       onRoundsChange(String(safeRounds));
       onDigitCountChange(safeDigit);
@@ -61,6 +63,7 @@ export function useBatchRunner() {
           scanMode,
           targetPos,
           target2D,
+          target3D,
           digitCount: safeDigit,
           outputTitle: title,
         }),
