@@ -1,7 +1,7 @@
-import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D } from "./types";
+import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type BacktestRow, type Draw, type EngineConfig, type EngineResult, type Kolom, type KolomStat, type Posisi, type ScanMode, type Target2D, type Target3D } from "./types";
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
 import { ALL_FORMULA_SPECS, computeFormula, type FormulaSpec } from "./formulas";
-import { buildDeret, buildDeretShio, clamp, digitOf, isJumlah2DMode, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
+import { buildDeret, buildDeretShio, clamp, digitOf, isJumlah2DMode, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, target3DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
 import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
 
 export { parseHistory } from "./helpers";
@@ -18,7 +18,7 @@ function activeColumnsText(columns: Kolom[], scanMode: ScanMode): string {
   return isShioMode(scanMode) ? columns.join(",") : columns.join("");
 }
 
-function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode, target2D: Target2D): EngineResult {
+function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L: number, scanMode: ScanMode, target2D: Target2D, target3D: Target3D): EngineResult {
   const N = spec.patokanN;
   if (!POSISI.includes(spec.patokanPos) || !POSISI.includes(targetPos)) throw new Error("Posisi tidak valid.");
   if (N < 1 || N > 9) throw new Error(`patokanN harus 1-9, diterima ${N}`);
@@ -38,7 +38,7 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
     const displayIndex = t - 1;
     const patokan = computeFormula(spec, draws, t);
     const deret = deretForMode(patokan, scanMode);
-    const targetDigits = targetDigitsOf(draws[t], scanMode, targetPos, target2D);
+    const targetDigits = targetDigitsOf(draws[t], scanMode, targetPos, target2D, target3D);
     const targetDigit = targetDigits[0];
     const hitColumns = uniqueDigits(targetDigits).map((digit) => deret.indexOf(digit)).filter((index) => index >= 0);
     for (const col of hitColumns) hit[col] += 1;
@@ -52,7 +52,7 @@ function runFormulaEngine(draws: Draw[], spec: FormulaSpec, targetPos: Posisi, L
   const angkaMati = kolom.filter((k) => k.lemah).map((k) => k.digitLive);
   const angkaKuat = kolom.filter((k) => !k.lemah).map((k) => k.digitLive);
 
-  return { config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, target2D, L: safeL, scanMode }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
+  return { config: { patokanPos: spec.patokanPos, patokanN: N, targetPos, target2D, target3D, L: safeL, scanMode }, jumlahData: draws.length, jumlahBacktest: targets.length, kolom, deretLive, patokanLiveDraw, latestDraw, angkaKuat, angkaMati, rows };
 }
 
 export function runFormulaByName(draws: Draw[], formula: string, config: EngineConfig): EngineResult {
@@ -60,14 +60,16 @@ export function runFormulaByName(draws: Draw[], formula: string, config: EngineC
   if (!spec) throw new Error(`Rumus ${formula} tidak ditemukan.`);
   const scanMode = scanModeOrDefault(config.scanMode);
   const target2D = target2DOrDefault(config.target2D);
-  return runFormulaEngine(draws, spec, config.targetPos, config.L, scanMode, target2D);
+  const target3D = target3DOrDefault(config.target3D);
+  return runFormulaEngine(draws, spec, config.targetPos, config.L, scanMode, target2D, target3D);
 }
 
 export function runEngine(draws: Draw[], config: EngineConfig): EngineResult {
   const { patokanPos, patokanN, targetPos, L } = config;
   const scanMode = scanModeOrDefault(config.scanMode);
   const target2D = target2DOrDefault(config.target2D);
-  return runFormulaEngine(draws, { formula: `${patokanPos}${patokanN}`, type: "base", typeOrder: 0, patokanPos, patokanN, compute: (draw) => digitOf(draw, patokanPos) }, targetPos, L, scanMode, target2D);
+  const target3D = target3DOrDefault(config.target3D);
+  return runFormulaEngine(draws, { formula: `${patokanPos}${patokanN}`, type: "base", typeOrder: 0, patokanPos, patokanN, compute: (draw) => digitOf(draw, patokanPos) }, targetPos, L, scanMode, target2D, target3D);
 }
 
 export function runEngineFromHistory(historyData: string, config: EngineConfig): EngineResult {
@@ -75,7 +77,7 @@ export function runEngineFromHistory(historyData: string, config: EngineConfig):
 }
 
 export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResult {
-  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", target2D: target2DOrDefault(config.target2D), digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 12), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
+  const safeConfig = { L: clamp(config.L, 14, 1, 100), targetPos: config.targetPos || "K", target2D: target2DOrDefault(config.target2D), target3D: target3DOrDefault(config.target3D), digitCount: clamp(config.digitCount, DEFAULT_DIGIT_COUNT, 1, 12), stopScan: clamp(config.stopScan, 3, 1, 200), scanMode: scanModeOrDefault(config.scanMode) };
   const isPositionScan = safeConfig.scanMode === "posisi" || safeConfig.scanMode === "off_posisi";
   const targets = isPositionScan ? (config.targetPos ? [config.targetPos] : POSISI) : ["K" as Posisi];
   const items: RankedItem[] = [];
@@ -85,7 +87,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
     for (const spec of ALL_FORMULA_SPECS) {
       totalChecked += 1;
       try {
-        const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode, safeConfig.target2D);
+        const result = runFormulaEngine(draws, spec, targetPos, safeConfig.L, safeConfig.scanMode, safeConfig.target2D, safeConfig.target3D);
         const profile = compressionProfile(result, safeConfig.digitCount, safeConfig.scanMode);
         if (!profile) continue;
 
@@ -97,11 +99,12 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
         items.push({
           targetPos,
           target2D: safeConfig.target2D,
+          target3D: safeConfig.target3D,
           scanMode: safeConfig.scanMode,
           patokanPos: spec.patokanPos,
           patokanN: spec.patokanN,
           formula: spec.formula,
-          code: scanCode(targetPos, spec.formula, safeConfig.L, activeColumnsText(columns, safeConfig.scanMode), safeConfig.scanMode, safeConfig.target2D),
+          code: scanCode(targetPos, spec.formula, safeConfig.L, activeColumnsText(columns, safeConfig.scanMode), safeConfig.scanMode, safeConfig.target2D, safeConfig.target3D),
           angkaHidup,
           kolomHidup: columns,
           angkaMati: result.kolom.filter((k) => !columnSet.has(k.kolom as Kolom)).map((k) => k.digitLive),
