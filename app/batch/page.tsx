@@ -8,7 +8,7 @@ import BatchOutputPanel from "./components/BatchOutputPanel";
 import { useBatchMarkets } from "./hooks/useBatchMarkets";
 import { useBatchRunner } from "./hooks/useBatchRunner";
 import { isShioMode } from "../shared/scan-utils";
-import type { Posisi, ScanMode, Target2D } from "../shared/types";
+import type { Posisi, ScanMode, Target2D, Target3D } from "../shared/types";
 
 export default function BatchPage() {
   const {
@@ -27,6 +27,7 @@ export default function BatchPage() {
   const [scanMode, setScanMode] = useState<ScanMode>("bbfs_2d_belakang");
   const [targetPos, setTargetPos] = useState<Posisi>("K");
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
+  const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
 
   function changeMode(value: ScanMode) {
@@ -47,11 +48,13 @@ export default function BatchPage() {
         scanMode={scanMode}
         targetPos={targetPos}
         target2D={target2D}
+        target3D={target3D}
         digitCount={digitCount}
         onRoundsChange={setRounds}
         onScanModeChange={changeMode}
         onTargetPosChange={setTargetPos}
         onTarget2DChange={setTarget2D}
+        onTarget3DChange={setTarget3D}
         onDigitCountChange={setDigitCount}
       />
 
@@ -71,6 +74,7 @@ export default function BatchPage() {
           scanMode,
           targetPos,
           target2D,
+          target3D,
           digitCount,
           onRoundsChange: setRounds,
           onDigitCountChange: setDigitCount,
