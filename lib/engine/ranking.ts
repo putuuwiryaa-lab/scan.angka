@@ -50,35 +50,43 @@ function aiRowCovered(row: EngineResult["rows"][number], columns: Set<Kolom>, sc
   return targetCoverCount(targetColumns, columns) >= requiredAiCover(targetColumns, scanMode);
 }
 
-function coreColumnsForAi(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
-  const selected: Kolom[] = [];
-  const uncovered = new Set(result.rows.map((_, index) => index));
-
-  while (uncovered.size > 0) {
-    let best: Kolom | null = null;
-    let bestCover = -1;
-    let bestHit = -1;
-
-    for (const column of KOLOM) {
-      if (selected.includes(column)) continue;
-      const nextColumns = new Set<Kolom>([...selected, column]);
-      const cover = [...uncovered].filter((rowIndex) => aiRowCovered(result.rows[rowIndex], nextColumns, scanMode)).length;
-      const hit = columnHit(result, column);
-      if (cover > bestCover || (cover === bestCover && hit > bestHit)) {
-        best = column;
-        bestCover = cover;
-        bestHit = hit;
-      }
+function columnCombinations(size: number): Kolom[][] {
+  const columns = [...KOLOM] as Kolom[];
+  const result: Kolom[][] = [];
+  function walk(start: number, current: Kolom[]) {
+    if (current.length === size) {
+      result.push([...current]);
+      return;
     }
+    for (let index = start; index < columns.length; index += 1) {
+      current.push(columns[index]);
+      walk(index + 1, current);
+      current.pop();
+    }
+  }
+  walk(0, []);
+  return result;
+}
 
-    if (!best || bestCover <= 0) return [];
-    selected.push(best);
-    const selectedSet = new Set(selected);
-    for (const rowIndex of [...uncovered]) if (aiRowCovered(result.rows[rowIndex], selectedSet, scanMode)) uncovered.delete(rowIndex);
-    if (selected.length > digitCount) return [];
+function coreColumnsForAi(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
+  let best: Kolom[] = [];
+  let bestRecent = -1;
+  let bestHit = -1;
+
+  for (const columns of columnCombinations(digitCount)) {
+    const columnSet = new Set(columns);
+    if (!result.rows.every((row) => aiRowCovered(row, columnSet, scanMode))) continue;
+
+    const recent = result.rows.slice(-5).filter((row) => aiRowCovered(row, columnSet, scanMode)).length;
+    const hit = columnsHitScore(result, columns);
+    if (recent > bestRecent || (recent === bestRecent && hit > bestHit)) {
+      best = columns;
+      bestRecent = recent;
+      bestHit = hit;
+    }
   }
 
-  return selected;
+  return best;
 }
 
 function coreColumns(result: EngineResult, digitCount: number, scanMode: ScanMode): Kolom[] {
