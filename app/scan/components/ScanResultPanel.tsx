@@ -16,14 +16,14 @@ export default function ScanResultPanel({ result, marketName, marketId, savedFla
   return (
     <div className="panel result-panel">
       <p className="summary">
-        <b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.config.L} data &middot; {result.totalMatched} hasil
+        <b>{marketName}</b> &middot; <b>{analysisTitle(result.config.scanMode, result.config.targetPos, result.config.target2D, result.config.target3D)}</b> &middot; {result.config.digitCount} {isShioMode(result.config.scanMode) ? "shio" : "digit"} &middot; {result.config.L} data &middot; {result.totalMatched} hasil
       </p>
       <div className="scan-list compact-list">
         {result.items.length === 0 && <div className="scan-empty">Belum ada trek yang cocok.</div>}
         {result.items.map((item, index) => {
           const signature = savedSignature(item, marketId);
           return (
-            <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.formula}-${index}`}>
+            <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.target3D}-${item.formula}-${index}`}>
               <span className="scan-formula compact-formula">{item.formula}</span>
               <div className="compact-digits">
                 {labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
