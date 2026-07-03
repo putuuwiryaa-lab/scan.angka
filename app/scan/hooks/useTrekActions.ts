@@ -29,19 +29,20 @@ type Params = {
   setActionError: (message: string) => void;
 };
 
-export function useTrekActions({
-  marketId,
-  marketName,
-  selectedMarket,
-  result,
-  rounds,
-  digitCount,
-  savedTreks,
-  persistSavedTreks,
-  removeSavedTrek,
-  setSavedFlashId,
-  setActionError,
-}: Params) {
+export function useTrekActions(params: Params) {
+  const {
+    marketId,
+    marketName,
+    selectedMarket,
+    result,
+    rounds,
+    digitCount,
+    savedTreks,
+    persistSavedTreks,
+    removeSavedTrek,
+    setSavedFlashId,
+    setActionError,
+  } = params;
   const [viewItem, setViewItem] = useState<ScanItem | null>(null);
   const [viewSaved, setViewSaved] = useState<SavedTrek | null>(null);
   const [copied, setCopied] = useState(false);
@@ -78,6 +79,7 @@ export function useTrekActions({
       scanMode: item.scanMode,
       targetPos: item.targetPos,
       target2D: item.target2D,
+      target3D: item.target3D,
       digitCount: count,
       L,
       formula: item.formula,
@@ -101,7 +103,7 @@ export function useTrekActions({
   async function copyTrek() {
     if (!viewItem) return;
     const title = detailHeaderTitle(marketName, selectedMarket);
-    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount);
+    const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount, viewItem.target3D);
     const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
     try {
       await navigator.clipboard.writeText(text);
