@@ -9,9 +9,10 @@ import {
   NO_BADGE_SELECT_STYLE,
   POS_OPTIONS,
   TARGET_2D_OPTIONS,
+  TARGET_3D_OPTIONS,
 } from "../constants";
-import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode, marketTitle } from "../../shared/scan-utils";
-import type { Market, Posisi, ScanMode, Target2D } from "../types";
+import { cleanDigits, clampTextNumber, is3DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../../shared/scan-utils";
+import type { Market, Posisi, ScanMode, Target2D, Target3D } from "../types";
 
 type Props = {
   selectedMarket: Market | null;
@@ -26,6 +27,7 @@ type Props = {
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   targetText: string;
   digitCount: number;
   stopScan: string;
@@ -41,6 +43,7 @@ type Props = {
   onToggleTarget: () => void;
   onSelectTargetPos: (value: Posisi) => void;
   onSelectTarget2D: (value: Target2D) => void;
+  onSelectTarget3D: (value: Target3D) => void;
   onToggleDigit: () => void;
   onSelectDigit: (value: number) => void;
   onStopScanChange: (value: string) => void;
@@ -60,6 +63,7 @@ export default function ScanControlPanel({
   scanMode,
   targetPos,
   target2D,
+  target3D,
   targetText,
   digitCount,
   stopScan,
@@ -75,6 +79,7 @@ export default function ScanControlPanel({
   onToggleTarget,
   onSelectTargetPos,
   onSelectTarget2D,
+  onSelectTarget3D,
   onToggleDigit,
   onSelectDigit,
   onStopScanChange,
@@ -150,12 +155,19 @@ export default function ScanControlPanel({
                       {item.value === targetPos && <b>✓</b>}
                     </button>
                   ))
-                : TARGET_2D_OPTIONS.map((item) => (
-                    <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget2D(item.value)}>
-                      <span className="option-label">{item.label}</span>
-                      {item.value === target2D && <b>✓</b>}
-                    </button>
-                  ))}
+                : is3DMode(scanMode)
+                  ? TARGET_3D_OPTIONS.map((item) => (
+                      <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target3D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget3D(item.value)}>
+                        <span className="option-label">{item.label}</span>
+                        {item.value === target3D && <b>✓</b>}
+                      </button>
+                    ))
+                  : TARGET_2D_OPTIONS.map((item) => (
+                      <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget2D(item.value)}>
+                        <span className="option-label">{item.label}</span>
+                        {item.value === target2D && <b>✓</b>}
+                      </button>
+                    ))}
             </div>
           )}
         </div>
