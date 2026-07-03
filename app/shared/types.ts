@@ -4,6 +4,7 @@ export type { ScanMode } from "../../lib/shared/scan-mode";
 
 export type Posisi = "A" | "C" | "K" | "E";
 export type Target2D = "depan" | "tengah" | "belakang";
+export type Target3D = "depan" | "belakang";
 
 export type Market = {
   id: string;
@@ -24,6 +25,7 @@ export type ScanRow = {
 export type ScanItem = {
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   scanMode: ScanMode;
   formula: string;
   angkaHidup: number[];
@@ -42,6 +44,7 @@ export type ScanResult = {
     L: number;
     targetPos: Posisi;
     target2D: Target2D;
+    target3D: Target3D;
     digitCount: number;
     stopScan: number;
     scanMode: ScanMode;
@@ -60,6 +63,7 @@ export type SavedTrek = {
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D?: Target3D;
   digitCount: number;
   L: number;
   formula: string;
@@ -88,6 +92,7 @@ export type SavedGroup = {
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   digitCount: number;
   L: number;
   items: SavedTrek[];
