@@ -26,7 +26,7 @@ export default function SavedTreksSection({ total, groups, liveMap, onView, onDe
       {groups.map((group) => (
         <div className="panel result-panel" key={group.key}>
           <p className="summary">
-            <b>{group.marketName}</b> &middot; <b>{analysisTitle(group.scanMode, group.targetPos, group.target2D)}</b> &middot; {group.digitCount} {isShioMode(group.scanMode) ? "shio" : "digit"} &middot; {group.L} data &middot; {group.items.length} hasil
+            <b>{group.marketName}</b> &middot; <b>{analysisTitle(group.scanMode, group.targetPos, group.target2D, group.target3D)}</b> &middot; {group.digitCount} {isShioMode(group.scanMode) ? "shio" : "digit"} &middot; {group.L} data &middot; {group.items.length} hasil
           </p>
           <div className="scan-list compact-list">
             {group.items.map((saved) => {
