@@ -3,9 +3,12 @@ export const SCAN_MODES = [
   "ai_2d_belakang",
   "bbfs_2d_belakang",
   "jumlah_2d_belakang",
+  "ai_3d",
+  "bbfs_3d",
   "off_posisi",
   "off_2d_belakang",
   "off_jumlah_2d_belakang",
+  "off_3d",
   "shio",
   "off_shio",
 ] as const;
@@ -21,11 +24,27 @@ export function isPositionMode(mode: ScanMode) {
 }
 
 export function isOffMode(mode: ScanMode) {
-  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_shio";
+  return mode === "off_posisi" || mode === "off_2d_belakang" || mode === "off_jumlah_2d_belakang" || mode === "off_3d" || mode === "off_shio";
 }
 
 export function isJumlah2DMode(mode: ScanMode) {
   return mode === "jumlah_2d_belakang" || mode === "off_jumlah_2d_belakang";
+}
+
+export function is3DMode(mode: ScanMode) {
+  return mode === "ai_3d" || mode === "bbfs_3d" || mode === "off_3d";
+}
+
+export function isAi3DMode(mode: ScanMode) {
+  return mode === "ai_3d";
+}
+
+export function isBbfs3DMode(mode: ScanMode) {
+  return mode === "bbfs_3d";
+}
+
+export function isOff3DMode(mode: ScanMode) {
+  return mode === "off_3d";
 }
 
 export function isShioMode(mode: ScanMode) {
