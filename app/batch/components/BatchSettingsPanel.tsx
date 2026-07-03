@@ -1,17 +1,19 @@
-import { ANALYSIS_OPTIONS, DIGIT_OPTIONS, POS_OPTIONS, TARGET_2D_OPTIONS } from "../../shared/scan-options";
-import { cleanDigits, clampTextNumber, isOffMode, isPositionMode, isShioMode } from "../../shared/scan-utils";
-import type { Posisi, ScanMode, Target2D } from "../../shared/types";
+import { ANALYSIS_OPTIONS, DIGIT_OPTIONS, POS_OPTIONS, TARGET_2D_OPTIONS, TARGET_3D_OPTIONS } from "../../shared/scan-options";
+import { cleanDigits, clampTextNumber, is3DMode, isOffMode, isPositionMode, isShioMode } from "../../shared/scan-utils";
+import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
 
 type Props = {
   rounds: string;
   scanMode: ScanMode;
   targetPos: Posisi;
   target2D: Target2D;
+  target3D: Target3D;
   digitCount: number;
   onRoundsChange: (value: string) => void;
   onScanModeChange: (value: ScanMode) => void;
   onTargetPosChange: (value: Posisi) => void;
   onTarget2DChange: (value: Target2D) => void;
+  onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
 };
 
@@ -20,11 +22,13 @@ export default function BatchSettingsPanel({
   scanMode,
   targetPos,
   target2D,
+  target3D,
   digitCount,
   onRoundsChange,
   onScanModeChange,
   onTargetPosChange,
   onTarget2DChange,
+  onTarget3DChange,
   onDigitCountChange,
 }: Props) {
   return (
@@ -48,6 +52,10 @@ export default function BatchSettingsPanel({
           {isPositionMode(scanMode) ? (
             <select className="batch-select" value={targetPos} onChange={(event) => onTargetPosChange(event.target.value as Posisi)}>
               {POS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          ) : is3DMode(scanMode) ? (
+            <select className="batch-select" value={target3D} onChange={(event) => onTarget3DChange(event.target.value as Target3D)}>
+              {TARGET_3D_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           ) : (
             <select className="batch-select" value={target2D} onChange={(event) => onTarget2DChange(event.target.value as Target2D)}>
