@@ -67,10 +67,11 @@ export default function KodeLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: cleaned, device_id: getDeviceId() }),
       });
-      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      const data = (await response.json().catch(() => ({}))) as { error?: string; detail?: string };
 
       if (!response.ok || data.error) {
-        setError(data.error || "Kode login tidak valid.");
+        const message = data.error || "Kode login tidak valid.";
+        setError(data.detail ? `${message}\n${data.detail}` : message);
         return;
       }
 
