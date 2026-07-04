@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, ...access });
+  return NextResponse.json(access);
 }
 
 export async function POST(request: Request) {
