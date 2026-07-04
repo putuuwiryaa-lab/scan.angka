@@ -66,6 +66,26 @@ function secondsUntil(value: string) {
   return Math.max(seconds, 60);
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message || "unknown_error");
+  return String(error || "unknown_error");
+}
+
+function loginErrorHint(error: unknown) {
+  const message = errorMessage(error);
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|JWT_SECRET|TELEGRAM_WEBHOOK_SECRET|NEXT_PUBLIC_SUPABASE_URL|SUPABASE_URL/.test(message)) {
+    return "Env server belum lengkap atau belum masuk ke deployment terbaru.";
+  }
+
+  if (/telegram_app_sessions|relation .* does not exist|schema cache|column .* does not exist|constraint/i.test(message)) {
+    return "Struktur tabel telegram_app_sessions belum cocok dengan SQL di docs/DATABASE.md.";
+  }
+
+  return "Cek Vercel Function Logs untuk detail SCAN_CODE_LOGIN_ERROR.";
+}
+
 function activeRoleAndExpiry(user: TelegramUserRow): { role: Role; expiresAt: string } | null {
   if (user.plan === "PRO" && isFutureDate(user.pro_expires_at)) {
     return { role: "PRO", expiresAt: user.pro_expires_at as string };
@@ -297,6 +317,24 @@ export async function POST(request: Request) {
       });
     }
 
+    const sessionPayload = {
+      user_id: user.id,
+      telegram_user_id: user.telegram_user_id,
+      app_key: APP_KEY,
+      session_id: sessionId,
+      device_hash: deviceHash || null,
+      user_agent_hash: userAgentHash,
+      expires_at: active.expiresAt,
+      last_seen_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    };
+
+    const { error: sessionError } = await supabase
+      .from("telegram_app_sessions")
+      .upsert(sessionPayload, { onConflict: "user_id,app_key" });
+
+    if (sessionError) throw sessionError;
+
     const { data: consumedCode, error: consumeError } = await supabase
       .from("telegram_login_codes")
       .update({ used_at: now.toISOString(), consumed_session_id: sessionId })
@@ -308,6 +346,13 @@ export async function POST(request: Request) {
     if (consumeError) throw consumeError;
 
     if (!consumedCode) {
+      await supabase
+        .from("telegram_app_sessions")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("app_key", APP_KEY)
+        .eq("session_id", sessionId);
+
       return failLogin({
         error: "Kode login sudah digunakan. Ambil kode baru dari bot Telegram.",
         reason: "code_already_used",
@@ -316,25 +361,6 @@ export async function POST(request: Request) {
         userAgentHash,
       });
     }
-
-    const { error: sessionError } = await supabase
-      .from("telegram_app_sessions")
-      .upsert(
-        {
-          user_id: user.id,
-          telegram_user_id: user.telegram_user_id,
-          app_key: APP_KEY,
-          session_id: sessionId,
-          device_hash: deviceHash || null,
-          user_agent_hash: userAgentHash,
-          expires_at: active.expiresAt,
-          last_seen_at: now.toISOString(),
-          updated_at: now.toISOString(),
-        },
-        { onConflict: "user_id,app_key" },
-      );
-
-    if (sessionError) throw sessionError;
 
     await writeAccessEvent({
       userId: user.id,
@@ -364,7 +390,7 @@ export async function POST(request: Request) {
   } catch (e) {
     console.error("SCAN_CODE_LOGIN_ERROR", e);
     return NextResponse.json(
-      { success: false, error: "Gagal login dengan kode Telegram. Pastikan tabel telegram_app_sessions sudah dibuat." },
+      { success: false, error: "Gagal login dengan kode Telegram.", detail: loginErrorHint(e) },
       { status: 500 },
     );
   }
