@@ -4,7 +4,7 @@ Dokumen ini berisi environment variables, instalasi lokal, build production, dep
 
 ## Environment Variables
 
-Tambahkan environment variable berikut di Vercel:
+Tambahkan environment variable wajib berikut di Vercel:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL
@@ -12,8 +12,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 JWT_SECRET
 TELEGRAM_WEBHOOK_SECRET
-TELEGRAM_LOGIN_CODE_SECRET
 TOKEN_VERSION
+```
+
+Environment variable opsional:
+
+```txt
+TELEGRAM_LOGIN_CODE_SECRET
 SUPER_USER_PIN
 ```
 
@@ -23,12 +28,12 @@ Keterangan:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: anon key Supabase untuk membaca data pasaran.
 - `SUPABASE_SERVICE_ROLE_KEY`: service role key untuk validasi login Telegram di server. Jangan expose ke client.
 - `JWT_SECRET`: secret tanda tangan JWT. Samakan dengan Analisa Angka.
-- `TELEGRAM_WEBHOOK_SECRET`: fallback secret hashing kode login. Samakan dengan Analisa Angka.
-- `TELEGRAM_LOGIN_CODE_SECRET`: secret khusus hashing kode login. Samakan dengan Analisa Angka jika dipakai.
+- `TELEGRAM_WEBHOOK_SECRET`: secret hashing kode login jika `TELEGRAM_LOGIN_CODE_SECRET` tidak tersedia. Samakan dengan Analisa Angka.
 - `TOKEN_VERSION`: versi token. Samakan dengan Analisa Angka. Default `2`.
+- `TELEGRAM_LOGIN_CODE_SECRET`: opsional. Isi hanya kalau Analisa Angka juga memakai variable ini. Jika tidak ada, sistem otomatis fallback ke `TELEGRAM_WEBHOOK_SECRET`.
 - `SUPER_USER_PIN`: opsional, kode super 6 digit untuk akses darurat.
 
-Contoh `.env.local`:
+Contoh `.env.local` jika Analisa Angka tidak punya `TELEGRAM_LOGIN_CODE_SECRET`:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
@@ -36,7 +41,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 JWT_SECRET=random-secret-panjang-sama-dengan-analisa
 TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-sama-dengan-analisa
-TELEGRAM_LOGIN_CODE_SECRET=telegram-login-code-secret-sama-dengan-analisa
 TOKEN_VERSION=2
 SUPER_USER_PIN=123456
 ```
