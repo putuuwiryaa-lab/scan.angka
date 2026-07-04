@@ -22,8 +22,19 @@ function getDeviceId() {
   }
 }
 
-function isValidBotUrl(value: string) {
-  return /^https:\/\/t\.me\/[a-zA-Z0-9_]+(?:\?.*)?$/.test(value);
+function normalizeBotUrl(value: string) {
+  const raw = value.trim().replace(/^['"]|['"]$/g, "");
+  if (!raw) return "";
+
+  const username = raw
+    .replace(/^https?:\/\/(?:www\.)?(?:t\.me|telegram\.me)\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/+$/, "")
+    .split(/[?#]/)[0];
+
+  if (!/^[a-zA-Z0-9_]{5,32}$/.test(username)) return "";
+
+  return `https://t.me/${username}`;
 }
 
 export default function KodeLoginPage() {
@@ -35,7 +46,7 @@ export default function KodeLoginPage() {
     const next = new URLSearchParams(window.location.search).get("next") || "/";
     return next.startsWith("/") ? next : "/";
   }, []);
-  const botUrl = isValidBotUrl(BOT_URL) ? BOT_URL : "";
+  const botUrl = normalizeBotUrl(BOT_URL);
 
   async function submitCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
