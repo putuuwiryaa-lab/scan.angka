@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 const DEVICE_KEY = "aa_device_id";
+const BOT_URL = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || "";
 
 function createDeviceId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -21,6 +22,10 @@ function getDeviceId() {
   }
 }
 
+function isValidBotUrl(value: string) {
+  return /^https:\/\/t\.me\/[a-zA-Z0-9_]+(?:\?.*)?$/.test(value);
+}
+
 export default function KodeLoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -30,6 +35,7 @@ export default function KodeLoginPage() {
     const next = new URLSearchParams(window.location.search).get("next") || "/";
     return next.startsWith("/") ? next : "/";
   }, []);
+  const botUrl = isValidBotUrl(BOT_URL) ? BOT_URL : "";
 
   async function submitCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +77,16 @@ export default function KodeLoginPage() {
         <span className="access-kicker">Scan Angka</span>
         <h1>Login Telegram</h1>
         <p>Ambil kode login dari bot Telegram Analisa Angka, lalu masukkan 6 digit kode di sini.</p>
+
+        {botUrl ? (
+          <a className="access-submit" href={botUrl} target="_blank" rel="noreferrer">
+            Buka Bot Telegram
+          </a>
+        ) : (
+          <div className="access-error">
+            Link bot belum diatur. Isi NEXT_PUBLIC_TELEGRAM_BOT_URL di Vercel.
+          </div>
+        )}
 
         <form className="access-form" onSubmit={submitCode}>
           <label htmlFor="telegram-code">Kode Login</label>
