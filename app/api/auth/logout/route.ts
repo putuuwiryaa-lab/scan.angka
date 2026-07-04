@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SCAN_DEVICE_COOKIE, SCAN_TOKEN_COOKIE } from "@/lib/server/jwt";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
