@@ -47,6 +47,21 @@
   font-weight: 750;
 }
 
+.access-bot-link {
+  margin-top: 16px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: rgba(110, 155, 255, .16);
+  border: 1px solid rgba(110, 155, 255, .42);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 950;
+  text-decoration: none;
+}
+
 .access-form {
   margin-top: 18px;
   display: grid;
