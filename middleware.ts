@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ACCESS_COOKIE, verifyAccessToken } from "./lib/auth/session";
+
+const SCAN_TOKEN_COOKIE = "aa_scan_token";
 
 const PUBLIC_PATHS = new Set([
+  "/kode-login",
   "/login",
-  "/api/auth/login",
+  "/api/code-login",
   "/api/auth/logout",
   "/manifest.webmanifest",
   "/sw.js",
@@ -20,12 +22,16 @@ function isPublicPath(pathname: string) {
   return /\.(?:png|jpg|jpeg|webp|gif|svg|ico|css|js|txt|xml)$/i.test(pathname);
 }
 
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  const hasSession = await verifyAccessToken(req.cookies.get(ACCESS_COOKIE)?.value);
+  const hasSession = Boolean(req.cookies.get(SCAN_TOKEN_COOKIE)?.value);
+
+  if (pathname === "/login") {
+    return NextResponse.redirect(new URL(`/kode-login${search}`, req.url));
+  }
 
   if (isPublicPath(pathname)) {
-    if (pathname === "/login" && hasSession) {
+    if (pathname === "/kode-login" && hasSession) {
       return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();
@@ -34,10 +40,10 @@ export async function middleware(req: NextRequest) {
   if (hasSession) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Akses terbatas." }, { status: 401 });
+    return NextResponse.json({ error: "Silakan login terlebih dahulu." }, { status: 401 });
   }
 
-  const loginUrl = new URL("/login", req.url);
+  const loginUrl = new URL("/kode-login", req.url);
   loginUrl.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(loginUrl);
 }

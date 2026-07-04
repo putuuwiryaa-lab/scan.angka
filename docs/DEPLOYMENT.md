@@ -4,28 +4,48 @@ Dokumen ini berisi environment variables, instalasi lokal, build production, dep
 
 ## Environment Variables
 
-Tambahkan environment variable berikut di Vercel:
+Tambahkan environment variable wajib berikut di Vercel:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
-APP_ACCESS_PIN
-APP_AUTH_SECRET
+SUPABASE_SERVICE_ROLE_KEY
+JWT_SECRET
+TELEGRAM_WEBHOOK_SECRET
+TOKEN_VERSION
+```
+
+Environment variable opsional:
+
+```txt
+TELEGRAM_LOGIN_CODE_SECRET
+SUPER_USER_PIN
 ```
 
 Keterangan:
 
-- `APP_ACCESS_PIN`: PIN akses 8 digit.
-- `APP_AUTH_SECRET`: secret panjang untuk tanda tangan cookie akses. Ganti nilai ini untuk memutus semua sesi lama.
+- `NEXT_PUBLIC_SUPABASE_URL`: URL Supabase untuk client/public config.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: anon key Supabase untuk membaca data pasaran.
+- `SUPABASE_SERVICE_ROLE_KEY`: service role key untuk validasi login Telegram di server. Jangan expose ke client.
+- `JWT_SECRET`: secret tanda tangan JWT. Samakan dengan Analisa Angka.
+- `TELEGRAM_WEBHOOK_SECRET`: secret hashing kode login jika `TELEGRAM_LOGIN_CODE_SECRET` tidak tersedia. Samakan dengan Analisa Angka.
+- `TOKEN_VERSION`: versi token. Samakan dengan Analisa Angka. Default `2`.
+- `TELEGRAM_LOGIN_CODE_SECRET`: opsional. Isi hanya kalau Analisa Angka juga memakai variable ini. Jika tidak ada, sistem otomatis fallback ke `TELEGRAM_WEBHOOK_SECRET`.
+- `SUPER_USER_PIN`: opsional, kode super 6 digit untuk akses darurat.
 
-Contoh `.env.local`:
+Contoh `.env.local` jika Analisa Angka tidak punya `TELEGRAM_LOGIN_CODE_SECRET`:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-APP_ACCESS_PIN=12345678
-APP_AUTH_SECRET=random-secret-panjang
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+JWT_SECRET=random-secret-panjang-sama-dengan-analisa
+TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-sama-dengan-analisa
+TOKEN_VERSION=2
+SUPER_USER_PIN=123456
 ```
+
+> Sistem PIN lama (`APP_ACCESS_PIN` dan `APP_AUTH_SECRET`) tidak dipakai lagi untuk akses utama. Login utama memakai kode Telegram dari bot Analisa Angka.
 
 ## Instalasi Lokal
 
@@ -72,13 +92,22 @@ npm run start
 
 1. Login ke Vercel.
 2. Import repository dari GitHub.
-3. Tambahkan environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `APP_ACCESS_PIN`
-   - `APP_AUTH_SECRET`
-4. Deploy.
-5. Setelah deploy selesai, buka domain Vercel atau custom domain.
+3. Tambahkan environment variables Telegram/Supabase di atas.
+4. Pastikan tabel `telegram_app_sessions` sudah dibuat di Supabase.
+5. Deploy.
+6. Setelah deploy selesai, buka domain Vercel atau custom domain.
+7. Login memakai kode dari bot Telegram yang sama dengan Analisa Angka.
+
+## Setup Bot Telegram
+
+Bot Telegram tetap satu. Webhook tetap diarahkan ke aplikasi Analisa Angka, bukan ke Scan Angka.
+
+```txt
+Bot Telegram → /api/telegram/webhook di Analisa Angka
+Scan Angka → hanya memakai /api/code-login untuk membaca kode dari database yang sama
+```
+
+Jangan set webhook bot ke Scan Angka karena Telegram hanya memakai satu webhook aktif per bot.
 
 ## Catatan Limit Vercel Free
 
