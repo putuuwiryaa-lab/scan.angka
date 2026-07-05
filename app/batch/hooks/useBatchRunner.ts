@@ -107,7 +107,7 @@ export function useBatchRunner() {
           digitCount: safeDigit,
           topRanks: ranks,
           secondary: secondaryPayload,
-          outputTitle: secondaryPayload ? `${primaryTitle} || ${secondaryTitle}` : primaryTitle,
+          outputTitle: secondaryPayload ? `${primaryTitle} / ${secondaryTitle}` : primaryTitle,
         }),
       });
       const data = await response.json();
