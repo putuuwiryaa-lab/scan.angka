@@ -96,18 +96,25 @@
 }
 
 .access-form button,
-.admin-row button {
-  min-height: 48px;
+.admin-button {
+  min-height: 50px;
   border: 0;
   border-radius: 13px;
-  background: var(--blue);
-  color: #07111f;
   font-size: 15px;
   font-weight: 950;
+  cursor: pointer;
+}
+
+.access-primary-button,
+.admin-button-primary {
+  background: linear-gradient(180deg, #8db4ff, var(--blue));
+  color: #07111f;
+  box-shadow: 0 12px 28px rgba(110, 155, 255, .24);
 }
 
 .access-form button:disabled {
   opacity: .62;
+  cursor: not-allowed;
 }
 
 .access-error {
@@ -149,8 +156,10 @@
 }
 
 .admin-pin-result strong {
+  display: block;
+  margin-top: 4px;
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 28px;
   letter-spacing: 2px;
 }
 
@@ -192,8 +201,38 @@
   overflow-wrap: anywhere;
 }
 
-.admin-row button {
-  min-width: 110px;
+.admin-button {
+  min-width: 132px;
+  padding: 0 12px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+.admin-button-danger {
   background: #ff6b6b;
   color: #210606;
+  box-shadow: 0 10px 24px rgba(255, 107, 107, .18);
+}
+
+.admin-button-warning {
+  background: #f5c451;
+  color: #1f1400;
+  box-shadow: 0 10px 24px rgba(245, 196, 81, .16);
+}
+
+.admin-logout-button {
+  width: 100%;
+  background: rgba(255, 255, 255, .06);
+  border-color: var(--line);
+}
+
+@media (max-width: 560px) {
+  .admin-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-button {
+    width: 100%;
+  }
 }
