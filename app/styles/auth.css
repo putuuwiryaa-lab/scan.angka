@@ -95,7 +95,8 @@
   box-shadow: 0 0 0 3px rgba(110, 155, 255, .12);
 }
 
-.access-form button {
+.access-form button,
+.admin-row button {
   min-height: 48px;
   border: 0;
   border-radius: 13px;
@@ -118,4 +119,81 @@
   font-size: 13px;
   font-weight: 850;
   white-space: pre-line;
+}
+
+.admin-wrap {
+  padding-bottom: 42px;
+}
+
+.admin-panel {
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.admin-panel h2 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.admin-pin-result {
+  margin-top: 12px;
+  border: 1px solid rgba(110, 155, 255, .42);
+  background: rgba(110, 155, 255, .1);
+  color: var(--ink);
+  border-radius: 13px;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.admin-pin-result strong {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  letter-spacing: 2px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .035);
+  padding: 12px;
+}
+
+.admin-row div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-row strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.admin-row span,
+.admin-row em,
+.admin-list p {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.admin-row button {
+  min-width: 110px;
+  background: #ff6b6b;
+  color: #210606;
 }
