@@ -35,12 +35,50 @@
 
 .scan-item.compact {
   display: grid;
-  grid-template-columns: minmax(54px, auto) minmax(0, 1fr) minmax(106px, auto);
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr) minmax(106px, auto);
   align-items: center;
   gap: 8px;
 }
 
+.scan-identity {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.scan-role {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: .55px;
+  white-space: nowrap;
+}
+
+.scan-role.role-1 {
+  color: #0a0e16;
+  background: var(--gold);
+  border: 1px solid rgba(224, 179, 65, .55);
+}
+
+.scan-role.role-2 {
+  color: #cfe0ff;
+  background: rgba(110, 155, 255, .16);
+  border: 1px solid rgba(110, 155, 255, .34);
+}
+
+.scan-role.role-3 {
+  color: #cfd8e3;
+  background: rgba(207, 216, 227, .10);
+  border: 1px solid rgba(207, 216, 227, .18);
+}
+
 .scan-formula {
+  width: fit-content;
+  max-width: 100%;
   background: rgba(110, 155, 255, .16);
   color: var(--ink);
   border: 1px solid rgba(110, 155, 255, .3);
@@ -50,6 +88,8 @@
   font-size: 14px;
   font-weight: 900;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .compact-digits {
