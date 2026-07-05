@@ -22,6 +22,7 @@ type Body = {
   target3D?: unknown;
   digitCount?: unknown;
   stopScan?: unknown;
+  multiTopOutput?: unknown;
   L?: unknown;
   secondary?: unknown;
   outputTitle?: unknown;
@@ -34,6 +35,7 @@ type ScanRequest = {
   target3D: Target3D;
   digitCount: number;
   topRank: number;
+  multiTopOutput: boolean;
   L: number;
 };
 
@@ -53,6 +55,10 @@ function asNum(value: unknown, fallback: number, min: number, max: number): numb
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
+function asBool(value: unknown): boolean {
+  return value === true;
 }
 
 function normalizeMarketIds(value: unknown): string[] {
@@ -90,6 +96,7 @@ function readScanRequest(source: Record<string, unknown>, fallback?: Partial<Sca
     target3D: (source.target3D ?? fallback?.target3D ?? "belakang") as Target3D,
     digitCount: asNum(source.digitCount, fallback?.digitCount ?? DEFAULT_DIGIT_COUNT, 1, 12),
     topRank: asNum(source.stopScan, fallback?.topRank ?? 1, 1, 3),
+    multiTopOutput: asBool(source.multiTopOutput ?? fallback?.multiTopOutput ?? false),
     L: asNum(source.L, fallback?.L ?? 14, 1, 100),
   };
 }
@@ -104,6 +111,14 @@ function selectedBatchDigits(draws: Draw[], request: ScanRequest): string {
     stopScan: request.topRank,
     scanMode: request.scanMode,
   });
+
+  if (request.multiTopOutput && request.topRank > 1) {
+    const digits = result.items
+      .slice(0, request.topRank)
+      .map((item) => formatCandidates(item.angkaHidup ?? [], request.scanMode, request.digitCount));
+    return digits.length ? digits.join(" | ") : "-";
+  }
+
   const selectedItem = result.items[request.topRank - 1];
   return formatCandidates(selectedItem?.angkaHidup ?? [], request.scanMode, request.digitCount);
 }
@@ -171,7 +186,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: primary.topRank, secondary: Boolean(secondary) });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: primary.topRank, secondary: Boolean(secondary), multiTopOutput: primary.multiTopOutput });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
