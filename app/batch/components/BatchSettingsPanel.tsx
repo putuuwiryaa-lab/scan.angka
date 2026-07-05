@@ -6,6 +6,7 @@ import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
 type Props = {
   rounds: string;
   scanMode: ScanMode;
+  secondaryScanMode: ScanMode | "";
   targetPos: Posisi;
   target2D: Target2D;
   target3D: Target3D;
@@ -13,6 +14,7 @@ type Props = {
   topCount: number;
   onRoundsChange: (value: string) => void;
   onScanModeChange: (value: ScanMode) => void;
+  onSecondaryScanModeChange: (value: ScanMode | "") => void;
   onTargetPosChange: (value: Posisi) => void;
   onTarget2DChange: (value: Target2D) => void;
   onTarget3DChange: (value: Target3D) => void;
@@ -20,7 +22,7 @@ type Props = {
   onTopCountChange: (value: number) => void;
 };
 
-type OpenMenu = "jenis" | "target" | "digit" | "top" | null;
+type OpenMenu = "jenis" | "jenis2" | "target" | "digit" | "top" | null;
 
 const TOP_OPTIONS = [1, 2, 3];
 
@@ -31,6 +33,7 @@ function optionLabel<T extends string>(options: { value: T; label: string }[], v
 export default function BatchSettingsPanel({
   rounds,
   scanMode,
+  secondaryScanMode,
   targetPos,
   target2D,
   target3D,
@@ -38,6 +41,7 @@ export default function BatchSettingsPanel({
   topCount,
   onRoundsChange,
   onScanModeChange,
+  onSecondaryScanModeChange,
   onTargetPosChange,
   onTarget2DChange,
   onTarget3DChange,
@@ -52,6 +56,7 @@ export default function BatchSettingsPanel({
     : is3DMode(scanMode)
       ? optionLabel(TARGET_3D_OPTIONS, target3D)
       : optionLabel(TARGET_2D_OPTIONS, target2D);
+  const secondaryLabel = secondaryScanMode ? optionLabel(ANALYSIS_OPTIONS, secondaryScanMode) : "Tidak dipakai";
 
   function toggle(menu: Exclude<OpenMenu, null>) {
     setOpenMenu((current) => current === menu ? null : menu);
@@ -65,7 +70,7 @@ export default function BatchSettingsPanel({
           <input className="batch-input" inputMode="numeric" value={rounds} onChange={(event) => onRoundsChange(cleanDigits(event.target.value, 3))} onBlur={() => onRoundsChange(String(clampTextNumber(rounds, 14, 1, 100)))} />
         </div>
         <div className="batch-field batch-dropdown-field">
-          <label>Jenis</label>
+          <label>Metode 1</label>
           <button className="batch-select-btn" type="button" onClick={() => toggle("jenis")}>
             <b>{optionLabel(ANALYSIS_OPTIONS, scanMode)}</b>
             <span>{openMenu === "jenis" ? "⌃" : "⌄"}</span>
@@ -76,6 +81,47 @@ export default function BatchSettingsPanel({
                 <button key={item.value} type="button" className={item.value === scanMode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onScanModeChange(item.value); setOpenMenu(null); }}>
                   <span>{item.label}</span>
                   {item.value === scanMode && <b>✓</b>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="batch-row-two">
+        <div className="batch-field batch-dropdown-field">
+          <label>Metode 2</label>
+          <button className="batch-select-btn" type="button" onClick={() => toggle("jenis2")}>
+            <b>{secondaryLabel}</b>
+            <span>{openMenu === "jenis2" ? "⌃" : "⌄"}</span>
+          </button>
+          {openMenu === "jenis2" && (
+            <div className="batch-select-menu">
+              <button type="button" className={secondaryScanMode === "" ? "batch-select-option active" : "batch-select-option"} onClick={() => { onSecondaryScanModeChange(""); setOpenMenu(null); }}>
+                <span>Tidak dipakai</span>
+                {secondaryScanMode === "" && <b>✓</b>}
+              </button>
+              {ANALYSIS_OPTIONS.map((item) => (
+                <button key={item.value} type="button" className={item.value === secondaryScanMode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onSecondaryScanModeChange(item.value); setOpenMenu(null); }}>
+                  <span>{item.label}</span>
+                  {item.value === secondaryScanMode && <b>✓</b>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="batch-field batch-dropdown-field">
+          <label>Top Hasil</label>
+          <button className="batch-select-btn" type="button" onClick={() => toggle("top")}>
+            <b>{topLabel}</b>
+            <span>{openMenu === "top" ? "⌃" : "⌄"}</span>
+          </button>
+          {openMenu === "top" && (
+            <div className="batch-select-menu">
+              {TOP_OPTIONS.map((value) => (
+                <button key={value} type="button" className={value === topCount ? "batch-select-option active" : "batch-select-option"} onClick={() => { onTopCountChange(value); setOpenMenu(null); }}>
+                  <span>Top {value}</span>
+                  {value === topCount && <b>✓</b>}
                 </button>
               ))}
             </div>
@@ -135,24 +181,6 @@ export default function BatchSettingsPanel({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="batch-field batch-dropdown-field">
-        <label>Top Hasil</label>
-        <button className="batch-select-btn" type="button" onClick={() => toggle("top")}>
-          <b>{topLabel}</b>
-          <span>{openMenu === "top" ? "⌃" : "⌄"}</span>
-        </button>
-        {openMenu === "top" && (
-          <div className="batch-select-menu">
-            {TOP_OPTIONS.map((value) => (
-              <button key={value} type="button" className={value === topCount ? "batch-select-option active" : "batch-select-option"} onClick={() => { onTopCountChange(value); setOpenMenu(null); }}>
-                <span>Top {value}</span>
-                {value === topCount && <b>✓</b>}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </section>
   );
