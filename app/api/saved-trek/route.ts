@@ -3,6 +3,7 @@ import { runFormulaByName } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { isScanMode, isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import { KOLOM, SHIO_KOLOM, type Kolom, type Posisi, type ScanMode, type Target2D, type Target3D } from "@/lib/engine/types";
+import { requireActiveAccess } from "@/lib/server/access";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const runtime = "nodejs";
@@ -52,6 +53,9 @@ function formatPrediction(values: number[], scanMode: ScanMode): string {
 }
 
 export async function POST(req: Request) {
+  const access = await requireActiveAccess(req.headers);
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
     const marketId = String(body.marketId || "").trim();
