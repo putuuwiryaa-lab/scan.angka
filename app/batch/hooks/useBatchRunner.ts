@@ -15,34 +15,35 @@ type RunBatchParams = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
-  topCount: number;
-  multiTopOutput: boolean;
+  topRanks: number[];
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
   secondaryTarget2D: Target2D;
   secondaryTarget3D: Target3D;
   secondaryDigitCount: number;
-  secondaryTopCount: number;
-  secondaryMultiTopOutput: boolean;
+  secondaryTopRanks: number[];
   onRoundsChange: (value: string) => void;
   onDigitCountChange: (value: number) => void;
-  onTopCountChange: (value: number) => void;
+  onTopRanksChange: (value: number[]) => void;
   onSecondaryRoundsChange: (value: string) => void;
   onSecondaryDigitCountChange: (value: number) => void;
-  onSecondaryTopCountChange: (value: number) => void;
+  onSecondaryTopRanksChange: (value: number[]) => void;
 };
+
+const TOPS = [1, 2, 3];
 
 function clampDigit(mode: ScanMode, value: number): number {
   return Math.max(1, Math.min(isShioMode(mode) ? 12 : 9, value));
 }
 
-function clampTop(value: number): number {
-  return Math.max(1, Math.min(3, Math.trunc(Number(value) || 1)));
+function safeRanks(value: number[]): number[] {
+  const clean = TOPS.filter((item) => value.includes(item));
+  return clean.length ? clean : [1];
 }
 
-function topTitle(topCount: number, multiTopOutput: boolean): string {
-  return multiTopOutput && topCount > 1 ? `Top 1-${topCount}` : `Top ${topCount}`;
+function titleRanks(value: number[]): string {
+  return safeRanks(value).map((item) => `Top ${item}`).join("+");
 }
 
 export function useBatchRunner() {
@@ -51,90 +52,62 @@ export function useBatchRunner() {
   const [loading, setLoading] = useState(false);
   const [runnerError, setRunnerError] = useState("");
 
-  async function runBatch({
-    selected,
-    rounds,
-    scanMode,
-    targetPos,
-    target2D,
-    target3D,
-    digitCount,
-    topCount,
-    multiTopOutput,
-    secondaryScanMode,
-    secondaryRounds,
-    secondaryTargetPos,
-    secondaryTarget2D,
-    secondaryTarget3D,
-    secondaryDigitCount,
-    secondaryTopCount,
-    secondaryMultiTopOutput,
-    onRoundsChange,
-    onDigitCountChange,
-    onTopCountChange,
-    onSecondaryRoundsChange,
-    onSecondaryDigitCountChange,
-    onSecondaryTopCountChange,
-  }: RunBatchParams) {
+  async function runBatch(params: RunBatchParams) {
     setLoading(true);
     setRunnerError("");
     setResult(null);
     setCopied(false);
 
     try {
-      if (selected.length > MAX_BATCH_MARKETS) {
+      if (params.selected.length > MAX_BATCH_MARKETS) {
         setRunnerError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
         return;
       }
 
-      const safeRounds = clampTextNumber(rounds, 14, 1, 100);
-      const safeDigit = clampDigit(scanMode, digitCount);
-      const safeTop = clampTop(topCount);
-      const primaryTitle = `${outputTitle(scanMode, targetPos, target2D, target3D, safeDigit)} ${topTitle(safeTop, multiTopOutput)} L${safeRounds}`;
+      const safeRounds = clampTextNumber(params.rounds, 14, 1, 100);
+      const safeDigit = clampDigit(params.scanMode, params.digitCount);
+      const ranks = safeRanks(params.topRanks);
+      const primaryTitle = `${outputTitle(params.scanMode, params.targetPos, params.target2D, params.target3D, safeDigit)} ${titleRanks(ranks)} L${safeRounds}`;
 
       let secondaryPayload: Record<string, unknown> | undefined;
       let secondaryTitle = "";
-      if (secondaryScanMode) {
-        const safeSecondaryRounds = clampTextNumber(secondaryRounds, 14, 1, 100);
-        const safeSecondaryDigit = clampDigit(secondaryScanMode, secondaryDigitCount);
-        const safeSecondaryTop = clampTop(secondaryTopCount);
-        secondaryTitle = `${outputTitle(secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D, safeSecondaryDigit)} ${topTitle(safeSecondaryTop, secondaryMultiTopOutput)} L${safeSecondaryRounds}`;
+      if (params.secondaryScanMode) {
+        const rounds2 = clampTextNumber(params.secondaryRounds, 14, 1, 100);
+        const digit2 = clampDigit(params.secondaryScanMode, params.secondaryDigitCount);
+        const ranks2 = safeRanks(params.secondaryTopRanks);
+        secondaryTitle = `${outputTitle(params.secondaryScanMode, params.secondaryTargetPos, params.secondaryTarget2D, params.secondaryTarget3D, digit2)} ${titleRanks(ranks2)} L${rounds2}`;
         secondaryPayload = {
-          scanMode: secondaryScanMode,
-          targetPos: secondaryTargetPos,
-          target2D: secondaryTarget2D,
-          target3D: secondaryTarget3D,
-          digitCount: safeSecondaryDigit,
-          stopScan: safeSecondaryTop,
-          multiTopOutput: secondaryMultiTopOutput,
-          L: safeSecondaryRounds,
+          scanMode: params.secondaryScanMode,
+          targetPos: params.secondaryTargetPos,
+          target2D: params.secondaryTarget2D,
+          target3D: params.secondaryTarget3D,
+          digitCount: digit2,
+          topRanks: ranks2,
+          L: rounds2,
         };
-        onSecondaryRoundsChange(String(safeSecondaryRounds));
-        onSecondaryDigitCountChange(safeSecondaryDigit);
-        onSecondaryTopCountChange(safeSecondaryTop);
+        params.onSecondaryRoundsChange(String(rounds2));
+        params.onSecondaryDigitCountChange(digit2);
+        params.onSecondaryTopRanksChange(ranks2);
       }
 
-      const title = secondaryPayload ? `${primaryTitle} || ${secondaryTitle}` : primaryTitle;
-
-      onRoundsChange(String(safeRounds));
-      onDigitCountChange(safeDigit);
-      onTopCountChange(safeTop);
+      params.onRoundsChange(String(safeRounds));
+      params.onDigitCountChange(safeDigit);
+      params.onTopRanksChange(ranks);
 
       const response = await fetch("/api/batch-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          marketIds: selected,
+          marketIds: params.selected,
           L: safeRounds,
-          scanMode,
-          targetPos,
-          target2D,
-          target3D,
+          scanMode: params.scanMode,
+          targetPos: params.targetPos,
+          target2D: params.target2D,
+          target3D: params.target3D,
           digitCount: safeDigit,
-          stopScan: safeTop,
-          multiTopOutput,
+          topRanks: ranks,
           secondary: secondaryPayload,
-          outputTitle: title,
+          outputTitle: secondaryPayload ? `${primaryTitle} || ${secondaryTitle}` : primaryTitle,
         }),
       });
       const data = await response.json();
@@ -157,12 +130,5 @@ export function useBatchRunner() {
     }
   }
 
-  return {
-    result,
-    copied,
-    loading,
-    runnerError,
-    runBatch,
-    copyOutput,
-  };
+  return { result, copied, loading, runnerError, runBatch, copyOutput };
 }
