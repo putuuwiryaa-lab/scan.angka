@@ -29,7 +29,7 @@ export default function PinPage() {
 
     const clean = pin.replace(/\D/g, "").slice(0, 8);
     if (clean.length !== 8) {
-      setError("PIN harus 8 digit.");
+      setError("Kode akses harus 8 digit.");
       return;
     }
 
@@ -45,13 +45,13 @@ export default function PinPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok || !data.success) {
-        setError(data.error || "PIN tidak bisa dipakai.");
+        setError(data.error || "Kode akses tidak bisa digunakan.");
         return;
       }
 
       window.location.replace("/");
     } catch {
-      setError("Gagal aktivasi PIN.");
+      setError("Gagal memeriksa kode akses.");
     } finally {
       setLoading(false);
     }
@@ -61,11 +61,11 @@ export default function PinPage() {
     <main className="access-page">
       <section className="access-card">
         <span className="access-kicker">Akses Aplikasi</span>
-        <h1>Masukkan PIN</h1>
-        <p>PIN hanya bisa dipakai satu kali. Setelah berhasil, akses device ini aktif sampai admin menghapus akses.</p>
+        <h1>Masuk Aplikasi</h1>
+        <p>Masukkan kode akses untuk melanjutkan.</p>
 
         <form className="access-form" onSubmit={submit}>
-          <label htmlFor="pin">PIN Akses</label>
+          <label htmlFor="pin">Kode Akses</label>
           <input
             id="pin"
             inputMode="numeric"
@@ -80,7 +80,7 @@ export default function PinPage() {
             }}
           />
           {error ? <div className="access-error">{error}</div> : null}
-          <button type="submit" disabled={loading}>{loading ? "Memeriksa..." : "Aktifkan Akses"}</button>
+          <button type="submit" disabled={loading}>{loading ? "Memeriksa..." : "Masuk"}</button>
         </form>
       </section>
     </main>
