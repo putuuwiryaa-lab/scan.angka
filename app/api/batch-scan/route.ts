@@ -5,7 +5,6 @@ import { isScanMode, isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/hel
 import type { Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { MAX_BATCH_MARKETS } from "@/lib/shared/batch";
 import { getSupabase } from "@/lib/supabase/client";
-import { verifyActiveTelegramSession } from "@/lib/server/telegram-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,9 +52,6 @@ function formatCandidates(values: number[], scanMode: ScanMode, digitCount: numb
 }
 
 export async function POST(req: Request) {
-  const access = await verifyActiveTelegramSession(req.headers);
-  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
     const marketIds = normalizeMarketIds(body.marketIds);
