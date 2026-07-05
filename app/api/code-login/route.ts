@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 
 const APP_KEY = "scan";
 const TRIAL_DAYS = 14;
-const SUPER_ACCESS_DAYS = 3650;
 
 type TelegramUserRow = {
   id: string;
@@ -194,37 +193,6 @@ export async function POST(request: Request) {
       { success: false, error: "Kode login harus 6 digit" },
       { status: 400 },
     );
-  }
-
-  const superPin = normalizeCode(process.env.SUPER_USER_PIN);
-
-  if (superPin && code === superPin) {
-    const sessionId = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + SUPER_ACCESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const maxAge = secondsUntil(expiresAt);
-    const token = signToken(
-      {
-        role: "SUPER",
-        accountId: "super",
-        sessionId,
-        appKey: APP_KEY,
-        deviceHash: deviceHash || undefined,
-        userAgentHash,
-      },
-      maxAge,
-    );
-
-    await writeAccessEvent({
-      eventType: "SCAN_SUPER_LOGIN_SUCCESS",
-      eventDetail: "super_pin_login",
-      metadata: { role: "SUPER", expires_at: expiresAt, session_id: sessionId, device_bound: deviceBound },
-      ipHash,
-      userAgentHash,
-    });
-
-    const response = NextResponse.json({ success: true, role: "SUPER", expires_at: expiresAt, session_id: sessionId, device_bound: deviceBound });
-    attachSessionCookies(response, token, deviceId, maxAge);
-    return response;
   }
 
   try {
