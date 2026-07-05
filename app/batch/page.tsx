@@ -37,8 +37,7 @@ export default function BatchPage() {
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
-  const [topCount, setTopCount] = useState(1);
-  const [multiTopOutput, setMultiTopOutput] = useState(false);
+  const [topRanks, setTopRanks] = useState<number[]>([1]);
 
   const [secondaryScanMode, setSecondaryScanMode] = useState<ScanMode | "">("");
   const [secondaryRounds, setSecondaryRounds] = useState("14");
@@ -46,8 +45,7 @@ export default function BatchPage() {
   const [secondaryTarget2D, setSecondaryTarget2D] = useState<Target2D>("belakang");
   const [secondaryTarget3D, setSecondaryTarget3D] = useState<Target3D>("belakang");
   const [secondaryDigitCount, setSecondaryDigitCount] = useState(2);
-  const [secondaryTopCount, setSecondaryTopCount] = useState(1);
-  const [secondaryMultiTopOutput, setSecondaryMultiTopOutput] = useState(false);
+  const [secondaryTopRanks, setSecondaryTopRanks] = useState<number[]>([1]);
 
   function changeMode(value: ScanMode) {
     setScanMode(value);
@@ -74,32 +72,28 @@ export default function BatchPage() {
         target2D={target2D}
         target3D={target3D}
         digitCount={digitCount}
-        topCount={topCount}
-        multiTopOutput={multiTopOutput}
+        topRanks={topRanks}
         secondaryScanMode={secondaryScanMode}
         secondaryRounds={secondaryRounds}
         secondaryTargetPos={secondaryTargetPos}
         secondaryTarget2D={secondaryTarget2D}
         secondaryTarget3D={secondaryTarget3D}
         secondaryDigitCount={secondaryDigitCount}
-        secondaryTopCount={secondaryTopCount}
-        secondaryMultiTopOutput={secondaryMultiTopOutput}
+        secondaryTopRanks={secondaryTopRanks}
         onRoundsChange={setRounds}
         onScanModeChange={changeMode}
         onTargetPosChange={setTargetPos}
         onTarget2DChange={setTarget2D}
         onTarget3DChange={setTarget3D}
         onDigitCountChange={setDigitCount}
-        onTopCountChange={setTopCount}
-        onMultiTopOutputChange={setMultiTopOutput}
+        onTopRanksChange={setTopRanks}
         onSecondaryScanModeChange={changeSecondaryMode}
         onSecondaryRoundsChange={setSecondaryRounds}
         onSecondaryTargetPosChange={setSecondaryTargetPos}
         onSecondaryTarget2DChange={setSecondaryTarget2D}
         onSecondaryTarget3DChange={setSecondaryTarget3D}
         onSecondaryDigitCountChange={setSecondaryDigitCount}
-        onSecondaryTopCountChange={setSecondaryTopCount}
-        onSecondaryMultiTopOutputChange={setSecondaryMultiTopOutput}
+        onSecondaryTopRanksChange={setSecondaryTopRanks}
       />
 
       <BatchMarketSelector
@@ -120,22 +114,20 @@ export default function BatchPage() {
           target2D,
           target3D,
           digitCount,
-          topCount,
-          multiTopOutput,
+          topRanks,
           secondaryScanMode,
           secondaryRounds,
           secondaryTargetPos,
           secondaryTarget2D,
           secondaryTarget3D,
           secondaryDigitCount,
-          secondaryTopCount,
-          secondaryMultiTopOutput,
+          secondaryTopRanks,
           onRoundsChange: setRounds,
           onDigitCountChange: setDigitCount,
-          onTopCountChange: setTopCount,
+          onTopRanksChange: setTopRanks,
           onSecondaryRoundsChange: setSecondaryRounds,
           onSecondaryDigitCountChange: setSecondaryDigitCount,
-          onSecondaryTopCountChange: setSecondaryTopCount,
+          onSecondaryTopRanksChange: setSecondaryTopRanks,
         })}
       />
 
