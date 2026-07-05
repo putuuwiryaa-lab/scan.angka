@@ -23,7 +23,7 @@ export default function ScanResultPanel({ result, marketName, marketId, savedFla
         {result.items.map((item, index) => {
           const signature = savedSignature(item, marketId);
           return (
-            <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.target3D}-${item.formula}-${index}`}>
+            <div className={`scan-item compact role-${index + 1}`} key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.target3D}-${item.formula}-${index}`}>
               <div className="scan-row-body">
                 <span className={`scan-formula compact-formula role-${index + 1}`}>{item.formula}</span>
                 <div className="compact-digits">
