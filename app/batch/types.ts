@@ -1,7 +1,7 @@
 export type BatchResult = {
   title: string;
   copyText: string;
-  stopScan?: number;
+  topRanks?: number[];
   secondary?: boolean;
   results: {
     id: string;
