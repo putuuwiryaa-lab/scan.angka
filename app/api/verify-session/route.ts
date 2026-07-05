@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { verifyActiveTelegramSession } from "@/lib/server/telegram-session";
+import { requireActiveAccess } from "@/lib/server/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const access = await verifyActiveTelegramSession(request.headers);
+  const access = await requireActiveAccess(request.headers);
 
   if (!access.ok) {
     return NextResponse.json(
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json(access);
+  return NextResponse.json({ ok: true, sessionId: access.sessionId, deviceId: access.deviceId });
 }
 
 export async function POST(request: Request) {
