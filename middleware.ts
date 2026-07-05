@@ -29,8 +29,6 @@ export function middleware(req: NextRequest) {
   const hasAdmin = Boolean(req.cookies.get(ADMIN_COOKIE)?.value);
 
   if (isPublicPath(pathname)) {
-    if (pathname === "/pin" && hasAccess) return NextResponse.redirect(new URL("/", req.url));
-    if (pathname === "/admin/login" && hasAdmin) return NextResponse.redirect(new URL("/admin", req.url));
     return NextResponse.next();
   }
 
