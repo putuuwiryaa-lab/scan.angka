@@ -97,23 +97,31 @@
 
 .access-form button,
 .admin-button {
-  min-height: 50px;
-  border: 0;
-  border-radius: 13px;
-  font-size: 15px;
+  min-height: 54px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 15px;
+  font-size: 16px;
   font-weight: 950;
   cursor: pointer;
 }
 
-.access-primary-button,
+.access-form .access-primary-button,
+.access-form .admin-button-primary,
 .admin-button-primary {
-  background: linear-gradient(180deg, #8db4ff, var(--blue));
-  color: #07111f;
-  box-shadow: 0 12px 28px rgba(110, 155, 255, .24);
+  background: #8fb8ff !important;
+  color: #06111f !important;
+  border-color: #b8d0ff !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .18) inset, 0 14px 30px rgba(143, 184, 255, .28) !important;
+}
+
+.access-form .access-primary-button:active,
+.access-form .admin-button-primary:active,
+.admin-button-primary:active {
+  transform: translateY(1px);
 }
 
 .access-form button:disabled {
-  opacity: .62;
+  opacity: .72;
   cursor: not-allowed;
 }
 
@@ -146,8 +154,8 @@
 
 .admin-pin-result {
   margin-top: 12px;
-  border: 1px solid rgba(110, 155, 255, .42);
-  background: rgba(110, 155, 255, .1);
+  border: 1px solid rgba(143, 184, 255, .6);
+  background: rgba(143, 184, 255, .14);
   color: var(--ink);
   border-radius: 13px;
   padding: 12px;
@@ -158,8 +166,9 @@
 .admin-pin-result strong {
   display: block;
   margin-top: 4px;
+  color: #ffffff;
   font-family: var(--font-mono);
-  font-size: 28px;
+  font-size: 30px;
   letter-spacing: 2px;
 }
 
@@ -202,28 +211,32 @@
 }
 
 .admin-button {
-  min-width: 132px;
-  padding: 0 12px;
+  min-width: 142px;
+  padding: 0 14px;
   white-space: normal;
   line-height: 1.15;
 }
 
 .admin-button-danger {
-  background: #ff6b6b;
-  color: #210606;
-  box-shadow: 0 10px 24px rgba(255, 107, 107, .18);
+  background: #ff5f5f !important;
+  color: #210303 !important;
+  border-color: #ff9a9a !important;
+  box-shadow: 0 10px 24px rgba(255, 95, 95, .22);
 }
 
 .admin-button-warning {
-  background: #f5c451;
-  color: #1f1400;
-  box-shadow: 0 10px 24px rgba(245, 196, 81, .16);
+  background: #ffd166 !important;
+  color: #221400 !important;
+  border-color: #ffe3a0 !important;
+  box-shadow: 0 10px 24px rgba(255, 209, 102, .2);
 }
 
 .admin-logout-button {
   width: 100%;
-  background: rgba(255, 255, 255, .06);
-  border-color: var(--line);
+  min-height: 54px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, .09);
+  border-color: rgba(255, 255, 255, .18);
 }
 
 @media (max-width: 560px) {
