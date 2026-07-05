@@ -30,18 +30,16 @@ export default function ScanResultPanel({ result, marketName, marketId, savedFla
           const signature = savedSignature(item, marketId);
           return (
             <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.target3D}-${item.formula}-${index}`}>
-              <div className="scan-row-head">
-                <div className="scan-identity">
-                  <span className={`scan-role role-${index + 1}`}>{resultRoleLabel(index)}</span>
-                  <span className="scan-formula compact-formula">{item.formula}</span>
+              <span className={`scan-role role-${index + 1}`}>{resultRoleLabel(index)}</span>
+              <div className="scan-row-body">
+                <span className="scan-formula compact-formula">{item.formula}</span>
+                <div className="compact-digits">
+                  {labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
                 </div>
                 <div className="scan-actions" style={ROW_ACTIONS_STYLE}>
                   <button className="view-btn compact-view" type="button" onClick={() => onSave(item)}>{savedFlashId === signature ? "Tersimpan" : "Simpan"}</button>
                   <button className="view-btn compact-view" type="button" onClick={() => onView(item)}>Lihat</button>
                 </div>
-              </div>
-              <div className="compact-digits">
-                {labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
               </div>
             </div>
           );
