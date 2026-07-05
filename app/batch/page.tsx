@@ -38,6 +38,7 @@ export default function BatchPage() {
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
   const [topCount, setTopCount] = useState(1);
+  const [multiTopOutput, setMultiTopOutput] = useState(false);
 
   const [secondaryScanMode, setSecondaryScanMode] = useState<ScanMode | "">("");
   const [secondaryRounds, setSecondaryRounds] = useState("14");
@@ -46,6 +47,7 @@ export default function BatchPage() {
   const [secondaryTarget3D, setSecondaryTarget3D] = useState<Target3D>("belakang");
   const [secondaryDigitCount, setSecondaryDigitCount] = useState(2);
   const [secondaryTopCount, setSecondaryTopCount] = useState(1);
+  const [secondaryMultiTopOutput, setSecondaryMultiTopOutput] = useState(false);
 
   function changeMode(value: ScanMode) {
     setScanMode(value);
@@ -73,6 +75,7 @@ export default function BatchPage() {
         target3D={target3D}
         digitCount={digitCount}
         topCount={topCount}
+        multiTopOutput={multiTopOutput}
         secondaryScanMode={secondaryScanMode}
         secondaryRounds={secondaryRounds}
         secondaryTargetPos={secondaryTargetPos}
@@ -80,6 +83,7 @@ export default function BatchPage() {
         secondaryTarget3D={secondaryTarget3D}
         secondaryDigitCount={secondaryDigitCount}
         secondaryTopCount={secondaryTopCount}
+        secondaryMultiTopOutput={secondaryMultiTopOutput}
         onRoundsChange={setRounds}
         onScanModeChange={changeMode}
         onTargetPosChange={setTargetPos}
@@ -87,6 +91,7 @@ export default function BatchPage() {
         onTarget3DChange={setTarget3D}
         onDigitCountChange={setDigitCount}
         onTopCountChange={setTopCount}
+        onMultiTopOutputChange={setMultiTopOutput}
         onSecondaryScanModeChange={changeSecondaryMode}
         onSecondaryRoundsChange={setSecondaryRounds}
         onSecondaryTargetPosChange={setSecondaryTargetPos}
@@ -94,6 +99,7 @@ export default function BatchPage() {
         onSecondaryTarget3DChange={setSecondaryTarget3D}
         onSecondaryDigitCountChange={setSecondaryDigitCount}
         onSecondaryTopCountChange={setSecondaryTopCount}
+        onSecondaryMultiTopOutputChange={setSecondaryMultiTopOutput}
       />
 
       <BatchMarketSelector
@@ -115,6 +121,7 @@ export default function BatchPage() {
           target3D,
           digitCount,
           topCount,
+          multiTopOutput,
           secondaryScanMode,
           secondaryRounds,
           secondaryTargetPos,
@@ -122,6 +129,7 @@ export default function BatchPage() {
           secondaryTarget3D,
           secondaryDigitCount,
           secondaryTopCount,
+          secondaryMultiTopOutput,
           onRoundsChange: setRounds,
           onDigitCountChange: setDigitCount,
           onTopCountChange: setTopCount,
