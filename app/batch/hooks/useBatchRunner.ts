@@ -11,16 +11,33 @@ type RunBatchParams = {
   selected: string[];
   rounds: string;
   scanMode: ScanMode;
-  secondaryScanMode: ScanMode | "";
   targetPos: Posisi;
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
   topCount: number;
+  secondaryScanMode: ScanMode | "";
+  secondaryRounds: string;
+  secondaryTargetPos: Posisi;
+  secondaryTarget2D: Target2D;
+  secondaryTarget3D: Target3D;
+  secondaryDigitCount: number;
+  secondaryTopCount: number;
   onRoundsChange: (value: string) => void;
   onDigitCountChange: (value: number) => void;
   onTopCountChange: (value: number) => void;
+  onSecondaryRoundsChange: (value: string) => void;
+  onSecondaryDigitCountChange: (value: number) => void;
+  onSecondaryTopCountChange: (value: number) => void;
 };
+
+function clampDigit(mode: ScanMode, value: number): number {
+  return Math.max(1, Math.min(isShioMode(mode) ? 12 : 9, value));
+}
+
+function clampTop(value: number): number {
+  return Math.max(1, Math.min(3, Math.trunc(Number(value) || 1)));
+}
 
 export function useBatchRunner() {
   const [result, setResult] = useState<BatchResult | null>(null);
@@ -32,15 +49,24 @@ export function useBatchRunner() {
     selected,
     rounds,
     scanMode,
-    secondaryScanMode,
     targetPos,
     target2D,
     target3D,
     digitCount,
     topCount,
+    secondaryScanMode,
+    secondaryRounds,
+    secondaryTargetPos,
+    secondaryTarget2D,
+    secondaryTarget3D,
+    secondaryDigitCount,
+    secondaryTopCount,
     onRoundsChange,
     onDigitCountChange,
     onTopCountChange,
+    onSecondaryRoundsChange,
+    onSecondaryDigitCountChange,
+    onSecondaryTopCountChange,
   }: RunBatchParams) {
     setLoading(true);
     setRunnerError("");
@@ -53,14 +79,33 @@ export function useBatchRunner() {
         return;
       }
 
-      const hasSecondary = Boolean(secondaryScanMode);
-      const allowShioCount = isShioMode(scanMode) || (secondaryScanMode ? isShioMode(secondaryScanMode) : false);
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
-      const safeDigit = Math.max(1, Math.min(allowShioCount ? 12 : 9, digitCount));
-      const safeTop = Math.max(1, Math.min(3, Math.trunc(Number(topCount) || 1)));
-      const primaryTitle = outputTitle(scanMode, targetPos, target2D, target3D, safeDigit);
-      const secondaryTitle = secondaryScanMode ? outputTitle(secondaryScanMode, targetPos, target2D, target3D, safeDigit) : "";
-      const title = `${hasSecondary ? `${primaryTitle} || ${secondaryTitle}` : primaryTitle} · Top ${safeTop}`;
+      const safeDigit = clampDigit(scanMode, digitCount);
+      const safeTop = clampTop(topCount);
+      const primaryTitle = `${outputTitle(scanMode, targetPos, target2D, target3D, safeDigit)} Top ${safeTop} L${safeRounds}`;
+
+      let secondaryPayload: Record<string, unknown> | undefined;
+      let secondaryTitle = "";
+      if (secondaryScanMode) {
+        const safeSecondaryRounds = clampTextNumber(secondaryRounds, 14, 1, 100);
+        const safeSecondaryDigit = clampDigit(secondaryScanMode, secondaryDigitCount);
+        const safeSecondaryTop = clampTop(secondaryTopCount);
+        secondaryTitle = `${outputTitle(secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D, safeSecondaryDigit)} Top ${safeSecondaryTop} L${safeSecondaryRounds}`;
+        secondaryPayload = {
+          scanMode: secondaryScanMode,
+          targetPos: secondaryTargetPos,
+          target2D: secondaryTarget2D,
+          target3D: secondaryTarget3D,
+          digitCount: safeSecondaryDigit,
+          stopScan: safeSecondaryTop,
+          L: safeSecondaryRounds,
+        };
+        onSecondaryRoundsChange(String(safeSecondaryRounds));
+        onSecondaryDigitCountChange(safeSecondaryDigit);
+        onSecondaryTopCountChange(safeSecondaryTop);
+      }
+
+      const title = secondaryPayload ? `${primaryTitle} || ${secondaryTitle}` : primaryTitle;
 
       onRoundsChange(String(safeRounds));
       onDigitCountChange(safeDigit);
@@ -73,12 +118,12 @@ export function useBatchRunner() {
           marketIds: selected,
           L: safeRounds,
           scanMode,
-          secondaryScanMode: secondaryScanMode || undefined,
           targetPos,
           target2D,
           target3D,
           digitCount: safeDigit,
           stopScan: safeTop,
+          secondary: secondaryPayload,
           outputTitle: title,
         }),
       });
