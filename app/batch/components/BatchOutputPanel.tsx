@@ -6,10 +6,14 @@ type Props = {
   onCopy: () => void;
 };
 
+function topText(ranks?: number[]) {
+  const values = ranks?.length ? ranks : [1];
+  return values.map((rank) => `Top ${rank}`).join("+");
+}
+
 export default function BatchOutputPanel({ result, copied, onCopy }: Props) {
   if (!result) return null;
-  const topCount = result.stopScan ?? 1;
-  const meta = result.secondary ? `${result.results.length} pasaran · 2 metode` : `${result.results.length} pasaran · Top ${topCount}`;
+  const meta = result.secondary ? `${result.results.length} pasaran · 2 metode` : `${result.results.length} pasaran · ${topText(result.topRanks)}`;
 
   return (
     <section className="batch-panel">
