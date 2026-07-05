@@ -176,7 +176,7 @@ export async function POST(req: Request) {
         const draws = parseStrictHistory(market.history_data);
         const primaryDigits = selectedBatchDigits(draws, primary);
         const secondaryDigits = secondary ? selectedBatchDigits(draws, secondary) : "";
-        results.push({ id, name, digits: secondary ? `${primaryDigits} || ${secondaryDigits}` : primaryDigits });
+        results.push({ id, name, digits: secondary ? `${primaryDigits} · ${secondaryDigits}` : primaryDigits });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
