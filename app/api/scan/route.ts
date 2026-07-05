@@ -3,6 +3,7 @@ import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { isScanMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
+import { requireActiveAccess } from "@/lib/server/access";
 import { getSupabase } from "@/lib/supabase/client";
 
 export const runtime = "nodejs";
@@ -23,6 +24,9 @@ function clamp(value: unknown, fallback: number, min: number, max: number): numb
 }
 
 export async function POST(req: Request) {
+  const access = await requireActiveAccess(req.headers);
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+
   try {
     const body = await req.json().catch(() => ({}));
     const marketId = String(body?.marketId || "").trim();
