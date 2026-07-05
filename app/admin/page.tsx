@@ -114,6 +114,19 @@ export default function AdminPage() {
     }
   }
 
+  async function revokePin(id: string) {
+    if (!confirm("Batalkan PIN ini?")) return;
+
+    try {
+      const response = await fetch(`/api/admin/pins/${id}/revoke`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Gagal membatalkan PIN.");
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membatalkan PIN.");
+    }
+  }
+
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.replace("/admin/login");
@@ -180,6 +193,9 @@ export default function AdminPage() {
                 <span>Dipakai: {dateText(pin.used_at)}</span>
                 <span>Device: {pin.device_name || "-"}</span>
               </div>
+              {pin.status === "unused" ? (
+                <button type="button" onClick={() => revokePin(pin.id)}>Batalkan PIN</button>
+              ) : null}
             </div>
           ))}
           {!pins.length ? <p>Belum ada PIN.</p> : null}
