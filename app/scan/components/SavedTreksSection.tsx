@@ -24,27 +24,29 @@ export default function SavedTreksSection({ total, groups, liveMap, onView, onDe
       </div>
 
       {groups.map((group) => (
-        <div className="panel result-panel" key={group.key}>
+        <div key={group.key}>
           <p className="summary">
             <b>{group.marketName}</b> &middot; <b>{analysisTitle(group.scanMode, group.targetPos, group.target2D, group.target3D)}</b> &middot; {group.digitCount} {isShioMode(group.scanMode) ? "shio" : "digit"} &middot; {group.L} data &middot; {group.items.length} hasil
           </p>
-          <div className="scan-list compact-list">
-            {group.items.map((saved) => {
-              const live = liveMap[saved.id];
-              const values = live?.predictionValues ?? saved.predictionValues;
-              return (
-                <div className="scan-item compact" key={saved.id}>
-                  <span className="scan-formula compact-formula">{saved.formula}</span>
-                  <div className="compact-digits">
-                    {labelsFromValues(values, saved.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
+          <div className="panel result-panel">
+            <div className="scan-list compact-list">
+              {group.items.map((saved) => {
+                const live = liveMap[saved.id];
+                const values = live?.predictionValues ?? saved.predictionValues;
+                return (
+                  <div className="scan-item compact" key={saved.id}>
+                    <span className="scan-formula compact-formula">{saved.formula}</span>
+                    <div className="compact-digits">
+                      {labelsFromValues(values, saved.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
+                    </div>
+                    <div style={ROW_ACTIONS_STYLE}>
+                      <button className="view-btn compact-view" type="button" onClick={() => onView(saved)}>Lihat</button>
+                      <button className="view-btn compact-view" type="button" onClick={() => onDelete(saved.id)}>Hapus</button>
+                    </div>
                   </div>
-                  <div style={ROW_ACTIONS_STYLE}>
-                    <button className="view-btn compact-view" type="button" onClick={() => onView(saved)}>Lihat</button>
-                    <button className="view-btn compact-view" type="button" onClick={() => onDelete(saved.id)}>Hapus</button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       ))}
