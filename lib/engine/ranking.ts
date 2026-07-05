@@ -180,6 +180,30 @@ export function finalRank(a: RankedItem, b: RankedItem): number {
     a.formula.localeCompare(b.formula);
 }
 
+function antiConsensusRank(a: RankedItem, b: RankedItem): number {
+  return a.consensusOverlap - b.consensusOverlap ||
+    a.consensusWeight - b.consensusWeight ||
+    b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
+export function selectRankedDisplayItems(items: RankedItem[], limit: number): RankedItem[] {
+  const sorted = [...items].sort(finalRank);
+  if (limit <= 1 || sorted.length <= 1) return sorted.slice(0, limit);
+
+  const consensusWinner = sorted[0];
+  const remaining = sorted.slice(1);
+  const antiConsensus = [...remaining].sort(antiConsensusRank)[0];
+  const rest = remaining.filter((item) => item !== antiConsensus).sort(finalRank);
+
+  return [consensusWinner, antiConsensus, ...rest].slice(0, limit);
+}
+
 export function dedupeTrekCandidates(items: RankedItem[]): RankedItem[] {
   const seen = new Set<string>();
   const unique: RankedItem[] = [];
