@@ -10,35 +10,31 @@ type Props = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
-  topCount: number;
-  multiTopOutput: boolean;
+  topRanks: number[];
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
   secondaryTarget2D: Target2D;
   secondaryTarget3D: Target3D;
   secondaryDigitCount: number;
-  secondaryTopCount: number;
-  secondaryMultiTopOutput: boolean;
+  secondaryTopRanks: number[];
   onRoundsChange: (value: string) => void;
   onScanModeChange: (value: ScanMode) => void;
   onTargetPosChange: (value: Posisi) => void;
   onTarget2DChange: (value: Target2D) => void;
   onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
-  onTopCountChange: (value: number) => void;
-  onMultiTopOutputChange: (value: boolean) => void;
+  onTopRanksChange: (value: number[]) => void;
   onSecondaryScanModeChange: (value: ScanMode | "") => void;
   onSecondaryRoundsChange: (value: string) => void;
   onSecondaryTargetPosChange: (value: Posisi) => void;
   onSecondaryTarget2DChange: (value: Target2D) => void;
   onSecondaryTarget3DChange: (value: Target3D) => void;
   onSecondaryDigitCountChange: (value: number) => void;
-  onSecondaryTopCountChange: (value: number) => void;
-  onSecondaryMultiTopOutputChange: (value: boolean) => void;
+  onSecondaryTopRanksChange: (value: number[]) => void;
 };
 
-type OpenMenu = "m1Jenis" | "m1Target" | "m1Digit" | "m1Top" | "m2Jenis" | "m2Target" | "m2Digit" | "m2Top" | null;
+type OpenMenu = "m1Jenis" | "m1Target" | "m1Digit" | "m2Jenis" | "m2Target" | "m2Digit" | null;
 
 const TOP_OPTIONS = [1, 2, 3];
 
@@ -58,8 +54,15 @@ function digitLabel(scanMode: ScanMode, digitCount: number): string {
   return `${digitCount} ${isShioMode(scanMode) ? "shio" : "digit"}`;
 }
 
-function multiLabel(topCount: number): string {
-  return topCount <= 1 ? "Multi output" : `Output Top 1-${topCount}`;
+function normalizeRanks(ranks: number[]): number[] {
+  const next = [...new Set(ranks.filter((rank) => TOP_OPTIONS.includes(rank)))].sort((a, b) => a - b);
+  return next.length ? next : [1];
+}
+
+function toggleRank(ranks: number[], rank: number): number[] {
+  const exists = ranks.includes(rank);
+  if (exists && ranks.length === 1) return ranks;
+  return normalizeRanks(exists ? ranks.filter((item) => item !== rank) : [...ranks, rank]);
 }
 
 export default function BatchSettingsPanel({
@@ -69,32 +72,28 @@ export default function BatchSettingsPanel({
   target2D,
   target3D,
   digitCount,
-  topCount,
-  multiTopOutput,
+  topRanks,
   secondaryScanMode,
   secondaryRounds,
   secondaryTargetPos,
   secondaryTarget2D,
   secondaryTarget3D,
   secondaryDigitCount,
-  secondaryTopCount,
-  secondaryMultiTopOutput,
+  secondaryTopRanks,
   onRoundsChange,
   onScanModeChange,
   onTargetPosChange,
   onTarget2DChange,
   onTarget3DChange,
   onDigitCountChange,
-  onTopCountChange,
-  onMultiTopOutputChange,
+  onTopRanksChange,
   onSecondaryScanModeChange,
   onSecondaryRoundsChange,
   onSecondaryTargetPosChange,
   onSecondaryTarget2DChange,
   onSecondaryTarget3DChange,
   onSecondaryDigitCountChange,
-  onSecondaryTopCountChange,
-  onSecondaryMultiTopOutputChange,
+  onSecondaryTopRanksChange,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const secondaryActive = Boolean(secondaryScanMode);
@@ -148,16 +147,18 @@ export default function BatchSettingsPanel({
     );
   }
 
-  function renderTopMenu(method: "m1" | "m2", selectedTop: number, onTop: (value: number) => void) {
-    const menuKey = method === "m1" ? "m1Top" : "m2Top";
-    return openMenu === menuKey && (
-      <div className="batch-select-menu">
-        {TOP_OPTIONS.map((value) => (
-          <button key={value} type="button" className={value === selectedTop ? "batch-select-option active" : "batch-select-option"} onClick={() => { onTop(value); setOpenMenu(null); }}>
-            <span>Top {value}</span>
-            {value === selectedTop && <b>✓</b>}
-          </button>
-        ))}
+  function renderTopCards(ranks: number[], onChange: (value: number[]) => void) {
+    return (
+      <div className="batch-top-grid">
+        {TOP_OPTIONS.map((rank) => {
+          const active = ranks.includes(rank);
+          return (
+            <button key={rank} type="button" className={active ? "batch-top-card active" : "batch-top-card"} onClick={() => onChange(toggleRank(ranks, rank))}>
+              <span className="batch-top-check">{active ? "✓" : ""}</span>
+              <b>Top {rank}</b>
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -206,18 +207,10 @@ export default function BatchSettingsPanel({
               {renderDigitMenu("m1", scanMode, digitCount, onDigitCountChange)}
             </div>
           </div>
-          <div className="batch-field batch-dropdown-field">
-            <label>Top Hasil</label>
-            <button className="batch-select-btn" type="button" onClick={() => toggle("m1Top")}>
-              <b>Top {topCount}</b>
-              <span>{openMenu === "m1Top" ? "⌃" : "⌄"}</span>
-            </button>
-            {renderTopMenu("m1", topCount, onTopCountChange)}
+          <div className="batch-field">
+            <label>Pilih Top Output</label>
+            {renderTopCards(topRanks, onTopRanksChange)}
           </div>
-          <label className="batch-check">
-            <input type="checkbox" checked={multiTopOutput} onChange={(event) => onMultiTopOutputChange(event.target.checked)} />
-            <span>{multiLabel(topCount)}</span>
-          </label>
         </div>
 
         <div className={secondaryActive ? "batch-method-card" : "batch-method-card inactive"}>
@@ -268,18 +261,10 @@ export default function BatchSettingsPanel({
                   {renderDigitMenu("m2", secondaryScanMode, secondaryDigitCount, onSecondaryDigitCountChange)}
                 </div>
               </div>
-              <div className="batch-field batch-dropdown-field">
-                <label>Top Hasil</label>
-                <button className="batch-select-btn" type="button" onClick={() => toggle("m2Top")}>
-                  <b>Top {secondaryTopCount}</b>
-                  <span>{openMenu === "m2Top" ? "⌃" : "⌄"}</span>
-                </button>
-                {renderTopMenu("m2", secondaryTopCount, onSecondaryTopCountChange)}
+              <div className="batch-field">
+                <label>Pilih Top Output</label>
+                {renderTopCards(secondaryTopRanks, onSecondaryTopRanksChange)}
               </div>
-              <label className="batch-check">
-                <input type="checkbox" checked={secondaryMultiTopOutput} onChange={(event) => onSecondaryMultiTopOutputChange(event.target.checked)} />
-                <span>{multiLabel(secondaryTopCount)}</span>
-              </label>
             </>
           )}
         </div>
