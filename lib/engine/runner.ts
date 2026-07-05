@@ -2,7 +2,7 @@ import { KOLOM, SHIO_KOLOM, type AutoScanConfig, type AutoScanResult, type Backt
 import { DEFAULT_DIGIT_COUNT, POSISI } from "./constants";
 import { ALL_FORMULA_SPECS, computeFormula, type FormulaSpec } from "./formulas";
 import { buildDeret, buildDeretShio, clamp, digitOf, isJumlah2DMode, isShioMode, parseHistory, scanCode, scanModeOrDefault, target2DOrDefault, target3DOrDefault, targetDigitsOf, uniqueDigits } from "./helpers";
-import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, finalRank, type RankedItem } from "./ranking";
+import { applyConsensusScores, compressionProfile, dedupeTrekCandidates, digitsFromColumns, selectRankedDisplayItems, type RankedItem } from "./ranking";
 
 export { parseHistory } from "./helpers";
 
@@ -133,8 +133,7 @@ export function runAutoScan(draws: Draw[], config: AutoScanConfig): AutoScanResu
 
   const uniqueItems = dedupeTrekCandidates(items);
   applyConsensusScores(uniqueItems, safeConfig.digitCount);
-  const sorted = uniqueItems.sort(finalRank);
-  const limited = sorted.slice(0, safeConfig.stopScan).map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
+  const limited = selectRankedDisplayItems(uniqueItems, safeConfig.stopScan).map(({ typeOrder, strength, rankCoreSize, hitScore, recentScore, ...item }) => item);
   return { config: safeConfig, totalChecked, totalMatched: limited.length, items: limited };
 }
 
