@@ -9,11 +9,11 @@ type Props = {
 export default function BatchOutputPanel({ result, copied, onCopy }: Props) {
   if (!result) return null;
   const topCount = result.stopScan ?? 1;
-  const methodText = result.secondary ? "2 metode" : "1 metode";
+  const meta = result.secondary ? `${result.results.length} pasaran · 2 metode` : `${result.results.length} pasaran · Top ${topCount}`;
 
   return (
     <section className="batch-panel">
-      <p className="batch-meta">{result.results.length} pasaran · {methodText} · Top {topCount}</p>
+      <p className="batch-meta">{meta}</p>
       <pre className="batch-output">{result.copyText}</pre>
       <button className="batch-copy" type="button" onClick={onCopy}>{copied ? "Tersalin" : "Copy Output"}</button>
     </section>
