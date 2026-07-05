@@ -25,6 +25,7 @@ export default function BatchPage() {
 
   const [rounds, setRounds] = useState("14");
   const [scanMode, setScanMode] = useState<ScanMode>("bbfs_2d_belakang");
+  const [secondaryScanMode, setSecondaryScanMode] = useState<ScanMode | "">("");
   const [targetPos, setTargetPos] = useState<Posisi>("K");
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
@@ -49,6 +50,7 @@ export default function BatchPage() {
       <BatchSettingsPanel
         rounds={rounds}
         scanMode={scanMode}
+        secondaryScanMode={secondaryScanMode}
         targetPos={targetPos}
         target2D={target2D}
         target3D={target3D}
@@ -56,6 +58,7 @@ export default function BatchPage() {
         topCount={topCount}
         onRoundsChange={setRounds}
         onScanModeChange={changeMode}
+        onSecondaryScanModeChange={setSecondaryScanMode}
         onTargetPosChange={setTargetPos}
         onTarget2DChange={setTarget2D}
         onTarget3DChange={setTarget3D}
@@ -77,6 +80,7 @@ export default function BatchPage() {
           selected,
           rounds,
           scanMode,
+          secondaryScanMode,
           targetPos,
           target2D,
           target3D,
