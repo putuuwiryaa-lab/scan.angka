@@ -14,7 +14,7 @@ const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
-type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; target2D?: unknown; target3D?: unknown; digitCount?: unknown; L?: unknown; outputTitle?: unknown };
+type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; target2D?: unknown; target3D?: unknown; digitCount?: unknown; stopScan?: unknown; L?: unknown; outputTitle?: unknown };
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
@@ -89,8 +89,9 @@ export async function POST(req: Request) {
     const target2D = (body.target2D ?? "belakang") as Target2D;
     const target3D = (body.target3D ?? "belakang") as Target3D;
     const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 12);
+    const stopScan = asNum(body.stopScan, 1, 1, 3);
     const L = asNum(body.L, 14, 1, 100);
-    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D`;
+    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D · Top ${stopScan}`;
 
     const { data, error } = await getSupabase()
       .from("markets")
@@ -116,8 +117,9 @@ export async function POST(req: Request) {
 
       try {
         const draws = parseStrictHistory(market.history_data);
-        const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan: 1, scanMode });
-        results.push({ id, name, digits: formatCandidates(result.items[0]?.angkaHidup ?? [], scanMode, digitCount) });
+        const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan, scanMode });
+        const digits = result.items.slice(0, stopScan).map((item) => formatCandidates(item.angkaHidup ?? [], scanMode, digitCount));
+        results.push({ id, name, digits: digits.length ? digits.join(" | ") : "-" });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
@@ -128,7 +130,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
