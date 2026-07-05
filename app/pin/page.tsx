@@ -62,7 +62,7 @@ export default function PinPage() {
       <section className="access-card">
         <span className="access-kicker">Akses Aplikasi</span>
         <h1>Masuk Aplikasi</h1>
-        <p>Masukkan kode akses untuk melanjutkan.</p>
+        <p>Masukkan kode akses untuk membuka Scan Angka.</p>
 
         <form className="access-form" onSubmit={submit}>
           <label htmlFor="pin">Kode Akses</label>
@@ -80,7 +80,7 @@ export default function PinPage() {
             }}
           />
           {error ? <div className="access-error">{error}</div> : null}
-          <button type="submit" disabled={loading}>{loading ? "Memeriksa..." : "Masuk"}</button>
+          <button className="access-primary-button" type="submit" disabled={loading}>{loading ? "Memeriksa Kode..." : "Lanjutkan ke Aplikasi"}</button>
         </form>
       </section>
     </main>
