@@ -14,7 +14,7 @@ const DEVICE_HEADER = "x-aa-device-id";
 const APP_KEY = "scan";
 
 type TelegramPlan = "NONE" | "TRIAL" | "PRO";
-type AccessRole = Extract<Role, "TRIAL" | "PRO" | "SUPER">;
+type AccessRole = Extract<Role, "TRIAL" | "PRO">;
 
 type TelegramUserRow = {
   id: string;
@@ -58,16 +58,10 @@ function hashValue(value: string) {
   return crypto.createHmac("sha256", requireEnv("JWT_SECRET")).update(value).digest("hex");
 }
 
-function tokenExpiresAt(exp?: number) {
-  return typeof exp === "number"
-    ? new Date(exp * 1000).toISOString()
-    : "9999-12-31T00:00:00.000Z";
-}
-
 function activeExpiryForRole(role: AccessRole, user: TelegramUserRow): string | null {
   if (role === "PRO") return user.pro_expires_at;
   if (role === "TRIAL") return user.trial_expires_at;
-  return tokenExpiresAt();
+  return null;
 }
 
 export async function verifyActiveTelegramSession(headers: Headers): Promise<TelegramSessionResult> {
@@ -97,7 +91,7 @@ export async function verifyActiveTelegramSession(headers: Headers): Promise<Tel
   }
 
   const role = String(payload.role || "") as AccessRole;
-  if (role !== "TRIAL" && role !== "PRO" && role !== "SUPER") {
+  if (role !== "TRIAL" && role !== "PRO") {
     return { ok: false, status: 403, error: "Akses tidak valid." };
   }
 
@@ -106,29 +100,6 @@ export async function verifyActiveTelegramSession(headers: Headers): Promise<Tel
 
   if (!accountId || !sessionId) {
     return { ok: false, status: 401, error: "Session tidak lengkap. Silakan login ulang." };
-  }
-
-  if (role === "SUPER") {
-    const tokenDeviceHash = String(payload.deviceHash || "");
-    const tokenUserAgentHash = String(payload.userAgentHash || "");
-
-    if (tokenDeviceHash && (!deviceHash || tokenDeviceHash !== deviceHash)) {
-      return { ok: false, status: 401, error: "Akun sedang aktif di device lain. Silakan login ulang." };
-    }
-
-    if (!tokenDeviceHash && tokenUserAgentHash && tokenUserAgentHash !== userAgentHash) {
-      return { ok: false, status: 401, error: "Device tidak valid. Silakan login ulang." };
-    }
-
-    return {
-      ok: true,
-      role: "SUPER",
-      accountId,
-      telegramUserId: 0,
-      expiresAt: tokenExpiresAt(payload.exp),
-      sessionId,
-      deviceBound: Boolean(tokenDeviceHash),
-    };
   }
 
   const supabase = createAdminClient();
