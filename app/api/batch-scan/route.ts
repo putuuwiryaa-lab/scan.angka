@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_DIGIT_COUNT = 7;
+const TOPS = [1, 2, 3];
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
@@ -22,7 +23,7 @@ type Body = {
   target3D?: unknown;
   digitCount?: unknown;
   stopScan?: unknown;
-  multiTopOutput?: unknown;
+  topRanks?: unknown;
   L?: unknown;
   secondary?: unknown;
   outputTitle?: unknown;
@@ -34,8 +35,7 @@ type ScanRequest = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
-  topRank: number;
-  multiTopOutput: boolean;
+  topRanks: number[];
   L: number;
 };
 
@@ -57,13 +57,15 @@ function asNum(value: unknown, fallback: number, min: number, max: number): numb
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
-function asBool(value: unknown): boolean {
-  return value === true;
-}
-
 function normalizeMarketIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map((item: unknown) => String(item).trim()).filter(Boolean))];
+}
+
+function normalizeTopRanks(value: unknown, fallbackRank: number): number[] {
+  if (!Array.isArray(value)) return [fallbackRank];
+  const ranks = TOPS.filter((rank) => value.map(Number).includes(rank));
+  return ranks.length ? ranks : [fallbackRank];
 }
 
 function shioLabel(value: number): string {
@@ -89,38 +91,37 @@ function readScanRequest(source: Record<string, unknown>, fallback?: Partial<Sca
   if (source.target2D !== undefined && !isTarget2D(source.target2D)) return "Target 2D tidak valid.";
   if (source.target3D !== undefined && !isTarget3D(source.target3D)) return "Target 3D tidak valid.";
 
+  const fallbackTop = fallback?.topRanks?.[0] ?? 1;
+  const legacyTop = asNum(source.stopScan, fallbackTop, 1, 3);
+
   return {
     scanMode: (source.scanMode ?? fallback?.scanMode ?? "posisi") as ScanMode,
     targetPos: (source.targetPos ?? fallback?.targetPos ?? "K") as Posisi,
     target2D: (source.target2D ?? fallback?.target2D ?? "belakang") as Target2D,
     target3D: (source.target3D ?? fallback?.target3D ?? "belakang") as Target3D,
     digitCount: asNum(source.digitCount, fallback?.digitCount ?? DEFAULT_DIGIT_COUNT, 1, 12),
-    topRank: asNum(source.stopScan, fallback?.topRank ?? 1, 1, 3),
-    multiTopOutput: asBool(source.multiTopOutput ?? fallback?.multiTopOutput ?? false),
+    topRanks: normalizeTopRanks(source.topRanks, legacyTop),
     L: asNum(source.L, fallback?.L ?? 14, 1, 100),
   };
 }
 
 function selectedBatchDigits(draws: Draw[], request: ScanRequest): string {
+  const maxRank = Math.max(...request.topRanks);
   const result = runAutoScan(draws, {
     L: request.L,
     targetPos: request.targetPos,
     target2D: request.target2D,
     target3D: request.target3D,
     digitCount: request.digitCount,
-    stopScan: request.topRank,
+    stopScan: maxRank,
     scanMode: request.scanMode,
   });
 
-  if (request.multiTopOutput && request.topRank > 1) {
-    const digits = result.items
-      .slice(0, request.topRank)
-      .map((item) => formatCandidates(item.angkaHidup ?? [], request.scanMode, request.digitCount));
-    return digits.length ? digits.join(" | ") : "-";
-  }
-
-  const selectedItem = result.items[request.topRank - 1];
-  return formatCandidates(selectedItem?.angkaHidup ?? [], request.scanMode, request.digitCount);
+  const digits = request.topRanks.map((rank) => {
+    const item = result.items[rank - 1];
+    return formatCandidates(item?.angkaHidup ?? [], request.scanMode, request.digitCount);
+  });
+  return digits.length ? digits.join(" | ") : "-";
 }
 
 export async function POST(req: Request) {
@@ -147,7 +148,7 @@ export async function POST(req: Request) {
     const secondary = secondarySource ? readScanRequest(secondarySource, primary) : null;
     if (typeof secondary === "string") return NextResponse.json({ error: secondary.replace("Jenis", "Metode kedua") }, { status: 400 });
 
-    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${primary.digitCount}D · Top ${primary.topRank}`;
+    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${primary.digitCount}D`;
 
     const { data, error } = await getSupabase()
       .from("markets")
@@ -186,7 +187,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: primary.topRank, secondary: Boolean(secondary), multiTopOutput: primary.multiTopOutput });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, topRanks: primary.topRanks, secondary: Boolean(secondary) });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
