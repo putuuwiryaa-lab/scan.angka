@@ -29,6 +29,7 @@ export default function BatchPage() {
   const [target2D, setTarget2D] = useState<Target2D>("belakang");
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
+  const [topCount, setTopCount] = useState(1);
 
   function changeMode(value: ScanMode) {
     setScanMode(value);
@@ -52,12 +53,14 @@ export default function BatchPage() {
         target2D={target2D}
         target3D={target3D}
         digitCount={digitCount}
+        topCount={topCount}
         onRoundsChange={setRounds}
         onScanModeChange={changeMode}
         onTargetPosChange={setTargetPos}
         onTarget2DChange={setTarget2D}
         onTarget3DChange={setTarget3D}
         onDigitCountChange={setDigitCount}
+        onTopCountChange={setTopCount}
       />
 
       <BatchMarketSelector
@@ -78,8 +81,10 @@ export default function BatchPage() {
           target2D,
           target3D,
           digitCount,
+          topCount,
           onRoundsChange: setRounds,
           onDigitCountChange: setDigitCount,
+          onTopCountChange: setTopCount,
         })}
       />
 
