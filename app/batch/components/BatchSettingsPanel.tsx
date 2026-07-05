@@ -11,6 +11,7 @@ type Props = {
   target3D: Target3D;
   digitCount: number;
   topCount: number;
+  multiTopOutput: boolean;
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
@@ -18,6 +19,7 @@ type Props = {
   secondaryTarget3D: Target3D;
   secondaryDigitCount: number;
   secondaryTopCount: number;
+  secondaryMultiTopOutput: boolean;
   onRoundsChange: (value: string) => void;
   onScanModeChange: (value: ScanMode) => void;
   onTargetPosChange: (value: Posisi) => void;
@@ -25,6 +27,7 @@ type Props = {
   onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
   onTopCountChange: (value: number) => void;
+  onMultiTopOutputChange: (value: boolean) => void;
   onSecondaryScanModeChange: (value: ScanMode | "") => void;
   onSecondaryRoundsChange: (value: string) => void;
   onSecondaryTargetPosChange: (value: Posisi) => void;
@@ -32,6 +35,7 @@ type Props = {
   onSecondaryTarget3DChange: (value: Target3D) => void;
   onSecondaryDigitCountChange: (value: number) => void;
   onSecondaryTopCountChange: (value: number) => void;
+  onSecondaryMultiTopOutputChange: (value: boolean) => void;
 };
 
 type OpenMenu = "m1Jenis" | "m1Target" | "m1Digit" | "m1Top" | "m2Jenis" | "m2Target" | "m2Digit" | "m2Top" | null;
@@ -54,6 +58,10 @@ function digitLabel(scanMode: ScanMode, digitCount: number): string {
   return `${digitCount} ${isShioMode(scanMode) ? "shio" : "digit"}`;
 }
 
+function multiLabel(topCount: number): string {
+  return topCount <= 1 ? "Multi output" : `Output Top 1-${topCount}`;
+}
+
 export default function BatchSettingsPanel({
   rounds,
   scanMode,
@@ -62,6 +70,7 @@ export default function BatchSettingsPanel({
   target3D,
   digitCount,
   topCount,
+  multiTopOutput,
   secondaryScanMode,
   secondaryRounds,
   secondaryTargetPos,
@@ -69,6 +78,7 @@ export default function BatchSettingsPanel({
   secondaryTarget3D,
   secondaryDigitCount,
   secondaryTopCount,
+  secondaryMultiTopOutput,
   onRoundsChange,
   onScanModeChange,
   onTargetPosChange,
@@ -76,6 +86,7 @@ export default function BatchSettingsPanel({
   onTarget3DChange,
   onDigitCountChange,
   onTopCountChange,
+  onMultiTopOutputChange,
   onSecondaryScanModeChange,
   onSecondaryRoundsChange,
   onSecondaryTargetPosChange,
@@ -83,6 +94,7 @@ export default function BatchSettingsPanel({
   onSecondaryTarget3DChange,
   onSecondaryDigitCountChange,
   onSecondaryTopCountChange,
+  onSecondaryMultiTopOutputChange,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const secondaryActive = Boolean(secondaryScanMode);
@@ -202,6 +214,10 @@ export default function BatchSettingsPanel({
             </button>
             {renderTopMenu("m1", topCount, onTopCountChange)}
           </div>
+          <label className="batch-check">
+            <input type="checkbox" checked={multiTopOutput} onChange={(event) => onMultiTopOutputChange(event.target.checked)} />
+            <span>{multiLabel(topCount)}</span>
+          </label>
         </div>
 
         <div className={secondaryActive ? "batch-method-card" : "batch-method-card inactive"}>
@@ -260,6 +276,10 @@ export default function BatchSettingsPanel({
                 </button>
                 {renderTopMenu("m2", secondaryTopCount, onSecondaryTopCountChange)}
               </div>
+              <label className="batch-check">
+                <input type="checkbox" checked={secondaryMultiTopOutput} onChange={(event) => onSecondaryMultiTopOutputChange(event.target.checked)} />
+                <span>{multiLabel(secondaryTopCount)}</span>
+              </label>
             </>
           )}
         </div>
