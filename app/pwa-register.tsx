@@ -11,7 +11,9 @@ export default function PwaRegister() {
     if (!("serviceWorker" in navigator)) return;
     if (process.env.NODE_ENV !== "production") return;
 
-    if (isAdminPath(window.location.pathname)) {
+    const pathname = window.location.pathname;
+
+    if (isAdminPath(pathname)) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
         registrations.forEach((registration) => registration.unregister());
       }).catch(() => {
@@ -20,7 +22,9 @@ export default function PwaRegister() {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js").catch(() => {
+    if (!pathname.startsWith("/pwa")) return;
+
+    navigator.serviceWorker.register("/sw.js", { scope: "/pwa/" }).catch(() => {
       // PWA tetap berjalan meski service worker gagal register.
     });
   }, []);
