@@ -15,8 +15,10 @@ type RunBatchParams = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
+  topCount: number;
   onRoundsChange: (value: string) => void;
   onDigitCountChange: (value: number) => void;
+  onTopCountChange: (value: number) => void;
 };
 
 export function useBatchRunner() {
@@ -33,8 +35,10 @@ export function useBatchRunner() {
     target2D,
     target3D,
     digitCount,
+    topCount,
     onRoundsChange,
     onDigitCountChange,
+    onTopCountChange,
   }: RunBatchParams) {
     setLoading(true);
     setRunnerError("");
@@ -49,10 +53,12 @@ export function useBatchRunner() {
 
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const safeDigit = Math.max(1, Math.min(isShioMode(scanMode) ? 12 : 9, digitCount));
-      const title = outputTitle(scanMode, targetPos, target2D, target3D, safeDigit);
+      const safeTop = Math.max(1, Math.min(3, Math.trunc(Number(topCount) || 1)));
+      const title = `${outputTitle(scanMode, targetPos, target2D, target3D, safeDigit)} · Top ${safeTop}`;
 
       onRoundsChange(String(safeRounds));
       onDigitCountChange(safeDigit);
+      onTopCountChange(safeTop);
 
       const response = await fetch("/api/batch-scan", {
         method: "POST",
@@ -65,6 +71,7 @@ export function useBatchRunner() {
           target2D,
           target3D,
           digitCount: safeDigit,
+          stopScan: safeTop,
           outputTitle: title,
         }),
       });
