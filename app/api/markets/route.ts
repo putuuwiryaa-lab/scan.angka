@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase/client";
-import { verifyActiveTelegramSession } from "@/lib/server/telegram-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +9,7 @@ function latestResult(historyData: string | null) {
   return list.at(-1) ?? null;
 }
 
-export async function GET(request: Request) {
-  const access = await verifyActiveTelegramSession(request.headers);
-  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-
+export async function GET() {
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
