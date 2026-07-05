@@ -192,6 +192,28 @@ function antiConsensusRank(a: RankedItem, b: RankedItem): number {
     a.formula.localeCompare(b.formula);
 }
 
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function neutralConsensusRank(items: RankedItem[]): (a: RankedItem, b: RankedItem) => number {
+  const middleOverlap = median(items.map((item) => item.consensusOverlap));
+  const middleWeight = median(items.map((item) => item.consensusWeight));
+
+  return (a, b) => Math.abs(a.consensusOverlap - middleOverlap) - Math.abs(b.consensusOverlap - middleOverlap) ||
+    Math.abs(a.consensusWeight - middleWeight) - Math.abs(b.consensusWeight - middleWeight) ||
+    b.recentScore - a.recentScore ||
+    b.hitScore - a.hitScore ||
+    a.typeOrder - b.typeOrder ||
+    POSISI.indexOf(a.targetPos) - POSISI.indexOf(b.targetPos) ||
+    POSISI.indexOf(a.patokanPos) - POSISI.indexOf(b.patokanPos) ||
+    a.patokanN - b.patokanN ||
+    a.formula.localeCompare(b.formula);
+}
+
 export function selectRankedDisplayItems(items: RankedItem[], limit: number): RankedItem[] {
   const sorted = [...items].sort(finalRank);
   if (limit <= 1 || sorted.length <= 1) return sorted.slice(0, limit);
@@ -199,9 +221,13 @@ export function selectRankedDisplayItems(items: RankedItem[], limit: number): Ra
   const consensusWinner = sorted[0];
   const remaining = sorted.slice(1);
   const antiConsensus = [...remaining].sort(antiConsensusRank)[0];
-  const rest = remaining.filter((item) => item !== antiConsensus).sort(finalRank);
+  if (limit <= 2 || remaining.length <= 1) return [consensusWinner, antiConsensus].slice(0, limit);
 
-  return [consensusWinner, antiConsensus, ...rest].slice(0, limit);
+  const afterAnti = remaining.filter((item) => item !== antiConsensus);
+  const neutralConsensus = [...afterAnti].sort(neutralConsensusRank(afterAnti))[0];
+  const rest = afterAnti.filter((item) => item !== neutralConsensus).sort(finalRank);
+
+  return [consensusWinner, antiConsensus, neutralConsensus, ...rest].slice(0, limit);
 }
 
 export function dedupeTrekCandidates(items: RankedItem[]): RankedItem[] {
