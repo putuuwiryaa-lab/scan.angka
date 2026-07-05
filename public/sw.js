@@ -1,5 +1,5 @@
-const CACHE_NAME = "scan-angka-v1";
-const APP_SHELL = ["/", "/batch", "/manifest.webmanifest", "/icon.svg"];
+const CACHE_NAME = "scan-angka-v2";
+const APP_SHELL = ["/pwa", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,10 +21,12 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/admin")) return;
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/") || Response.error()));
+    if (!url.pathname.startsWith("/pwa")) return;
+    event.respondWith(fetch(request).catch(() => caches.match("/pwa") || Response.error()));
     return;
   }
 
