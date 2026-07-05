@@ -164,7 +164,7 @@ export async function requireActiveAccess(headers: Headers): Promise<AccessResul
     return { ok: false, status: 403, error: "Akses sudah dinonaktifkan admin." };
   }
 
-  if (data.device_id && deviceId && data.device_id !== deviceId) {
+  if (data.device_id && data.device_id !== deviceId) {
     return { ok: false, status: 401, error: "Session tidak cocok dengan device ini." };
   }
 
