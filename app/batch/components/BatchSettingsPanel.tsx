@@ -10,15 +10,19 @@ type Props = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
+  topCount: number;
   onRoundsChange: (value: string) => void;
   onScanModeChange: (value: ScanMode) => void;
   onTargetPosChange: (value: Posisi) => void;
   onTarget2DChange: (value: Target2D) => void;
   onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
+  onTopCountChange: (value: number) => void;
 };
 
-type OpenMenu = "jenis" | "target" | "digit" | null;
+type OpenMenu = "jenis" | "target" | "digit" | "top" | null;
+
+const TOP_OPTIONS = [1, 2, 3];
 
 function optionLabel<T extends string>(options: { value: T; label: string }[], value: T): string {
   return options.find((item) => item.value === value)?.label ?? value;
@@ -31,15 +35,18 @@ export default function BatchSettingsPanel({
   target2D,
   target3D,
   digitCount,
+  topCount,
   onRoundsChange,
   onScanModeChange,
   onTargetPosChange,
   onTarget2DChange,
   onTarget3DChange,
   onDigitCountChange,
+  onTopCountChange,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const digitLabel = `${digitCount} ${isShioMode(scanMode) ? "shio" : "digit"}`;
+  const topLabel = `Top ${topCount}`;
   const targetLabel = isPositionMode(scanMode)
     ? optionLabel(POS_OPTIONS, targetPos)
     : is3DMode(scanMode)
@@ -128,6 +135,24 @@ export default function BatchSettingsPanel({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="batch-field batch-dropdown-field">
+        <label>Top Hasil</label>
+        <button className="batch-select-btn" type="button" onClick={() => toggle("top")}>
+          <b>{topLabel}</b>
+          <span>{openMenu === "top" ? "⌃" : "⌄"}</span>
+        </button>
+        {openMenu === "top" && (
+          <div className="batch-select-menu">
+            {TOP_OPTIONS.map((value) => (
+              <button key={value} type="button" className={value === topCount ? "batch-select-option active" : "batch-select-option"} onClick={() => { onTopCountChange(value); setOpenMenu(null); }}>
+                <span>Top {value}</span>
+                {value === topCount && <b>✓</b>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
