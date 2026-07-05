@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { runAutoScan } from "@/lib/engine/acke-engine";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { isScanMode, isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
-import type { Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
+import type { Draw, Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { requireActiveAccess } from "@/lib/server/access";
 import { MAX_BATCH_MARKETS } from "@/lib/shared/batch";
 import { getSupabase } from "@/lib/supabase/client";
@@ -14,7 +14,7 @@ const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
-type Body = { marketIds?: unknown; scanMode?: unknown; targetPos?: unknown; target2D?: unknown; target3D?: unknown; digitCount?: unknown; stopScan?: unknown; L?: unknown; outputTitle?: unknown };
+type Body = { marketIds?: unknown; scanMode?: unknown; secondaryScanMode?: unknown; targetPos?: unknown; target2D?: unknown; target3D?: unknown; digitCount?: unknown; stopScan?: unknown; L?: unknown; outputTitle?: unknown };
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
@@ -52,6 +52,12 @@ function formatCandidates(values: number[], scanMode: ScanMode, digitCount: numb
   return raw;
 }
 
+function selectedBatchDigits(draws: Draw[], scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D, digitCount: number, topRank: number, L: number): string {
+  const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan: topRank, scanMode });
+  const selectedItem = result.items[topRank - 1];
+  return formatCandidates(selectedItem?.angkaHidup ?? [], scanMode, digitCount);
+}
+
 export async function POST(req: Request) {
   const access = await requireActiveAccess(req.headers);
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
@@ -72,6 +78,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Jenis scan tidak valid." }, { status: 400 });
     }
 
+    if (body.secondaryScanMode !== undefined && body.secondaryScanMode !== "" && !isScanMode(body.secondaryScanMode)) {
+      return NextResponse.json({ error: "Metode scan kedua tidak valid." }, { status: 400 });
+    }
+
     if (body.targetPos !== undefined && !isPosisi(body.targetPos)) {
       return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
     }
@@ -85,6 +95,7 @@ export async function POST(req: Request) {
     }
 
     const scanMode = (body.scanMode ?? "posisi") as ScanMode;
+    const secondaryScanMode = isScanMode(body.secondaryScanMode) ? body.secondaryScanMode as ScanMode : null;
     const targetPos = (body.targetPos ?? "K") as Posisi;
     const target2D = (body.target2D ?? "belakang") as Target2D;
     const target3D = (body.target3D ?? "belakang") as Target3D;
@@ -117,9 +128,9 @@ export async function POST(req: Request) {
 
       try {
         const draws = parseStrictHistory(market.history_data);
-        const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan: topRank, scanMode });
-        const selectedItem = result.items[topRank - 1];
-        results.push({ id, name, digits: formatCandidates(selectedItem?.angkaHidup ?? [], scanMode, digitCount) });
+        const primaryDigits = selectedBatchDigits(draws, scanMode, targetPos, target2D, target3D, digitCount, topRank, L);
+        const secondaryDigits = secondaryScanMode ? selectedBatchDigits(draws, secondaryScanMode, targetPos, target2D, target3D, digitCount, topRank, L) : "";
+        results.push({ id, name, digits: secondaryScanMode ? `${primaryDigits} || ${secondaryDigits}` : primaryDigits });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
@@ -130,7 +141,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: topRank });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: topRank, secondaryScanMode });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
