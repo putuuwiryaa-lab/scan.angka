@@ -140,6 +140,35 @@
   text-align: right;
 }
 
+.batch-check {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #cfe0ff;
+  background: rgba(110, 155, 255, .10);
+  border: 1px solid rgba(110, 155, 255, .24);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+}
+
+.batch-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #e0b341;
+}
+
+.batch-check span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .batch-select-menu {
   position: absolute;
   left: 0;
@@ -362,6 +391,11 @@
 
   .batch-select-btn b {
     font-size: 13px;
+  }
+
+  .batch-check {
+    min-height: 36px;
+    padding: 8px 9px;
   }
 
   .batch-select-menu {
