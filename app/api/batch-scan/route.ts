@@ -14,7 +14,28 @@ const DEFAULT_DIGIT_COUNT = 7;
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
-type Body = { marketIds?: unknown; scanMode?: unknown; secondaryScanMode?: unknown; targetPos?: unknown; target2D?: unknown; target3D?: unknown; digitCount?: unknown; stopScan?: unknown; L?: unknown; outputTitle?: unknown };
+type Body = {
+  marketIds?: unknown;
+  scanMode?: unknown;
+  targetPos?: unknown;
+  target2D?: unknown;
+  target3D?: unknown;
+  digitCount?: unknown;
+  stopScan?: unknown;
+  L?: unknown;
+  secondary?: unknown;
+  outputTitle?: unknown;
+};
+
+type ScanRequest = {
+  scanMode: ScanMode;
+  targetPos: Posisi;
+  target2D: Target2D;
+  target3D: Target3D;
+  digitCount: number;
+  topRank: number;
+  L: number;
+};
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
@@ -22,6 +43,10 @@ function titleCase(value: string): string {
 
 function isPosisi(value: unknown): value is Posisi {
   return value === "A" || value === "C" || value === "K" || value === "E";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
 function asNum(value: unknown, fallback: number, min: number, max: number): number {
@@ -52,10 +77,35 @@ function formatCandidates(values: number[], scanMode: ScanMode, digitCount: numb
   return raw;
 }
 
-function selectedBatchDigits(draws: Draw[], scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D, digitCount: number, topRank: number, L: number): string {
-  const result = runAutoScan(draws, { L, targetPos, target2D, target3D, digitCount, stopScan: topRank, scanMode });
-  const selectedItem = result.items[topRank - 1];
-  return formatCandidates(selectedItem?.angkaHidup ?? [], scanMode, digitCount);
+function readScanRequest(source: Record<string, unknown>, fallback?: Partial<ScanRequest>): ScanRequest | string {
+  if (source.scanMode !== undefined && !isScanMode(source.scanMode)) return "Jenis scan tidak valid.";
+  if (source.targetPos !== undefined && !isPosisi(source.targetPos)) return "Target posisi tidak valid.";
+  if (source.target2D !== undefined && !isTarget2D(source.target2D)) return "Target 2D tidak valid.";
+  if (source.target3D !== undefined && !isTarget3D(source.target3D)) return "Target 3D tidak valid.";
+
+  return {
+    scanMode: (source.scanMode ?? fallback?.scanMode ?? "posisi") as ScanMode,
+    targetPos: (source.targetPos ?? fallback?.targetPos ?? "K") as Posisi,
+    target2D: (source.target2D ?? fallback?.target2D ?? "belakang") as Target2D,
+    target3D: (source.target3D ?? fallback?.target3D ?? "belakang") as Target3D,
+    digitCount: asNum(source.digitCount, fallback?.digitCount ?? DEFAULT_DIGIT_COUNT, 1, 12),
+    topRank: asNum(source.stopScan, fallback?.topRank ?? 1, 1, 3),
+    L: asNum(source.L, fallback?.L ?? 14, 1, 100),
+  };
+}
+
+function selectedBatchDigits(draws: Draw[], request: ScanRequest): string {
+  const result = runAutoScan(draws, {
+    L: request.L,
+    targetPos: request.targetPos,
+    target2D: request.target2D,
+    target3D: request.target3D,
+    digitCount: request.digitCount,
+    stopScan: request.topRank,
+    scanMode: request.scanMode,
+  });
+  const selectedItem = result.items[request.topRank - 1];
+  return formatCandidates(selectedItem?.angkaHidup ?? [], request.scanMode, request.digitCount);
 }
 
 export async function POST(req: Request) {
@@ -74,35 +124,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.` }, { status: 413 });
     }
 
-    if (body.scanMode !== undefined && !isScanMode(body.scanMode)) {
-      return NextResponse.json({ error: "Jenis scan tidak valid." }, { status: 400 });
-    }
+    const primarySource = asRecord(body) ?? {};
+    const primary = readScanRequest(primarySource);
+    if (typeof primary === "string") return NextResponse.json({ error: primary }, { status: 400 });
 
-    if (body.secondaryScanMode !== undefined && body.secondaryScanMode !== "" && !isScanMode(body.secondaryScanMode)) {
-      return NextResponse.json({ error: "Metode scan kedua tidak valid." }, { status: 400 });
-    }
+    const secondarySource = asRecord(body.secondary);
+    const secondary = secondarySource ? readScanRequest(secondarySource, primary) : null;
+    if (typeof secondary === "string") return NextResponse.json({ error: secondary.replace("Jenis", "Metode kedua") }, { status: 400 });
 
-    if (body.targetPos !== undefined && !isPosisi(body.targetPos)) {
-      return NextResponse.json({ error: "Target posisi tidak valid." }, { status: 400 });
-    }
-
-    if (body.target2D !== undefined && !isTarget2D(body.target2D)) {
-      return NextResponse.json({ error: "Target 2D tidak valid." }, { status: 400 });
-    }
-
-    if (body.target3D !== undefined && !isTarget3D(body.target3D)) {
-      return NextResponse.json({ error: "Target 3D tidak valid." }, { status: 400 });
-    }
-
-    const scanMode = (body.scanMode ?? "posisi") as ScanMode;
-    const secondaryScanMode = isScanMode(body.secondaryScanMode) ? body.secondaryScanMode as ScanMode : null;
-    const targetPos = (body.targetPos ?? "K") as Posisi;
-    const target2D = (body.target2D ?? "belakang") as Target2D;
-    const target3D = (body.target3D ?? "belakang") as Target3D;
-    const digitCount = asNum(body.digitCount, DEFAULT_DIGIT_COUNT, 1, 12);
-    const topRank = asNum(body.stopScan, 1, 1, 3);
-    const L = asNum(body.L, 14, 1, 100);
-    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${digitCount}D · Top ${topRank}`;
+    const title = typeof body.outputTitle === "string" && body.outputTitle.trim() ? body.outputTitle.trim() : `Output ${primary.digitCount}D · Top ${primary.topRank}`;
 
     const { data, error } = await getSupabase()
       .from("markets")
@@ -128,9 +158,9 @@ export async function POST(req: Request) {
 
       try {
         const draws = parseStrictHistory(market.history_data);
-        const primaryDigits = selectedBatchDigits(draws, scanMode, targetPos, target2D, target3D, digitCount, topRank, L);
-        const secondaryDigits = secondaryScanMode ? selectedBatchDigits(draws, secondaryScanMode, targetPos, target2D, target3D, digitCount, topRank, L) : "";
-        results.push({ id, name, digits: secondaryScanMode ? `${primaryDigits} || ${secondaryDigits}` : primaryDigits });
+        const primaryDigits = selectedBatchDigits(draws, primary);
+        const secondaryDigits = secondary ? selectedBatchDigits(draws, secondary) : "";
+        results.push({ id, name, digits: secondary ? `${primaryDigits} || ${secondaryDigits}` : primaryDigits });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
           return NextResponse.json({ error: `Data ${name} salah. ${error.message}` }, { status: 422 });
@@ -141,7 +171,7 @@ export async function POST(req: Request) {
 
     const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: topRank, secondaryScanMode });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, stopScan: primary.topRank, secondary: Boolean(secondary) });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
