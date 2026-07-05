@@ -12,6 +12,12 @@ type Props = {
   onView: (item: ScanItem) => void;
 };
 
+const RESULT_ROLE_LABELS = ["UTAMA", "PEMBANDING", "NETRAL"];
+
+function resultRoleLabel(index: number) {
+  return RESULT_ROLE_LABELS[index] ?? `TOP ${index + 1}`;
+}
+
 export default function ScanResultPanel({ result, marketName, marketId, savedFlashId, onSave, onView }: Props) {
   return (
     <div className="panel result-panel">
@@ -24,7 +30,10 @@ export default function ScanResultPanel({ result, marketName, marketId, savedFla
           const signature = savedSignature(item, marketId);
           return (
             <div className="scan-item compact" key={`${item.scanMode}-${item.targetPos}-${item.target2D}-${item.target3D}-${item.formula}-${index}`}>
-              <span className="scan-formula compact-formula">{item.formula}</span>
+              <div className="scan-identity">
+                <span className={`scan-role role-${index + 1}`}>{resultRoleLabel(index)}</span>
+                <span className="scan-formula compact-formula">{item.formula}</span>
+              </div>
               <div className="compact-digits">
                 {labelsFromValues(item.angkaHidup, item.scanMode).map((digit, digitIndex) => <span key={`${digit}-${digitIndex}`}>{digit}</span>)}
               </div>
