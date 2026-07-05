@@ -16,6 +16,7 @@ type RunBatchParams = {
   target3D: Target3D;
   digitCount: number;
   topCount: number;
+  multiTopOutput: boolean;
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
@@ -23,6 +24,7 @@ type RunBatchParams = {
   secondaryTarget3D: Target3D;
   secondaryDigitCount: number;
   secondaryTopCount: number;
+  secondaryMultiTopOutput: boolean;
   onRoundsChange: (value: string) => void;
   onDigitCountChange: (value: number) => void;
   onTopCountChange: (value: number) => void;
@@ -37,6 +39,10 @@ function clampDigit(mode: ScanMode, value: number): number {
 
 function clampTop(value: number): number {
   return Math.max(1, Math.min(3, Math.trunc(Number(value) || 1)));
+}
+
+function topTitle(topCount: number, multiTopOutput: boolean): string {
+  return multiTopOutput && topCount > 1 ? `Top 1-${topCount}` : `Top ${topCount}`;
 }
 
 export function useBatchRunner() {
@@ -54,6 +60,7 @@ export function useBatchRunner() {
     target3D,
     digitCount,
     topCount,
+    multiTopOutput,
     secondaryScanMode,
     secondaryRounds,
     secondaryTargetPos,
@@ -61,6 +68,7 @@ export function useBatchRunner() {
     secondaryTarget3D,
     secondaryDigitCount,
     secondaryTopCount,
+    secondaryMultiTopOutput,
     onRoundsChange,
     onDigitCountChange,
     onTopCountChange,
@@ -82,7 +90,7 @@ export function useBatchRunner() {
       const safeRounds = clampTextNumber(rounds, 14, 1, 100);
       const safeDigit = clampDigit(scanMode, digitCount);
       const safeTop = clampTop(topCount);
-      const primaryTitle = `${outputTitle(scanMode, targetPos, target2D, target3D, safeDigit)} Top ${safeTop} L${safeRounds}`;
+      const primaryTitle = `${outputTitle(scanMode, targetPos, target2D, target3D, safeDigit)} ${topTitle(safeTop, multiTopOutput)} L${safeRounds}`;
 
       let secondaryPayload: Record<string, unknown> | undefined;
       let secondaryTitle = "";
@@ -90,7 +98,7 @@ export function useBatchRunner() {
         const safeSecondaryRounds = clampTextNumber(secondaryRounds, 14, 1, 100);
         const safeSecondaryDigit = clampDigit(secondaryScanMode, secondaryDigitCount);
         const safeSecondaryTop = clampTop(secondaryTopCount);
-        secondaryTitle = `${outputTitle(secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D, safeSecondaryDigit)} Top ${safeSecondaryTop} L${safeSecondaryRounds}`;
+        secondaryTitle = `${outputTitle(secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D, safeSecondaryDigit)} ${topTitle(safeSecondaryTop, secondaryMultiTopOutput)} L${safeSecondaryRounds}`;
         secondaryPayload = {
           scanMode: secondaryScanMode,
           targetPos: secondaryTargetPos,
@@ -98,6 +106,7 @@ export function useBatchRunner() {
           target3D: secondaryTarget3D,
           digitCount: safeSecondaryDigit,
           stopScan: safeSecondaryTop,
+          multiTopOutput: secondaryMultiTopOutput,
           L: safeSecondaryRounds,
         };
         onSecondaryRoundsChange(String(safeSecondaryRounds));
@@ -123,6 +132,7 @@ export function useBatchRunner() {
           target3D,
           digitCount: safeDigit,
           stopScan: safeTop,
+          multiTopOutput,
           secondary: secondaryPayload,
           outputTitle: title,
         }),
