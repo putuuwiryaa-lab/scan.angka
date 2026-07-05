@@ -136,14 +136,14 @@ export default function AdminPage() {
     <main className="wrap admin-wrap">
       <header className="hero">
         <div className="hero-kicker">Admin Akses</div>
-        <h1>Kelola PIN</h1>
-        <p>Generate PIN 1x pakai dan hapus akses session aktif.</p>
+        <h1>Kelola Akses</h1>
+        <p>Buat kode akses baru dan kelola akses device yang sedang aktif.</p>
       </header>
 
       {error ? <div className="access-error">{error}</div> : null}
 
       <section className="card panel admin-panel">
-        <h2>Generate PIN Baru</h2>
+        <h2>Buat Kode Akses Baru</h2>
         <form className="access-form" onSubmit={generate}>
           <label htmlFor="note">Catatan</label>
           <input
@@ -153,13 +153,13 @@ export default function AdminPage() {
             placeholder="Contoh: trial user A"
             style={{ letterSpacing: 0, fontSize: 16 }}
           />
-          <button type="submit" disabled={loading}>{loading ? "Membuat..." : "Generate PIN"}</button>
+          <button className="admin-button admin-button-primary" type="submit" disabled={loading}>{loading ? "Membuat Kode..." : "Buat Kode Akses"}</button>
         </form>
-        {newPin ? <div className="admin-pin-result">PIN baru: <strong>{newPin}</strong></div> : null}
+        {newPin ? <div className="admin-pin-result">Kode baru: <strong>{newPin}</strong></div> : null}
       </section>
 
       <section className="card panel admin-panel">
-        <h2>Session Aktif</h2>
+        <h2>Akses Device Aktif</h2>
         <div className="admin-list">
           {sessions.map((session) => (
             <div className="admin-row" key={session.id}>
@@ -171,9 +171,9 @@ export default function AdminPage() {
                 <span>Last seen: {dateText(session.last_seen_at)}</span>
               </div>
               {session.revoked_at ? (
-                <em>Sudah dihapus</em>
+                <em>Akses sudah dihapus</em>
               ) : (
-                <button type="button" onClick={() => revoke(session.id)}>Hapus Akses</button>
+                <button className="admin-button admin-button-danger" type="button" onClick={() => revoke(session.id)}>Hapus Akses Device</button>
               )}
             </div>
           ))}
@@ -182,7 +182,7 @@ export default function AdminPage() {
       </section>
 
       <section className="card panel admin-panel">
-        <h2>Riwayat PIN</h2>
+        <h2>Riwayat Kode Akses</h2>
         <div className="admin-list">
           {pins.map((pin) => (
             <div className="admin-row" key={pin.id}>
@@ -194,15 +194,15 @@ export default function AdminPage() {
                 <span>Device: {pin.device_name || "-"}</span>
               </div>
               {pin.status === "unused" ? (
-                <button type="button" onClick={() => revokePin(pin.id)}>Batalkan PIN</button>
+                <button className="admin-button admin-button-warning" type="button" onClick={() => revokePin(pin.id)}>Batalkan Kode Ini</button>
               ) : null}
             </div>
           ))}
-          {!pins.length ? <p>Belum ada PIN.</p> : null}
+          {!pins.length ? <p>Belum ada kode akses.</p> : null}
         </div>
       </section>
 
-      <button className="access-submit" type="button" onClick={logout}>Logout Admin</button>
+      <button className="access-submit admin-logout-button" type="button" onClick={logout}>Keluar dari Admin</button>
     </main>
   );
 }
