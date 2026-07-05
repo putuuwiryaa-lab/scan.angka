@@ -140,29 +140,54 @@
   text-align: right;
 }
 
-.batch-check {
-  min-height: 38px;
-  display: flex;
+.batch-top-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.batch-top-card {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
-  color: #cfe0ff;
-  background: rgba(110, 155, 255, .10);
-  border: 1px solid rgba(110, 155, 255, .24);
+  gap: 6px;
+  background: #1c2330;
+  border: 1px solid #283040;
   border-radius: 10px;
-  padding: 8px 10px;
+  color: #cfd8e3;
+  padding: 8px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 950;
   cursor: pointer;
-  user-select: none;
 }
 
-.batch-check input {
-  width: 16px;
-  height: 16px;
-  accent-color: #e0b341;
+.batch-top-card.active {
+  color: #fff2c6;
+  background: rgba(224, 179, 65, .16);
+  border-color: rgba(224, 179, 65, .58);
 }
 
-.batch-check span {
+.batch-top-check {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(207, 216, 227, .32);
+  border-radius: 5px;
+  color: #07111f;
+  background: rgba(255, 255, 255, .04);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.batch-top-card.active .batch-top-check {
+  background: #e0b341;
+  border-color: rgba(224, 179, 65, .75);
+}
+
+.batch-top-card b {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -393,9 +418,9 @@
     font-size: 13px;
   }
 
-  .batch-check {
-    min-height: 36px;
-    padding: 8px 9px;
+  .batch-top-card {
+    min-height: 38px;
+    padding: 7px;
   }
 
   .batch-select-menu {
