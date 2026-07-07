@@ -1,6 +1,6 @@
 import { ROW_ACTIONS_STYLE } from "../constants";
 import { isShioMode } from "../../shared/scan-utils";
-import { analysisTitle, labelsFromValues, savedSignature } from "../helpers";
+import { analysisTitle, labelValue, labelsFromValues, savedSignature } from "../helpers";
 import type { ScanItem, ScanResult } from "../types";
 
 type Props = {
@@ -12,7 +12,37 @@ type Props = {
   onView: (item: ScanItem) => void;
 };
 
+type FrequencyRow = {
+  value: number;
+  label: string;
+  count: number;
+};
+
+function buildFrequencyRows(result: ScanResult): FrequencyRow[] {
+  const maxValue = isShioMode(result.config.scanMode) ? 12 : 10;
+  const counts = Array.from({ length: maxValue }, () => 0);
+
+  for (const item of result.items) {
+    for (const value of item.angkaHidup) {
+      if (Number.isInteger(value) && value >= 0 && value < counts.length) {
+        counts[value] += 1;
+      }
+    }
+  }
+
+  return counts
+    .map((count, value) => ({
+      value,
+      label: labelValue(value, result.config.scanMode),
+      count,
+    }))
+    .sort((left, right) => right.count - left.count || left.value - right.value);
+}
+
 export default function ScanResultPanel({ result, marketName, marketId, savedFlashId, onSave, onView }: Props) {
+  const frequencyRows = buildFrequencyRows(result);
+  const unitLabel = isShioMode(result.config.scanMode) ? "Shio" : "Digit";
+
   return (
     <div className="panel result-panel">
       <p className="summary">
@@ -38,6 +68,25 @@ export default function ScanResultPanel({ result, marketName, marketId, savedFla
           );
         })}
       </div>
+
+      {result.items.length > 0 && (
+        <div className="frequency-block">
+          <div className="frequency-head">
+            <b>Frekuensi {unitLabel}</b>
+            <span>{result.items.length} hasil scan</span>
+          </div>
+          <p>Dihitung dari semua angka hidup yang tampil pada hasil scan.</p>
+          <div className="frequency-grid">
+            {frequencyRows.map((row) => (
+              <div className={`frequency-item${row.count === 0 ? " muted" : ""}`} key={row.value}>
+                <b>{row.label}</b>
+                <i>×</i>
+                <span>{row.count} kali muncul</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
