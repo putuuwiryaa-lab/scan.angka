@@ -38,6 +38,7 @@ export default function BatchPage() {
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(7);
   const [topRanks, setTopRanks] = useState<number[]>([1]);
+  const [outputSeparator, setOutputSeparator] = useState("➜");
 
   const [secondaryScanMode, setSecondaryScanMode] = useState<ScanMode | "">("");
   const [secondaryRounds, setSecondaryRounds] = useState("14");
@@ -73,6 +74,7 @@ export default function BatchPage() {
         target3D={target3D}
         digitCount={digitCount}
         topRanks={topRanks}
+        outputSeparator={outputSeparator}
         secondaryScanMode={secondaryScanMode}
         secondaryRounds={secondaryRounds}
         secondaryTargetPos={secondaryTargetPos}
@@ -87,6 +89,7 @@ export default function BatchPage() {
         onTarget3DChange={setTarget3D}
         onDigitCountChange={setDigitCount}
         onTopRanksChange={setTopRanks}
+        onOutputSeparatorChange={setOutputSeparator}
         onSecondaryScanModeChange={changeSecondaryMode}
         onSecondaryRoundsChange={setSecondaryRounds}
         onSecondaryTargetPosChange={setSecondaryTargetPos}
@@ -115,6 +118,7 @@ export default function BatchPage() {
           target3D,
           digitCount,
           topRanks,
+          lineSeparator: outputSeparator,
           secondaryScanMode,
           secondaryRounds,
           secondaryTargetPos,
