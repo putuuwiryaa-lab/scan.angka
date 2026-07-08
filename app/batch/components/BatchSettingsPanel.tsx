@@ -11,6 +11,7 @@ type Props = {
   target3D: Target3D;
   digitCount: number;
   topRanks: number[];
+  outputSeparator: string;
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
@@ -25,6 +26,7 @@ type Props = {
   onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
   onTopRanksChange: (value: number[]) => void;
+  onOutputSeparatorChange: (value: string) => void;
   onSecondaryScanModeChange: (value: ScanMode | "") => void;
   onSecondaryRoundsChange: (value: string) => void;
   onSecondaryTargetPosChange: (value: Posisi) => void;
@@ -37,6 +39,8 @@ type Props = {
 type OpenMenu = "m1Jenis" | "m1Target" | "m1Digit" | "m2Jenis" | "m2Target" | "m2Digit" | null;
 
 const TOP_OPTIONS = [1, 2, 3];
+const DEFAULT_SEPARATOR = "➜";
+const SEPARATOR_OPTIONS = ["➜", "⟢", "-", ":", "•", "➡️", "✅", "🎯", "🔥"];
 
 function optionLabel<T extends string>(options: { value: T; label: string }[], value: T): string {
   return options.find((item) => item.value === value)?.label ?? value;
@@ -65,6 +69,14 @@ function toggleRank(ranks: number[], rank: number): number[] {
   return normalizeRanks(exists ? ranks.filter((item) => item !== rank) : [...ranks, rank]);
 }
 
+function cleanSeparator(value: string): string {
+  return value.replace(/[\r\n\t]+/g, " ").slice(0, 16);
+}
+
+function activeSeparator(value: string): string {
+  return value.trim() || DEFAULT_SEPARATOR;
+}
+
 export default function BatchSettingsPanel({
   rounds,
   scanMode,
@@ -73,6 +85,7 @@ export default function BatchSettingsPanel({
   target3D,
   digitCount,
   topRanks,
+  outputSeparator,
   secondaryScanMode,
   secondaryRounds,
   secondaryTargetPos,
@@ -87,6 +100,7 @@ export default function BatchSettingsPanel({
   onTarget3DChange,
   onDigitCountChange,
   onTopRanksChange,
+  onOutputSeparatorChange,
   onSecondaryScanModeChange,
   onSecondaryRoundsChange,
   onSecondaryTargetPosChange,
@@ -97,6 +111,7 @@ export default function BatchSettingsPanel({
 }: Props) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const secondaryActive = Boolean(secondaryScanMode);
+  const selectedSeparator = activeSeparator(outputSeparator);
 
   function toggle(menu: Exclude<OpenMenu, null>) {
     setOpenMenu((current) => current === menu ? null : menu);
@@ -156,6 +171,22 @@ export default function BatchSettingsPanel({
             <button key={rank} type="button" className={active ? "batch-top-card active" : "batch-top-card"} onClick={() => onChange(toggleRank(ranks, rank))}>
               <span className="batch-top-check">{active ? "✓" : ""}</span>
               <b>Top {rank}</b>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderSeparatorCards() {
+    return (
+      <div className="batch-separator-grid">
+        {SEPARATOR_OPTIONS.map((separator) => {
+          const active = selectedSeparator === separator;
+          return (
+            <button key={separator} type="button" className={active ? "batch-top-card active" : "batch-top-card"} onClick={() => onOutputSeparatorChange(separator)}>
+              <span className="batch-top-check">{active ? "✓" : ""}</span>
+              <b>{separator}</b>
             </button>
           );
         })}
@@ -267,6 +298,19 @@ export default function BatchSettingsPanel({
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div className="batch-method-card batch-separator-card">
+        <div className="batch-method-title">Format Copy</div>
+        <div className="batch-field">
+          <label>Separator Nama & Prediksi</label>
+          {renderSeparatorCards()}
+        </div>
+        <div className="batch-field">
+          <label>Custom dari Keyboard</label>
+          <input className="batch-input" value={outputSeparator} maxLength={16} placeholder="Contoh: ⟢ / 🎯 / :" onChange={(event) => onOutputSeparatorChange(cleanSeparator(event.target.value))} />
+          <div className="batch-notice">Preview: Nama Pasaran {selectedSeparator} Prediksi</div>
         </div>
       </div>
     </section>
