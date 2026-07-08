@@ -16,6 +16,7 @@ type RunBatchParams = {
   target3D: Target3D;
   digitCount: number;
   topRanks: number[];
+  lineSeparator: string;
   secondaryScanMode: ScanMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
@@ -32,6 +33,7 @@ type RunBatchParams = {
 };
 
 const TOPS = [1, 2, 3];
+const DEFAULT_LINE_SEPARATOR = "➜";
 
 function clampDigit(mode: ScanMode, value: number): number {
   return Math.max(1, Math.min(isShioMode(mode) ? 12 : 9, value));
@@ -44,6 +46,11 @@ function safeRanks(value: number[]): number[] {
 
 function titleRanks(value: number[]): string {
   return safeRanks(value).map((item) => `Top ${item}`).join("+");
+}
+
+function safeLineSeparator(value: string): string {
+  const separator = value.replace(/[\r\n\t]+/g, " ").trim().slice(0, 16);
+  return separator || DEFAULT_LINE_SEPARATOR;
 }
 
 export function useBatchRunner() {
@@ -67,6 +74,7 @@ export function useBatchRunner() {
       const safeRounds = clampTextNumber(params.rounds, 14, 1, 100);
       const safeDigit = clampDigit(params.scanMode, params.digitCount);
       const ranks = safeRanks(params.topRanks);
+      const lineSeparator = safeLineSeparator(params.lineSeparator);
       const primaryTitle = `${outputTitle(params.scanMode, params.targetPos, params.target2D, params.target3D, safeDigit)} ${titleRanks(ranks)} L${safeRounds}`;
 
       let secondaryPayload: Record<string, unknown> | undefined;
@@ -106,6 +114,7 @@ export function useBatchRunner() {
           target3D: params.target3D,
           digitCount: safeDigit,
           topRanks: ranks,
+          lineSeparator,
           secondary: secondaryPayload,
           outputTitle: secondaryPayload ? `${primaryTitle} · ${secondaryTitle}` : primaryTitle,
         }),
