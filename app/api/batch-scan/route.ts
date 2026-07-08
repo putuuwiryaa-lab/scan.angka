@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_DIGIT_COUNT = 7;
+const DEFAULT_LINE_SEPARATOR = "➜";
 const TOPS = [1, 2, 3];
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
@@ -27,6 +28,7 @@ type Body = {
   L?: unknown;
   secondary?: unknown;
   outputTitle?: unknown;
+  lineSeparator?: unknown;
 };
 
 type ScanRequest = {
@@ -68,6 +70,14 @@ function normalizeTopRanks(value: unknown, fallbackRank: number): number[] {
   return ranks.length ? ranks : [fallbackRank];
 }
 
+function normalizeLineSeparator(value: unknown): string {
+  const separator = String(value ?? DEFAULT_LINE_SEPARATOR)
+    .replace(/[\r\n\t]+/g, " ")
+    .trim()
+    .slice(0, 16);
+  return separator || DEFAULT_LINE_SEPARATOR;
+}
+
 function shioLabel(value: number): string {
   return String(value + 1).padStart(2, "0");
 }
@@ -83,6 +93,10 @@ function formatCandidates(values: number[], scanMode: ScanMode, digitCount: numb
   const raw = values.join("");
   if (scanMode === "ai_3d" && digitCount === 8) return groupByFour(raw);
   return raw;
+}
+
+function formatBatchLine(row: BatchLine, separator: string): string {
+  return `${row.name} ${separator} ${row.digits}`;
 }
 
 function readScanRequest(source: Record<string, unknown>, fallback?: Partial<ScanRequest>): ScanRequest | string {
@@ -131,6 +145,7 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
     const marketIds = normalizeMarketIds(body.marketIds);
+    const lineSeparator = normalizeLineSeparator(body.lineSeparator);
 
     if (marketIds.length === 0) {
       return NextResponse.json({ error: "Pilih minimal 1 pasaran." }, { status: 400 });
@@ -185,9 +200,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
+    const lines = results.map((row: BatchLine) => formatBatchLine(row, lineSeparator));
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, topRanks: primary.topRanks, secondary: Boolean(secondary) });
+    return NextResponse.json({ title, results, lines, copyText, lineSeparator, limit: MAX_BATCH_MARKETS, topRanks: primary.topRanks, secondary: Boolean(secondary) });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
