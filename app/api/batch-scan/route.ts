@@ -12,7 +12,6 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_DIGIT_COUNT = 7;
 const TOPS = [1, 2, 3];
-const COPY_LINE_SEPARATOR = " ⟢ ";
 
 type MarketRow = { id: string; name: string | null; history_data: string | null };
 type BatchLine = { id: string; name: string; digits: string };
@@ -84,10 +83,6 @@ function formatCandidates(values: number[], scanMode: ScanMode, digitCount: numb
   const raw = values.join("");
   if (scanMode === "ai_3d" && digitCount === 8) return groupByFour(raw);
   return raw;
-}
-
-function formatBatchLine(row: BatchLine): string {
-  return `${row.name}${COPY_LINE_SEPARATOR}${row.digits}`;
 }
 
 function readScanRequest(source: Record<string, unknown>, fallback?: Partial<ScanRequest>): ScanRequest | string {
@@ -190,9 +185,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const lines = results.map(formatBatchLine);
+    const lines = results.map((row: BatchLine) => `${row.name} ➜ ${row.digits}`);
     const copyText = [title, "", ...lines].join("\n");
-    return NextResponse.json({ title, results, lines, copyText, separator: COPY_LINE_SEPARATOR.trim(), limit: MAX_BATCH_MARKETS, topRanks: primary.topRanks, secondary: Boolean(secondary) });
+    return NextResponse.json({ title, results, lines, copyText, limit: MAX_BATCH_MARKETS, topRanks: primary.topRanks, secondary: Boolean(secondary) });
   } catch (error) {
     console.error("[api/batch-scan] Request error", error);
     return NextResponse.json({ error: "Batch scan gagal." }, { status: 400 });
