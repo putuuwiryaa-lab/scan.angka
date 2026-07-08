@@ -1,6 +1,7 @@
 export type BatchResult = {
   title: string;
   copyText: string;
+  lineSeparator?: string;
   topRanks?: number[];
   secondary?: boolean;
   results: {
