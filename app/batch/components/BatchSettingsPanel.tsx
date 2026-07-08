@@ -180,7 +180,7 @@ export default function BatchSettingsPanel({
 
   function renderSeparatorCards() {
     return (
-      <div className="batch-separator-grid">
+      <div className="batch-top-grid">
         {SEPARATOR_OPTIONS.map((separator) => {
           const active = selectedSeparator === separator;
           return (
@@ -301,7 +301,7 @@ export default function BatchSettingsPanel({
         </div>
       </div>
 
-      <div className="batch-method-card batch-separator-card">
+      <div className="batch-method-card" style={{ marginTop: 10 }}>
         <div className="batch-method-title">Format Copy</div>
         <div className="batch-field">
           <label>Separator Nama & Prediksi</label>
