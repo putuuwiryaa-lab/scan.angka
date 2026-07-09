@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BottomNav from "../bottom-nav";
+import AppPromoBanner from "../shared/AppPromoBanner";
 import BatchSettingsPanel from "./components/BatchSettingsPanel";
 import BatchMarketSelector from "./components/BatchMarketSelector";
 import BatchOutputPanel from "./components/BatchOutputPanel";
@@ -65,6 +66,8 @@ export default function BatchPage() {
         <h1 className="batch-title">Batch Scan</h1>
         <p className="batch-subtitle">Pilih banyak pasaran, scan sekali, output langsung siap copy.</p>
       </header>
+
+      <AppPromoBanner />
 
       <BatchSettingsPanel
         rounds={rounds}
