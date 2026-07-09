@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BottomNav from "./bottom-nav";
+import AppPromoBanner from "./shared/AppPromoBanner";
 import ScanControlPanel from "./scan/components/ScanControlPanel";
 import ScanResultPanel from "./scan/components/ScanResultPanel";
 import SavedTreksSection from "./scan/components/SavedTreksSection";
@@ -118,6 +119,7 @@ export default function Page() {
     <div className="wrap">
       <header className="hero"><div className="hero-kicker">Scanner Rumus Otomatis</div><h1>Scan Angka</h1><p>Cari trek angka dari riwayat result terbaru.</p></header>
       <div className="sync-status">{syncText}</div>
+      <AppPromoBanner />
 
       <ScanControlPanel
         selectedMarket={selectedMarket}
