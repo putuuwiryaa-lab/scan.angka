@@ -64,6 +64,10 @@ export function hashIp(ip: string) {
   return hmac(ip || "unknown", "ip");
 }
 
+export function hashRateLimitKey(value: string) {
+  return hmac(value || "unknown", "rate-limit");
+}
+
 export function parseCookie(headers: Headers, name: string) {
   const cookieHeader = headers.get("cookie") || "";
   const cookies = cookieHeader.split(";").map((item) => item.trim());
