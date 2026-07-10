@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { copyTextToClipboard } from "../../shared/copy";
 import { clampTextNumber } from "../../shared/scan-utils";
 import {
   buildCopyText,
@@ -105,13 +106,14 @@ export function useTrekActions(params: Params) {
     const title = detailHeaderTitle(marketName, selectedMarket);
     const description = scanDescription(viewItem.scanMode, viewItem.targetPos, viewItem.target2D, result?.config.digitCount ?? digitCount, viewItem.target3D);
     const text = buildCopyText(viewItem, viewRows, nextPrediction, title, description);
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
+    const success = await copyTextToClipboard(text);
+    if (!success) {
       setActionError("Gagal salin trek.");
+      return;
     }
+
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
   }
 
   return {
