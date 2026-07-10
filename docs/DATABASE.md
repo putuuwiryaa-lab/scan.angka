@@ -35,13 +35,7 @@ Aturan:
 
 Data `markets` tidak boleh dapat dibaca langsung memakai anon key. Semua pembacaan data pasaran dilakukan melalui route server setelah session PIN diperiksa, lalu server memakai `SUPABASE_SERVICE_ROLE_KEY`.
 
-Jalankan migration berikut:
-
-```txt
-supabase/migrations/20260710_lock_down_markets.sql
-```
-
-Isi utama migration:
+Jalankan SQL pengamanan secara manual melalui Supabase SQL Editor setelah versi kode server terbaru sudah ter-deploy:
 
 ```sql
 alter table public.markets enable row level security;
