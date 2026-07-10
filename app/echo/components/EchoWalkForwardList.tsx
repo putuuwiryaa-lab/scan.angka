@@ -1,5 +1,5 @@
 import type { EchoAuditPhase, EchoBacktestRow } from "../../../lib/echo/types";
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 
 const PHASE_LABEL: Record<EchoAuditPhase, string> = {
   discovery: "D",
