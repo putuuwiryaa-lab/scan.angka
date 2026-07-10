@@ -39,12 +39,26 @@ export interface EchoBacktestRow {
   effectiveNeighbors: number;
 }
 
+export interface EchoWindowAudit {
+  window: number;
+  weight: number;
+  hit: number;
+  total: number;
+  rate: number;
+  longestMissStreak: number;
+}
+
 export interface EchoAudit {
   hit: number;
   total: number;
   recentHit: number;
   recentTotal: number;
   longestMissStreak: number;
+  weightedAccuracy: number;
+  windowStability: number;
+  strongestWindow: number;
+  weakestWindow: number;
+  windows: EchoWindowAudit[];
 }
 
 export interface EchoQuality {
@@ -84,7 +98,6 @@ export interface EchoItem {
 }
 
 export interface EchoConfig {
-  L: number;
   targetPos?: Posisi;
   target2D?: Target2D;
   target3D?: Target3D;
@@ -95,13 +108,13 @@ export interface EchoConfig {
 
 export interface EchoResult {
   config: {
-    L: number;
     targetPos: Posisi;
     target2D: Target2D;
     target3D: Target3D;
     digitCount: number;
     stopScan: number;
     scanMode: ScanMode;
+    auditWindows: number[];
   };
   totalProfiles: number;
   totalQualified: number;
