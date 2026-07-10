@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 
 const DEVICE_KEY = "scan_device_id";
-const ADMIN_WHATSAPP_URL = "https://wa.me/6285119341538";
+const ADMIN_WHATSAPP_URL = "https://wa.me/6285119341538?text=Halo%20Admin%2C%20saya%20ingin%20meminta%20kode%20akses%20Scan%20Angka.";
 
 function getDeviceId() {
   if (typeof window === "undefined") return "";
