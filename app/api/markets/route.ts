@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireActiveAccess } from "@/lib/server/access";
-import { getSupabase } from "@/lib/supabase/client";
+import { createAdminClient } from "@/lib/server/supabase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
 
   try {
-    const supabase = getSupabase();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("markets")
       .select("id, name, history_data, updated_at")
