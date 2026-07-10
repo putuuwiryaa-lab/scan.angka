@@ -30,6 +30,7 @@ import type {
   EchoRegime,
   EchoResult,
   EchoVariant,
+  EchoWindowAudit,
 } from "./types";
 
 const POSITIONS: Posisi[] = ["A", "C", "K", "E"];
@@ -41,6 +42,13 @@ const RECENCY_HALF_LIFE = 60;
 const RECENT_AUDIT_SIZE = 5;
 const STABILITY_COUNTS = [8, 10, 12] as const;
 const TEMPERATURE = 0.72;
+const AUDIT_WINDOWS = [
+  { size: 12, weight: 0.3 },
+  { size: 20, weight: 0.3 },
+  { size: 30, weight: 0.25 },
+  { size: 45, weight: 0.15 },
+] as const;
+const MAX_AUDIT_WINDOW = AUDIT_WINDOWS[AUDIT_WINDOWS.length - 1].size;
 
 interface EchoState {
   vector: number[];
@@ -376,6 +384,43 @@ function longestMissStreak(covered: boolean[]): number {
   return longest;
 }
 
+function buildWindowAudit(statuses: boolean[]): Pick<EchoAudit, "weightedAccuracy" | "windowStability" | "strongestWindow" | "weakestWindow" | "windows"> {
+  const windows: EchoWindowAudit[] = AUDIT_WINDOWS.map(({ size, weight }) => {
+    const sample = statuses.slice(-Math.min(size, statuses.length));
+    const hit = sample.filter(Boolean).length;
+    return {
+      window: size,
+      weight,
+      hit,
+      total: sample.length,
+      rate: sample.length ? Number(((hit / sample.length) * 100).toFixed(1)) : 0,
+      longestMissStreak: longestMissStreak(sample),
+    };
+  }).filter((window) => window.total > 0);
+
+  const totalWeight = windows.reduce((sum, window) => sum + window.weight, 0);
+  const weightedAccuracy = totalWeight
+    ? windows.reduce((sum, window) => sum + window.rate * window.weight, 0) / totalWeight
+    : 0;
+  const rates = windows.map((window) => window.rate);
+  const range = rates.length ? Math.max(...rates) - Math.min(...rates) : 100;
+  const windowStability = Math.max(0, 100 - range);
+  const strongest = [...windows].sort((left, right) => right.rate - left.rate || left.window - right.window)[0];
+  const weakest = [...windows].sort((left, right) => left.rate - right.rate || right.window - left.window)[0];
+
+  return {
+    weightedAccuracy: Number(weightedAccuracy.toFixed(1)),
+    windowStability: Number(windowStability.toFixed(1)),
+    strongestWindow: strongest?.window ?? 0,
+    weakestWindow: weakest?.window ?? 0,
+    windows,
+  };
+}
+
+function weakestWindowRate(audit: EchoAudit): number {
+  return audit.windows.reduce((minimum, window) => Math.min(minimum, window.rate), 100);
+}
+
 function selectColumns(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode): ColumnSelection | null {
   const available = columnsForMode(scanMode);
   if (digitCount < 1 || digitCount > available.length || !rows.length) return null;
@@ -388,6 +433,7 @@ function selectColumns(rows: EchoBacktestRow[], digitCount: number, scanMode: Sc
     const recentStatuses = statuses.slice(-RECENT_AUDIT_SIZE);
     const recentHit = recentStatuses.filter(Boolean).length;
     const streak = longestMissStreak(statuses);
+    const windowAudit = buildWindowAudit(statuses);
     const columnUsage = rows.reduce((sum, row) => sum + row.targetColumns.filter((column) => selected.has(column)).length, 0);
     const efficiency = columnUsage / Math.max(1, rows.length * columns.length);
     const selectedRows = rows.map((row, index) => ({ ...row, covered: statuses[index] }));
@@ -397,15 +443,17 @@ function selectColumns(rows: EchoBacktestRow[], digitCount: number, scanMode: Sc
       recentHit,
       recentTotal: recentStatuses.length,
       longestMissStreak: streak,
+      ...windowAudit,
     };
     const candidate: ColumnSelection = { columns: [...columns], audit, rows: selectedRows, efficiency };
 
     if (!best ||
-      candidate.audit.hit > best.audit.hit ||
-      (candidate.audit.hit === best.audit.hit && candidate.audit.recentHit > best.audit.recentHit) ||
-      (candidate.audit.hit === best.audit.hit && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak < best.audit.longestMissStreak) ||
-      (candidate.audit.hit === best.audit.hit && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak === best.audit.longestMissStreak && candidate.efficiency > best.efficiency) ||
-      (candidate.audit.hit === best.audit.hit && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak === best.audit.longestMissStreak && candidate.efficiency === best.efficiency && columns.join("") < best.columns.join(""))) {
+      candidate.audit.weightedAccuracy > best.audit.weightedAccuracy ||
+      (candidate.audit.weightedAccuracy === best.audit.weightedAccuracy && weakestWindowRate(candidate.audit) > weakestWindowRate(best.audit)) ||
+      (candidate.audit.weightedAccuracy === best.audit.weightedAccuracy && weakestWindowRate(candidate.audit) === weakestWindowRate(best.audit) && candidate.audit.recentHit > best.audit.recentHit) ||
+      (candidate.audit.weightedAccuracy === best.audit.weightedAccuracy && weakestWindowRate(candidate.audit) === weakestWindowRate(best.audit) && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak < best.audit.longestMissStreak) ||
+      (candidate.audit.weightedAccuracy === best.audit.weightedAccuracy && weakestWindowRate(candidate.audit) === weakestWindowRate(best.audit) && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak === best.audit.longestMissStreak && candidate.efficiency > best.efficiency) ||
+      (candidate.audit.weightedAccuracy === best.audit.weightedAccuracy && weakestWindowRate(candidate.audit) === weakestWindowRate(best.audit) && candidate.audit.recentHit === best.audit.recentHit && candidate.audit.longestMissStreak === best.audit.longestMissStreak && candidate.efficiency === best.efficiency && columns.join("") < best.columns.join(""))) {
       best = candidate;
     }
   }
@@ -445,8 +493,8 @@ function buildProfiles(scanMode: ScanMode, targetPos: Posisi, target2D: Target2D
   return profiles;
 }
 
-function backtestRows(draws: Draw[], profile: EchoProfile, L: number, scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D): EchoBacktestRow[] {
-  const start = Math.max(MIN_HISTORY, draws.length - L);
+function backtestRows(draws: Draw[], profile: EchoProfile, scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D): EchoBacktestRow[] {
+  const start = Math.max(MIN_HISTORY, draws.length - MAX_AUDIT_WINDOW);
   const rows: EchoBacktestRow[] = [];
   for (let targetIndex = start; targetIndex < draws.length; targetIndex += 1) {
     const prediction = predictAt(draws, targetIndex, profile, scanMode, target2D);
@@ -470,14 +518,15 @@ function backtestRows(draws: Draw[], profile: EchoProfile, L: number, scanMode: 
 }
 
 function scoreItem(selection: ColumnSelection, confidence: number, quality: EchoQuality): number {
-  const history = selection.audit.total ? selection.audit.hit / selection.audit.total : 0;
+  const history = selection.audit.weightedAccuracy / 100;
   const recent = selection.audit.recentTotal ? selection.audit.recentHit / selection.audit.recentTotal : 0;
-  const stability = quality.stability / 100;
+  const stability = ((quality.stability * 0.55) + (selection.audit.windowStability * 0.45)) / 100;
   const confidenceScore = confidence / 100;
   const efficiency = Math.min(1, selection.efficiency);
-  let score = (0.4 * history + 0.2 * recent + 0.2 * confidenceScore + 0.1 * stability + 0.1 * efficiency) * 100;
+  let score = (0.38 * history + 0.18 * recent + 0.2 * confidenceScore + 0.14 * stability + 0.1 * efficiency) * 100;
   if (confidence < 55) score -= 10;
   if (quality.effectiveNeighbors < 7) score -= 15;
+  if (selection.audit.windowStability < 65) score -= 5;
   if (selection.audit.longestMissStreak > 2) score -= 8;
   return Number(Math.max(0, score).toFixed(2));
 }
@@ -516,15 +565,14 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const targetPos = config.targetPos ?? "K";
   const target2D = target2DOrDefault(config.target2D);
   const target3D = target3DOrDefault(config.target3D);
-  const L = clamp(config.L, 14, 1, 100);
   const maxDigits = isShioMode(scanMode) ? 12 : 9;
   const digitCount = clamp(config.digitCount, 4, 1, maxDigits);
-  const stopScan = clamp(config.stopScan, 3, 1, 50);
+  const stopScan = clamp(config.stopScan, 3, 1, 20);
   const profiles = buildProfiles(scanMode, targetPos, target2D, target3D);
   const items: EchoItem[] = [];
 
   for (const profile of profiles) {
-    const rows = backtestRows(draws, profile, L, scanMode, targetPos, target2D, target3D);
+    const rows = backtestRows(draws, profile, scanMode, targetPos, target2D, target3D);
     if (!rows.length) continue;
     const selection = selectColumns(rows, digitCount, scanMode);
     const live = predictAt(draws, draws.length, profile, scanMode, target2D);
@@ -574,7 +622,15 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
 
   const qualified = [...deduped.values()];
   return {
-    config: { L, targetPos, target2D, target3D, digitCount, stopScan, scanMode },
+    config: {
+      targetPos,
+      target2D,
+      target3D,
+      digitCount,
+      stopScan,
+      scanMode,
+      auditWindows: AUDIT_WINDOWS.map((window) => window.size),
+    },
     totalProfiles: profiles.length,
     totalQualified: qualified.length,
     items: selectDiverse(qualified, stopScan),
@@ -588,4 +644,5 @@ export const ECHO_INTERNAL_CONFIG = {
   minimumNeighbors: MIN_NEIGHBORS,
   recencyHalfLife: RECENCY_HALF_LIFE,
   stabilityNeighborCounts: [...STABILITY_COUNTS],
+  auditWindows: AUDIT_WINDOWS.map((window) => ({ ...window })),
 };
