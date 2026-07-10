@@ -8,7 +8,7 @@ import {
   TARGET_2D_OPTIONS,
   TARGET_3D_OPTIONS,
 } from "../scan/constants";
-import { cleanDigits, clampTextNumber, is3DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
+import { is3DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 import type { Market, Posisi, ScanMode, Target2D, Target3D } from "../scan/types";
 
 type Props = {
@@ -26,7 +26,6 @@ type Props = {
   target3D: Target3D;
   targetText: string;
   digitCount: number;
-  stopScan: string;
   loading: boolean;
   error: string;
   onOpenMarket: () => void;
@@ -41,7 +40,6 @@ type Props = {
   onSelectTarget3D: (value: Target3D) => void;
   onToggleDigit: () => void;
   onSelectDigit: (value: number) => void;
-  onStopScanChange: (value: string) => void;
   onRun: () => void;
 };
 
@@ -60,7 +58,6 @@ export default function EchoControlPanel({
   target3D,
   targetText,
   digitCount,
-  stopScan,
   loading,
   error,
   onOpenMarket,
@@ -75,7 +72,6 @@ export default function EchoControlPanel({
   onSelectTarget3D,
   onToggleDigit,
   onSelectDigit,
-  onStopScanChange,
   onRun,
 }: Props) {
   return (
@@ -108,11 +104,8 @@ export default function EchoControlPanel({
       </div>
 
       <div className="echo-audit-info">
-        <div>
-          <b>Audit Otomatis</b>
-          <span>L12 · L20 · L30 · L45</span>
-        </div>
-        <p>Engine memilih output yang stabil di beberapa rentang data. Tidak ada Data Uji manual.</p>
+        <div><b>Evaluasi Otomatis</b><span>Discovery L12 · L20 · L30</span></div>
+        <p>Kolom dipilih dari data discovery, lalu diverifikasi pada 12 result holdout yang tidak ikut memilih kolom.</p>
       </div>
 
       <div className="row two">
@@ -145,21 +138,18 @@ export default function EchoControlPanel({
               {isPositionMode(scanMode)
                 ? POS_OPTIONS.map((item) => (
                     <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === targetPos ? "trek-option active" : "trek-option"} onClick={() => onSelectTargetPos(item.value)}>
-                      <span className="option-label">{item.label}</span>
-                      {item.value === targetPos && <b>✓</b>}
+                      <span className="option-label">{item.label}</span>{item.value === targetPos && <b>✓</b>}
                     </button>
                   ))
                 : is3DMode(scanMode)
                   ? TARGET_3D_OPTIONS.map((item) => (
                       <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target3D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget3D(item.value)}>
-                        <span className="option-label">{item.label}</span>
-                        {item.value === target3D && <b>✓</b>}
+                        <span className="option-label">{item.label}</span>{item.value === target3D && <b>✓</b>}
                       </button>
                     ))
                   : TARGET_2D_OPTIONS.map((item) => (
                       <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget2D(item.value)}>
-                        <span className="option-label">{item.label}</span>
-                        {item.value === target2D && <b>✓</b>}
+                        <span className="option-label">{item.label}</span>{item.value === target2D && <b>✓</b>}
                       </button>
                     ))}
             </div>
@@ -167,32 +157,24 @@ export default function EchoControlPanel({
         </div>
       </div>
 
-      <div className="row two">
-        <div className="field digit-field">
-          <label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label>
-          <button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={onToggleDigit}>
-            <b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b>
-            <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
-          </button>
-          {digitOpen && (
-            <div className="digit-menu">
-              {DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => (
-                <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => onSelectDigit(value)}>
-                  <span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>
-                  {value === digitCount && <b>✓</b>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="field">
-          <label>Jumlah Rekomendasi</label>
-          <input inputMode="numeric" value={stopScan} onChange={(event) => onStopScanChange(cleanDigits(event.target.value, 2))} onBlur={() => onStopScanChange(String(clampTextNumber(stopScan, 3, 1, 20)))} />
-        </div>
+      <div className="field digit-field">
+        <label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label>
+        <button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={onToggleDigit}>
+          <b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b>
+          <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
+        </button>
+        {digitOpen && (
+          <div className="digit-menu">
+            {DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => (
+              <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => onSelectDigit(value)}>
+                <span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <button className="run" onClick={onRun} disabled={loading || !marketId}>{loading ? "Menganalisa Echo..." : "Jalankan Echo"}</button>
+      <button className="run" onClick={onRun} disabled={loading || !marketId}>{loading ? "Menganalisa Echo..." : "Cari Rekomendasi Terbaik"}</button>
       {error && <div className="err">{error}</div>}
     </div>
   );
