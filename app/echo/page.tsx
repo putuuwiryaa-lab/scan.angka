@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BottomNav from "../bottom-nav";
 import AppPromoBanner from "../shared/AppPromoBanner";
 import { LABEL, TARGET_2D_LABEL, TARGET_3D_LABEL } from "../scan/constants";
@@ -31,12 +31,25 @@ export default function EchoPage() {
   const [target3D, setTarget3D] = useState<Target3D>("belakang");
   const [digitCount, setDigitCount] = useState(4);
   const { marketName, result, loading, echoError, runEcho } = useEchoRunner();
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const targetText = isPositionMode(scanMode)
     ? LABEL[targetPos]
     : is3DMode(scanMode)
       ? TARGET_3D_LABEL[target3D]
       : TARGET_2D_LABEL[target2D];
+
+  const item = result?.items[0] ?? null;
+  const resolvedMarketName = marketName || selectedMarket?.name || selectedMarket?.id || "Pasaran";
+
+  useEffect(() => {
+    if (!result) return;
+    const timeout = window.setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultRef.current?.focus({ preventScroll: true });
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [result]);
 
   function chooseMarket(market: Market) {
     selectMarket(market);
@@ -64,18 +77,16 @@ export default function EchoPage() {
     });
   }
 
-  const item = result?.items[0] ?? null;
-  const resolvedMarketName = marketName || selectedMarket?.name || selectedMarket?.id || "Pasaran";
-
   return (
-    <div className={`wrap ${styles.page}`}>
-      <header className="hero">
-        <div className="hero-kicker">Adaptive Historical Matching</div>
-        <h1>Echo Engine</h1>
-        <p>Satu rekomendasi utama dengan discovery, validation, dan final holdout yang dipisahkan.</p>
+    <main className={`wrap ${styles.page}`} aria-busy={loading}>
+      <header className={styles.mobileHero}>
+        <div className={styles.heroTopline}>
+          <span className={styles.heroBadge}>ECHO ENGINE</span>
+          <span className={styles.syncPill}>{syncText}</span>
+        </div>
+        <h1>Analisa pola historis</h1>
+        <p>Satu rekomendasi utama, diuji dengan nested walk-forward dan final holdout.</p>
       </header>
-      <div className="sync-status">{syncText}</div>
-      <AppPromoBanner />
 
       <EchoControlPanel
         selectedMarket={selectedMarket}
@@ -112,9 +123,23 @@ export default function EchoPage() {
         onRun={startEcho}
       />
 
-      {result && !item && <div className="panel scan-empty">{result.message || "Echo belum menemukan sinyal yang cukup kuat."}</div>}
-      {item && <EchoResultView item={item} marketName={resolvedMarketName} />}
+      <div ref={resultRef} tabIndex={-1} className={styles.resultAnchor}>
+        {result && !item && (
+          <section className={styles.emptyState} role="status">
+            <span aria-hidden="true">—</span>
+            <div>
+              <b>Belum ada rekomendasi kuat</b>
+              <p>{result.message || "Echo belum menemukan sinyal yang cukup kuat."}</p>
+            </div>
+          </section>
+        )}
+        {item && <EchoResultView item={item} marketName={resolvedMarketName} />}
+      </div>
+
+      <div className={styles.toolsWrap}>
+        <AppPromoBanner />
+      </div>
       <BottomNav />
-    </div>
+    </main>
   );
 }
