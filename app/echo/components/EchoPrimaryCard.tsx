@@ -36,7 +36,7 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
 
       <div className={styles.chipRow}>
         <span>Skor {item.score}</span>
-        <span>Validation {item.audit.validationHit}/{item.audit.validationTotal}</span>
+        <span>Walk-forward {item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</span>
         <span>Holdout {item.audit.holdoutHit}/{item.audit.holdoutTotal}</span>
         <span>Konsensus {item.familyAgreement}%</span>
       </div>
