@@ -1,4 +1,4 @@
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 
 export type EchoStat = {
   label: string;
