@@ -3,11 +3,13 @@ import { createAdminClient } from "@/lib/server/supabase-admin";
 import {
   generateToken,
   hashPin,
+  hashRateLimitKey,
   hashSessionToken,
   normalizePin,
   requestMeta,
   setAccessCookies,
 } from "@/lib/server/access";
+import { consumeRateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,24 +27,58 @@ function normalizeDeviceName(value: unknown) {
   return String(value || "").trim().slice(0, 160) || "Unknown Device";
 }
 
+function rateLimitedResponse(retryAfter: number) {
+  const response = NextResponse.json(
+    { success: false, error: "Terlalu banyak percobaan PIN. Coba lagi nanti." },
+    { status: 429 },
+  );
+  response.headers.set("Retry-After", String(Math.max(1, retryAfter)));
+  return response;
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const pin = normalizePin(body.pin);
   const deviceId = normalizeDeviceId(body.device_id);
   const deviceName = normalizeDeviceName(body.device_name);
 
-  if (pin.length !== 8) {
-    return NextResponse.json({ success: false, error: "PIN harus 8 digit." }, { status: 400 });
-  }
-
-  if (!deviceId) {
-    return NextResponse.json({ success: false, error: "Device tidak valid." }, { status: 400 });
-  }
-
   try {
+    const { userAgent, ipHash } = requestMeta(request);
+
+    const ipRateLimit = await consumeRateLimit({
+      scope: "pin-activate-ip",
+      keyHash: ipHash,
+      limit: 30,
+      windowSeconds: 15 * 60,
+      blockSeconds: 30 * 60,
+    });
+
+    if (!ipRateLimit.allowed) {
+      return rateLimitedResponse(ipRateLimit.retryAfter);
+    }
+
+    const deviceRateLimit = await consumeRateLimit({
+      scope: "pin-activate-device",
+      keyHash: hashRateLimitKey(`${ipHash}:${deviceId || "missing"}`),
+      limit: 10,
+      windowSeconds: 15 * 60,
+      blockSeconds: 30 * 60,
+    });
+
+    if (!deviceRateLimit.allowed) {
+      return rateLimitedResponse(deviceRateLimit.retryAfter);
+    }
+
+    if (pin.length !== 8) {
+      return NextResponse.json({ success: false, error: "PIN harus 8 digit." }, { status: 400 });
+    }
+
+    if (!deviceId) {
+      return NextResponse.json({ success: false, error: "Device tidak valid." }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
     const pinHash = hashPin(pin);
-    const { userAgent, ipHash } = requestMeta(request);
 
     const { data: pinRow, error: pinError } = await supabase
       .from("access_pins")
