@@ -1,14 +1,13 @@
 import { analysisTitle, labelsFromValues } from "../../scan/helpers";
 import type { EchoItem } from "../../../lib/echo/types";
-import { copyEchoResult, profileTitle } from "../presentation";
+import { buildEchoCopyText, profileTitle } from "../presentation";
 import styles from "../echo.module.css";
 
 export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; marketName: string }) {
   const digits = labelsFromValues(item.angkaHidup, item.scanMode);
 
   async function handleCopy() {
-    const text = copyEchoResult(item, marketName);
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(buildEchoCopyText(item, marketName));
   }
 
   return (
