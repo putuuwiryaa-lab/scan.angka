@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { EchoItem } from "../../../lib/echo/types";
 import { FAMILY_LABEL } from "../presentation";
 import styles from "../echo.module.css";
@@ -17,7 +18,7 @@ function signed(value: number): string {
   return `${value >= 0 ? "+" : ""}${value}%`;
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section className={styles.panel}>
       <header className={styles.sectionHead}>
@@ -34,7 +35,7 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
     { label: "Result terakhir", value: item.result.latestDraw },
     { label: "Patokan Echo", value: String(item.result.patokan) },
     { label: "Kolom aktif", value: item.activeColumns },
-    { label: "Kondisi live", value: item.echo.regime.replaceAll("_", " ") },
+    { label: "Kondisi live", value: item.echo.regime.split("_").join(" ") },
     { label: "Echo efektif", value: String(item.echo.effectiveNeighbors), helper: `${item.echo.neighborCount} analog terpilih` },
     { label: "Stabilitas ensemble", value: `${item.echo.ensembleStability}%` },
     { label: "Kesesuaian regime", value: `${item.echo.regimeAgreement}%` },
