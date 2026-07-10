@@ -1,0 +1,87 @@
+.shell {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 9px 10px calc(8px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(13, 17, 23, 0), rgba(13, 17, 23, 0.96) 32%);
+  pointer-events: none;
+}
+
+.nav {
+  width: 100%;
+  max-width: 560px;
+  min-height: 62px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid rgba(110, 155, 255, 0.19);
+  border-radius: 19px;
+  background: rgba(17, 24, 35, 0.96);
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.31);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.item,
+.activeItem {
+  min-width: 0;
+  min-height: 50px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.item {
+  color: #8f9db1;
+  background: transparent;
+}
+
+.activeItem {
+  border-color: rgba(224, 179, 65, 0.3);
+  background: rgba(224, 179, 65, 0.11);
+  color: #e0b341;
+}
+
+.item:active,
+.activeItem:active {
+  transform: scale(0.98);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 520px) {
+  .shell {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
