@@ -33,22 +33,15 @@ export async function POST(req: Request) {
     if (body?.target3D !== undefined && !isTarget3D(body.target3D)) return NextResponse.json({ error: "Target 3D tidak valid." }, { status: 400 });
 
     const config = {
-      L: clamp(body?.L, 14, 1, 100),
       targetPos: body?.targetPos as Posisi | undefined,
       target2D: body?.target2D as Target2D | undefined,
       target3D: body?.target3D as Target3D | undefined,
       digitCount: clamp(body?.digitCount, 4, 1, 12),
-      stopScan: clamp(body?.stopScan, 3, 1, 50),
       scanMode: (body?.scanMode ?? "ai_2d_belakang") as ScanMode,
     };
 
     const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("markets")
-      .select("history_data, name")
-      .eq("id", marketId)
-      .single();
-
+    const { data, error } = await supabase.from("markets").select("history_data, name").eq("id", marketId).single();
     if (error) {
       console.error("[api/echo] Supabase error", error);
       return NextResponse.json({ error: "Gagal mengambil data pasaran." }, { status: 500 });

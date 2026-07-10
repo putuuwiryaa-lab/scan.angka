@@ -39,9 +39,26 @@ export interface EchoBacktestRow {
   effectiveNeighbors: number;
 }
 
-export interface EchoAudit {
+export interface EchoWindowAudit {
+  window: number;
+  weight: number;
   hit: number;
   total: number;
+  rate: number;
+  longestMissStreak: number;
+}
+
+export interface EchoAudit {
+  discoveryHit: number;
+  discoveryTotal: number;
+  discoveryWeightedAccuracy: number;
+  discoveryWindowStability: number;
+  strongestWindow: number;
+  weakestWindow: number;
+  windows: EchoWindowAudit[];
+  holdoutHit: number;
+  holdoutTotal: number;
+  holdoutRate: number;
   recentHit: number;
   recentTotal: number;
   longestMissStreak: number;
@@ -72,6 +89,8 @@ export interface EchoItem {
   score: number;
   confidence: number;
   confidenceLevel: EchoConfidenceLevel;
+  familyAgreement: number;
+  consensusFamilies: EchoFamily[];
   audit: EchoAudit;
   echo: EchoQuality;
   result: {
@@ -84,24 +103,22 @@ export interface EchoItem {
 }
 
 export interface EchoConfig {
-  L: number;
   targetPos?: Posisi;
   target2D?: Target2D;
   target3D?: Target3D;
   digitCount?: number;
-  stopScan?: number;
   scanMode?: ScanMode;
 }
 
 export interface EchoResult {
   config: {
-    L: number;
     targetPos: Posisi;
     target2D: Target2D;
     target3D: Target3D;
     digitCount: number;
-    stopScan: number;
     scanMode: ScanMode;
+    discoveryWindows: number[];
+    holdoutSize: number;
   };
   totalProfiles: number;
   totalQualified: number;
