@@ -10,6 +10,7 @@ import {
 } from "../scan/constants";
 import { is3DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 import type { Market, Posisi, ScanMode, Target2D, Target3D } from "../scan/types";
+import styles from "./echo.module.css";
 
 type Props = {
   selectedMarket: Market | null;
@@ -75,7 +76,7 @@ export default function EchoControlPanel({
   onRun,
 }: Props) {
   return (
-    <div className="panel echo-control-panel">
+    <div className={`panel ${styles.controlPanel}`}>
       <div className="field market-field">
         <label>Pasaran</label>
         <button className="market-select" type="button" onClick={onOpenMarket}>
@@ -103,9 +104,9 @@ export default function EchoControlPanel({
         )}
       </div>
 
-      <div className="echo-audit-info">
-        <div><b>Evaluasi Otomatis</b><span>Discovery L12 · L20 · L30</span></div>
-        <p>Kolom dipilih dari data discovery, lalu diverifikasi pada 12 result holdout yang tidak ikut memilih kolom.</p>
+      <div className={styles.auditInfo}>
+        <div><b>Evaluasi Adaptif</b><span>Discovery · Validation · Final Holdout</span></div>
+        <p>Ukuran evaluasi menyesuaikan jumlah data. Seluruh histori sebelumnya tetap digunakan sebagai kolam analog tanpa membaca target masa depan.</p>
       </div>
 
       <div className="row two">
