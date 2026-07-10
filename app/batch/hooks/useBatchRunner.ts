@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MAX_BATCH_MARKETS } from "../constants";
 import { outputTitle } from "../helpers";
+import { copyTextToClipboard } from "../../shared/copy";
 import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
 import type { BatchResult } from "../types";
 import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
@@ -130,13 +131,14 @@ export function useBatchRunner() {
 
   async function copyOutput() {
     if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.copyText);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
+    const success = await copyTextToClipboard(result.copyText);
+    if (!success) {
       setRunnerError("Gagal copy output.");
+      return;
     }
+
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
   }
 
   return { result, copied, loading, runnerError, runBatch, copyOutput };
