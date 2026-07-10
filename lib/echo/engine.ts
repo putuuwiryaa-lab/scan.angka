@@ -30,29 +30,37 @@ import type {
   EchoQuality,
   EchoRegime,
   EchoResult,
+  EchoStrength,
   EchoVariant,
   EchoWindowAudit,
 } from "./types";
 
 const POSITIONS: Posisi[] = ["A", "C", "K", "E"];
-const STATE_WINDOW = 3;
-const MIN_HISTORY = 35;
-const MIN_TOTAL_DATA = 70;
-const MAX_NEIGHBORS = 12;
+const STATE_WINDOW = 5;
+const MIN_HISTORY = 40;
+const MIN_TOTAL_DATA = 80;
 const MIN_NEIGHBORS = 7;
-const RECENCY_HALF_LIFE = 60;
+const ABSOLUTE_MAX_NEIGHBORS = 14;
 const RECENT_SIZE = 5;
-const HOLDOUT_SIZE = 12;
-const NEIGHBOR_STABILITY_COUNTS = [8, 10, 12] as const;
-const DISCOVERY_WINDOWS = [
-  { size: 12, weight: 0.4 },
-  { size: 20, weight: 0.35 },
-  { size: 30, weight: 0.25 },
-] as const;
-const MAX_BACKTEST = DISCOVERY_WINDOWS[DISCOVERY_WINDOWS.length - 1].size + HOLDOUT_SIZE;
+
+interface WindowSpec {
+  size: number;
+  weight: number;
+}
+
+interface EvaluationPlan {
+  discoveryWindows: WindowSpec[];
+  discoverySize: number;
+  validationSize: number;
+  holdoutSize: number;
+  totalRows: number;
+  maximumNeighbors: number;
+  halfLives: number[];
+}
 
 interface EchoState {
   vector: number[];
+  weights: number[];
   regime: EchoRegime;
 }
 
@@ -80,6 +88,27 @@ interface ColumnSelection {
   efficiency: number;
 }
 
+function evaluationPlan(totalData: number): EvaluationPlan {
+  if (totalData >= 220) {
+    const discoveryWindows = [{ size: 16, weight: 0.4 }, { size: 32, weight: 0.35 }, { size: 48, weight: 0.25 }];
+    return { discoveryWindows, discoverySize: 48, validationSize: 16, holdoutSize: 16, totalRows: 80, maximumNeighbors: 14, halfLives: [55, 85, 125] };
+  }
+  if (totalData >= 150) {
+    const discoveryWindows = [{ size: 12, weight: 0.4 }, { size: 24, weight: 0.35 }, { size: 36, weight: 0.25 }];
+    return { discoveryWindows, discoverySize: 36, validationSize: 12, holdoutSize: 12, totalRows: 60, maximumNeighbors: 14, halfLives: [45, 70, 105] };
+  }
+  if (totalData >= 120) {
+    const discoveryWindows = [{ size: 10, weight: 0.4 }, { size: 20, weight: 0.35 }, { size: 30, weight: 0.25 }];
+    return { discoveryWindows, discoverySize: 30, validationSize: 10, holdoutSize: 10, totalRows: 50, maximumNeighbors: 12, halfLives: [40, 65, 95] };
+  }
+  if (totalData >= 95) {
+    const discoveryWindows = [{ size: 8, weight: 0.4 }, { size: 16, weight: 0.35 }, { size: 24, weight: 0.25 }];
+    return { discoveryWindows, discoverySize: 24, validationSize: 8, holdoutSize: 8, totalRows: 40, maximumNeighbors: 11, halfLives: [35, 55, 80] };
+  }
+  const discoveryWindows = [{ size: 6, weight: 0.4 }, { size: 12, weight: 0.35 }, { size: 18, weight: 0.25 }];
+  return { discoveryWindows, discoverySize: 18, validationSize: 6, holdoutSize: 6, totalRows: 30, maximumNeighbors: 10, halfLives: [30, 48, 70] };
+}
+
 function modulusForMode(mode: ScanMode): number {
   return isShioMode(mode) ? 12 : 10;
 }
@@ -97,6 +126,10 @@ function circularAdd(value: number, movement: number, modulus: number): number {
   return ((value + movement) % modulus + modulus) % modulus;
 }
 
+function mean(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
 function spreadOf(draw: Draw): number {
   const values = POSITIONS.map((pos) => digitOf(draw, pos));
   return Math.max(...values) - Math.min(...values);
@@ -107,11 +140,26 @@ function repeatCount(draw: Draw): number {
   return values.length - new Set(values).size;
 }
 
+function parityRatio(draw: Draw): number {
+  return POSITIONS.filter((pos) => digitOf(draw, pos) % 2 === 0).length / POSITIONS.length;
+}
+
+function signChangeRate(values: number[]): number {
+  let comparisons = 0;
+  let changes = 0;
+  for (let index = 0; index + 1 < values.length; index += 1) {
+    if (values[index] === 0 || values[index + 1] === 0) continue;
+    comparisons += 1;
+    if (Math.sign(values[index]) !== Math.sign(values[index + 1])) changes += 1;
+  }
+  return comparisons ? changes / comparisons : 0;
+}
+
 function recurrenceGap(index: number, value: number, getter: (drawIndex: number) => number): number {
-  for (let cursor = index - 1; cursor >= Math.max(0, index - 12); cursor -= 1) {
+  for (let cursor = index - 1; cursor >= Math.max(0, index - 16); cursor -= 1) {
     if (getter(cursor) === value) return index - cursor;
   }
-  return 12;
+  return 16;
 }
 
 function areaForMode(mode: ScanMode, target2D: Target2D, target3D: Target3D): Posisi[] {
@@ -158,18 +206,21 @@ function normalizedDelta(value: number, modulus: number): number {
 function buildState(draws: Draw[], anchor: number, profile: EchoProfile, target2D: Target2D): EchoState {
   const modulus = profile.sourceKind === "shio" ? 12 : 10;
   const valueAt = (index: number) => sourceValue(draws, index, profile, target2D);
-  const current = valueAt(anchor);
-  const previous = valueAt(anchor - 1);
-  const before = valueAt(anchor - 2);
-  const delta1 = circularDelta(current, previous, modulus);
-  const delta2 = circularDelta(previous, before, modulus);
-  const acceleration = circularDelta(delta1, delta2, modulus);
-  const recurrence = recurrenceGap(anchor, current, valueAt) / 12;
+  const values = [0, 1, 2, 3, 4].map((lag) => valueAt(anchor - lag));
+  const movements = [0, 1, 2, 3].map((lag) => circularDelta(values[lag], values[lag + 1], modulus));
+  const normalizedMoves = movements.map((value) => normalizedDelta(value, modulus));
+  const acceleration = normalizedDelta(movements[0] - movements[1], modulus);
+  const net3 = normalizedDelta(circularDelta(values[0], values[3], modulus), modulus);
+  const net4 = normalizedDelta(circularDelta(values[0], values[4], modulus), modulus);
+  const volatility = mean(movements.map((value) => Math.abs(normalizedDelta(value, modulus))));
+  const reversals = signChangeRate(movements);
+  const recurrence = recurrenceGap(anchor, values[0], valueAt) / 16;
   const regime = classifyRegime(draws, anchor);
 
   if (profile.variant === "local") {
     return {
-      vector: [normalizedDelta(delta1, modulus), normalizedDelta(delta2, modulus), normalizedDelta(acceleration, modulus), recurrence],
+      vector: [...normalizedMoves, acceleration, net3, net4, volatility, reversals, recurrence],
+      weights: [1.45, 1.15, 0.85, 0.65, 1.05, 0.85, 0.55, 0.55, 0.45, 0.35],
       regime,
     };
   }
@@ -177,15 +228,43 @@ function buildState(draws: Draw[], anchor: number, profile: EchoProfile, target2
   const currentDraw = draws[anchor];
   const previousDraw = draws[anchor - 1];
   const beforeDraw = draws[anchor - 2];
+  const thirdDraw = draws[anchor - 3];
   const movementNow = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10));
   const movementBefore = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10));
+  const movementNet3 = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10));
   const spread = spreadOf(currentDraw) / 9;
   const spreadChange = (spreadOf(currentDraw) - spreadOf(previousDraw)) / 9;
   const repeats = repeatCount(currentDraw) / 3;
+  const parity = parityRatio(currentDraw);
 
   if (profile.variant === "cross" || profile.variant === "regime") {
+    const positiveRatio = movementNow.filter((value) => value > 0).length / POSITIONS.length;
+    const negativeRatio = movementNow.filter((value) => value < 0).length / POSITIONS.length;
+    const flatRatio = movementNow.filter((value) => Math.abs(value) <= 0.2).length / POSITIONS.length;
     return {
-      vector: [...movementNow, ...movementBefore, normalizedDelta(acceleration, modulus), spread, spreadChange, repeats, recurrence],
+      vector: [
+        ...movementNow,
+        ...movementBefore,
+        ...movementNet3,
+        acceleration,
+        spread,
+        spreadChange,
+        repeats,
+        parity,
+        recurrence,
+        positiveRatio,
+        negativeRatio,
+        flatRatio,
+      ],
+      weights: [
+        1.25, 1.25, 1.25, 1.25,
+        0.82, 0.82, 0.82, 0.82,
+        0.68, 0.68, 0.68, 0.68,
+        0.95, 0.38, 0.55, 0.35, 0.24, 0.3,
+        profile.variant === "regime" ? 0.8 : 0.35,
+        profile.variant === "regime" ? 0.8 : 0.35,
+        profile.variant === "regime" ? 0.65 : 0.3,
+      ],
       regime,
     };
   }
@@ -193,40 +272,82 @@ function buildState(draws: Draw[], anchor: number, profile: EchoProfile, target2
   const area = profile.areaPositions.length ? profile.areaPositions : POSITIONS;
   const areaNow = area.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10));
   const areaBefore = area.map((pos) => normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10));
+  const areaNet3 = area.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10));
   const left = area[0] ?? "K";
   const right = area[area.length - 1] ?? "E";
   const gapNow = circularDistance(digitOf(currentDraw, left), digitOf(currentDraw, right), 10) / 5;
   const gapBefore = circularDistance(digitOf(previousDraw, left), digitOf(previousDraw, right), 10) / 5;
-  const sumNow = area.reduce((sum, pos) => sum + digitOf(currentDraw, pos), 0) % 10;
-  const sumBefore = area.reduce((sum, pos) => sum + digitOf(previousDraw, pos), 0) % 10;
+  const areaSumNow = area.reduce((sum, pos) => sum + digitOf(currentDraw, pos), 0) % 10;
+  const areaSumBefore = area.reduce((sum, pos) => sum + digitOf(previousDraw, pos), 0) % 10;
+  const areaMovementWeight = Array.from({ length: area.length }, () => 1.25);
+  const areaPriorWeight = Array.from({ length: area.length }, () => 0.82);
+  const areaNetWeight = Array.from({ length: area.length }, () => 0.7);
 
   return {
-    vector: [...areaNow, ...areaBefore, gapNow, gapBefore, gapNow - gapBefore, normalizedDelta(circularDelta(sumNow, sumBefore, 10), 10), spread, repeats, recurrence],
+    vector: [
+      ...areaNow,
+      ...areaBefore,
+      ...areaNet3,
+      gapNow,
+      gapBefore,
+      gapNow - gapBefore,
+      normalizedDelta(circularDelta(areaSumNow, areaSumBefore, 10), 10),
+      spread,
+      repeats,
+      recurrence,
+    ],
+    weights: [
+      ...areaMovementWeight,
+      ...areaPriorWeight,
+      ...areaNetWeight,
+      0.8, 0.55, 0.72, 0.75, 0.35, 0.32, 0.3,
+    ],
     regime,
   };
 }
 
 function stateDistance(left: EchoState, right: EchoState, variant: EchoVariant): number {
-  const length = Math.min(left.vector.length, right.vector.length);
+  const length = Math.min(left.vector.length, right.vector.length, left.weights.length, right.weights.length);
   if (!length) return Number.POSITIVE_INFINITY;
-  let squared = 0;
+  let weightedSquared = 0;
+  let weightTotal = 0;
   for (let index = 0; index < length; index += 1) {
+    const weight = (left.weights[index] + right.weights[index]) / 2;
     const difference = left.vector[index] - right.vector[index];
-    squared += difference * difference;
+    weightedSquared += weight * difference * difference;
+    weightTotal += weight;
   }
-  const base = Math.sqrt(squared / length);
-  const regimePenalty = variant === "regime" && left.regime !== right.regime ? 0.42 : variant === "area" && left.regime !== right.regime ? 0.12 : 0;
-  return base + regimePenalty;
+  const base = Math.sqrt(weightedSquared / Math.max(weightTotal, 0.0001));
+  if (left.regime === right.regime) return Math.max(0, base - 0.035);
+  const penalty = variant === "regime" ? 0.34 : variant === "area" ? 0.12 : variant === "cross" ? 0.07 : 0.04;
+  return base + penalty;
 }
 
-function adaptiveNeighbors(raw: RawNeighbor[]): RawNeighbor[] {
+function adaptiveNeighbors(raw: RawNeighbor[], plan: EvaluationPlan, targetIndex: number): RawNeighbor[] {
+  const maxNeighbors = Math.min(plan.maximumNeighbors, ABSOLUTE_MAX_NEIGHBORS);
+  const eraSize = targetIndex >= 150 ? 20 : 15;
   const sorted = [...raw].sort((left, right) => left.distance - right.distance || right.anchorIndex - left.anchorIndex);
   const selected: RawNeighbor[] = [];
+  const eraCounts = new Map<number, number>();
 
   for (const candidate of sorted) {
+    const era = Math.floor(candidate.anchorIndex / eraSize);
+    if ((eraCounts.get(era) ?? 0) >= 2) continue;
     if (selected.some((item) => Math.abs(item.anchorIndex - candidate.anchorIndex) <= 1)) continue;
     selected.push(candidate);
-    if (selected.length >= MAX_NEIGHBORS) break;
+    eraCounts.set(era, (eraCounts.get(era) ?? 0) + 1);
+    if (selected.length >= maxNeighbors) break;
+  }
+
+  if (selected.length < MIN_NEIGHBORS) {
+    for (const candidate of sorted) {
+      if (selected.includes(candidate)) continue;
+      const era = Math.floor(candidate.anchorIndex / eraSize);
+      if ((eraCounts.get(era) ?? 0) >= 3) continue;
+      selected.push(candidate);
+      eraCounts.set(era, (eraCounts.get(era) ?? 0) + 1);
+      if (selected.length >= MIN_NEIGHBORS) break;
+    }
   }
 
   if (selected.length < MIN_NEIGHBORS) {
@@ -238,15 +359,35 @@ function adaptiveNeighbors(raw: RawNeighbor[]): RawNeighbor[] {
   }
 
   const core = selected.slice(0, MIN_NEIGHBORS);
-  const coreMedian = core[Math.floor(core.length / 2)]?.distance ?? 1;
-  const cutoff = Math.max(coreMedian * 1.85, coreMedian + 0.16);
-  return selected.filter((item, index) => index < MIN_NEIGHBORS || item.distance <= cutoff).slice(0, MAX_NEIGHBORS);
+  const median = core[Math.floor(core.length / 2)]?.distance ?? 1;
+  const cutoff = Math.max(median * 1.9, median + 0.14);
+  return selected.filter((item, index) => index < MIN_NEIGHBORS || item.distance <= cutoff).slice(0, maxNeighbors);
 }
 
-function predictionFromNeighbors(neighbors: EchoNeighbor[], modulus: number, take: number): number {
+function weightedNeighbors(
+  nearest: RawNeighbor[],
+  liveAnchor: number,
+  liveValue: number,
+  modulus: number,
+  temperature: number,
+  halfLife: number,
+): EchoNeighbor[] {
+  return nearest.map((neighbor) => {
+    const age = liveAnchor - neighbor.anchorIndex;
+    const similarity = Math.exp(-neighbor.distance / temperature);
+    const recency = Math.pow(0.5, age / halfLife);
+    return {
+      ...neighbor,
+      weight: similarity * recency,
+      projectedDigit: circularAdd(liveValue, neighbor.movement, modulus),
+    };
+  });
+}
+
+function voteRanking(neighbors: EchoNeighbor[], modulus: number, take = neighbors.length): Array<{ digit: number; weight: number }> {
   const votes = Array.from({ length: modulus }, () => 0);
   for (const neighbor of neighbors.slice(0, take)) votes[neighbor.projectedDigit] += neighbor.weight;
-  return votes.map((weight, digit) => ({ digit, weight })).sort((left, right) => right.weight - left.weight || left.digit - right.digit)[0]?.digit ?? 0;
+  return votes.map((weight, digit) => ({ digit, weight })).sort((left, right) => right.weight - left.weight || left.digit - right.digit);
 }
 
 function confidenceLevel(confidence: number): EchoConfidenceLevel {
@@ -255,7 +396,14 @@ function confidenceLevel(confidence: number): EchoConfidenceLevel {
   return "LOW";
 }
 
-function predictAt(draws: Draw[], targetIndex: number, profile: EchoProfile, scanMode: ScanMode, target2D: Target2D): Prediction | null {
+function predictAt(
+  draws: Draw[],
+  targetIndex: number,
+  profile: EchoProfile,
+  scanMode: ScanMode,
+  target2D: Target2D,
+  plan: EvaluationPlan,
+): Prediction | null {
   if (targetIndex < MIN_HISTORY || targetIndex > draws.length) return null;
   const liveAnchor = targetIndex - 1;
   if (liveAnchor < STATE_WINDOW - 1) return null;
@@ -279,55 +427,68 @@ function predictAt(draws: Draw[], targetIndex: number, profile: EchoProfile, sca
     });
   }
 
-  const nearest = adaptiveNeighbors(raw);
+  const nearest = adaptiveNeighbors(raw, plan, targetIndex);
   if (nearest.length < MIN_NEIGHBORS) return null;
   const medianDistance = nearest[Math.floor(nearest.length / 2)]?.distance ?? 0.5;
-  const temperature = Math.max(0.35, Math.min(0.9, medianDistance * 1.45 + 0.18));
+  const temperature = Math.max(0.3, Math.min(0.95, medianDistance * 1.4 + 0.16));
+  const middleHalfLife = plan.halfLives[Math.floor(plan.halfLives.length / 2)];
+  const baseNeighbors = weightedNeighbors(nearest, liveAnchor, liveValue, modulus, temperature, middleHalfLife);
+  const baseRanking = voteRanking(baseNeighbors, modulus);
+  const basePatokan = baseRanking[0]?.digit ?? liveValue;
+  const kValues = uniqueDigits([
+    MIN_NEIGHBORS,
+    Math.max(MIN_NEIGHBORS, Math.round((MIN_NEIGHBORS + nearest.length) / 2)),
+    nearest.length,
+  ]).sort((left, right) => left - right);
+  const ensemblePredictions: number[] = [];
 
-  const neighbors: EchoNeighbor[] = nearest.map((neighbor) => {
-    const age = liveAnchor - neighbor.anchorIndex;
-    const similarity = Math.exp(-neighbor.distance / temperature);
-    const recency = Math.pow(0.5, age / RECENCY_HALF_LIFE);
-    const weight = similarity * recency;
-    return { ...neighbor, weight, projectedDigit: circularAdd(liveValue, neighbor.movement, modulus) };
-  });
-
-  const votes = Array.from({ length: modulus }, () => 0);
-  let weightSum = 0;
-  let weightSquares = 0;
-  let weightedDistance = 0;
-  for (const neighbor of neighbors) {
-    votes[neighbor.projectedDigit] += neighbor.weight;
-    weightSum += neighbor.weight;
-    weightSquares += neighbor.weight * neighbor.weight;
-    weightedDistance += neighbor.distance * neighbor.weight;
+  for (const halfLife of plan.halfLives) {
+    const weighted = weightedNeighbors(nearest, liveAnchor, liveValue, modulus, temperature, halfLife);
+    for (const take of kValues) ensemblePredictions.push(voteRanking(weighted, modulus, take)[0]?.digit ?? basePatokan);
   }
 
-  const rankedVotes = votes.map((weight, digit) => ({ digit, weight })).sort((left, right) => right.weight - left.weight || left.digit - right.digit);
-  const patokan = rankedVotes[0]?.digit ?? liveValue;
-  const dominantShare = weightSum > 0 ? (rankedVotes[0]?.weight ?? 0) / weightSum : 0;
+  const predictionCounts = new Map<number, number>();
+  for (const digit of ensemblePredictions) predictionCounts.set(digit, (predictionCounts.get(digit) ?? 0) + 1);
+  const maxCount = Math.max(...predictionCounts.values());
+  const tied = [...predictionCounts.entries()].filter(([, count]) => count === maxCount).map(([digit]) => digit);
+  const patokan = tied.includes(basePatokan) ? basePatokan : tied.sort((left, right) => left - right)[0] ?? basePatokan;
+  const ensembleStability = ensemblePredictions.length ? (ensemblePredictions.filter((digit) => digit === patokan).length / ensemblePredictions.length) * 100 : 0;
+
+  const voteMap = new Map(baseRanking.map((entry) => [entry.digit, entry.weight]));
+  const weightSum = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.weight, 0);
+  const weightSquares = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.weight * neighbor.weight, 0);
+  const weightedDistance = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.distance * neighbor.weight, 0);
+  const sameRegimeWeight = baseNeighbors.filter((neighbor) => neighbor.regime === liveState.regime).reduce((sum, neighbor) => sum + neighbor.weight, 0);
+  const dominantShare = weightSum > 0 ? (voteMap.get(patokan) ?? 0) / weightSum : 0;
   const effectiveNeighbors = weightSquares > 0 ? (weightSum * weightSum) / weightSquares : 0;
   const meanDistance = weightSum > 0 ? weightedDistance / weightSum : 1;
-  const stabilityPredictions = NEIGHBOR_STABILITY_COUNTS.map((count) => predictionFromNeighbors(neighbors, modulus, Math.min(count, neighbors.length)));
-  const stability = (stabilityPredictions.filter((digit) => digit === patokan).length / NEIGHBOR_STABILITY_COUNTS.length) * 100;
-  const voteScore = Math.min(1, dominantShare / 0.5);
+  const regimeAgreement = weightSum > 0 ? (sameRegimeWeight / weightSum) * 100 : 0;
+  const voteScore = Math.min(1, dominantShare / 0.45);
   const neighborScore = Math.min(1, effectiveNeighbors / 8);
   const similarityScore = Math.exp(-meanDistance);
-  const confidence = Math.round((0.35 * voteScore + 0.25 * neighborScore + 0.2 * similarityScore + 0.2 * (stability / 100)) * 100);
+  const confidence = Math.round((
+    0.25 * voteScore +
+    0.2 * neighborScore +
+    0.2 * similarityScore +
+    0.25 * (ensembleStability / 100) +
+    0.1 * (regimeAgreement / 100)
+  ) * 100);
 
   return {
     patokan,
     confidence,
     confidenceLevel: confidenceLevel(confidence),
     quality: {
-      neighborCount: neighbors.length,
+      neighborCount: baseNeighbors.length,
       effectiveNeighbors: Number(effectiveNeighbors.toFixed(2)),
       meanDistance: Number(meanDistance.toFixed(3)),
       dominantShare: Number((dominantShare * 100).toFixed(1)),
-      stability: Number(stability.toFixed(1)),
+      stability: Number(ensembleStability.toFixed(1)),
+      ensembleStability: Number(ensembleStability.toFixed(1)),
+      regimeAgreement: Number(regimeAgreement.toFixed(1)),
       regime: liveState.regime,
     },
-    neighbors,
+    neighbors: baseNeighbors,
   };
 }
 
@@ -375,6 +536,39 @@ function combinations<T>(values: readonly T[], size: number): T[][] {
   return result;
 }
 
+function combination(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  const safeK = Math.min(k, n - k);
+  let result = 1;
+  for (let index = 1; index <= safeK; index += 1) result = (result * (n - safeK + index)) / index;
+  return result;
+}
+
+function randomCoverageProbability(total: number, selected: number, targets: number, required: number, offMode: boolean): number {
+  const denominator = combination(total, selected);
+  if (!denominator || targets <= 0) return 0;
+  if (offMode) return combination(total - targets, selected) / denominator;
+  let probability = 0;
+  for (let hits = required; hits <= Math.min(targets, selected); hits += 1) {
+    probability += combination(targets, hits) * combination(total - targets, selected - hits) / denominator;
+  }
+  return probability;
+}
+
+function baselineRate(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode): number {
+  const totalColumns = columnsForMode(scanMode).length;
+  if (!rows.length) return 0;
+  const probabilities = rows.map((row) => randomCoverageProbability(
+    totalColumns,
+    digitCount,
+    row.targetColumns.length,
+    requiredCover(scanMode, row.targetColumns),
+    isOffMode(scanMode),
+  ));
+  return Number((mean(probabilities) * 100).toFixed(1));
+}
+
 function longestMissStreak(statuses: boolean[]): number {
   let longest = 0;
   let current = 0;
@@ -388,20 +582,22 @@ function longestMissStreak(statuses: boolean[]): number {
   return longest;
 }
 
-function discoveryAudit(statuses: boolean[]) {
-  const windows: EchoWindowAudit[] = DISCOVERY_WINDOWS.map(({ size, weight }) => {
+function rateOf(statuses: boolean[]): number {
+  return statuses.length ? Number(((statuses.filter(Boolean).length / statuses.length) * 100).toFixed(1)) : 0;
+}
+
+function discoveryAudit(statuses: boolean[], windowsSpec: WindowSpec[]) {
+  const windows: EchoWindowAudit[] = windowsSpec.map(({ size, weight }) => {
     const sample = statuses.slice(-Math.min(size, statuses.length));
-    const hit = sample.filter(Boolean).length;
     return {
       window: size,
       weight,
-      hit,
+      hit: sample.filter(Boolean).length,
       total: sample.length,
-      rate: sample.length ? Number(((hit / sample.length) * 100).toFixed(1)) : 0,
+      rate: rateOf(sample),
       longestMissStreak: longestMissStreak(sample),
     };
   }).filter((window) => window.total > 0);
-
   const totalWeight = windows.reduce((sum, window) => sum + window.weight, 0);
   const weightedAccuracy = totalWeight ? windows.reduce((sum, window) => sum + window.rate * window.weight, 0) / totalWeight : 0;
   const rates = windows.map((window) => window.rate);
@@ -417,43 +613,68 @@ function discoveryAudit(statuses: boolean[]) {
   };
 }
 
+function weightedDiscoveryBaseline(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode, windowsSpec: WindowSpec[]): number {
+  const windows = windowsSpec.map((window) => ({
+    weight: window.weight,
+    baseline: baselineRate(rows.slice(-Math.min(window.size, rows.length)), digitCount, scanMode),
+  }));
+  const weightTotal = windows.reduce((sum, window) => sum + window.weight, 0);
+  return weightTotal ? Number((windows.reduce((sum, window) => sum + window.baseline * window.weight, 0) / weightTotal).toFixed(1)) : 0;
+}
+
 function weakestRate(windows: EchoWindowAudit[]): number {
   return windows.reduce((minimum, window) => Math.min(minimum, window.rate), 100);
 }
 
-function selectColumns(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode): ColumnSelection | null {
+function selectColumns(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode, plan: EvaluationPlan): ColumnSelection | null {
   const available = columnsForMode(scanMode);
-  if (digitCount < 1 || digitCount > available.length || rows.length <= HOLDOUT_SIZE) return null;
-  const discoveryRows = rows.slice(0, -HOLDOUT_SIZE);
-  const holdoutRows = rows.slice(-HOLDOUT_SIZE);
+  if (digitCount < 1 || digitCount > available.length || rows.length < plan.totalRows) return null;
+  const discoveryRows = rows.slice(0, plan.discoverySize);
+  const validationRows = rows.slice(plan.discoverySize, plan.discoverySize + plan.validationSize);
+  const holdoutRows = rows.slice(plan.discoverySize + plan.validationSize, plan.totalRows);
   let best: ColumnSelection | null = null;
 
   for (const columns of combinations(available, digitCount)) {
     const selected = new Set<Kolom>(columns);
     const discoveryStatuses = discoveryRows.map((row) => rowCovered(row.targetColumns, selected, scanMode));
+    const validationStatuses = validationRows.map((row) => rowCovered(row.targetColumns, selected, scanMode));
     const holdoutStatuses = holdoutRows.map((row) => rowCovered(row.targetColumns, selected, scanMode));
-    const auditWindows = discoveryAudit(discoveryStatuses);
-    const holdoutHit = holdoutStatuses.filter(Boolean).length;
+    const allStatuses = [...discoveryStatuses, ...validationStatuses, ...holdoutStatuses];
+    const discoveryWindows = discoveryAudit(discoveryStatuses, plan.discoveryWindows);
+    const discoveryBaselineRate = weightedDiscoveryBaseline(discoveryRows, digitCount, scanMode, plan.discoveryWindows);
+    const validationBaselineRate = baselineRate(validationRows, digitCount, scanMode);
+    const holdoutBaselineRate = baselineRate(holdoutRows, digitCount, scanMode);
+    const validationRate = rateOf(validationStatuses);
+    const holdoutRate = rateOf(holdoutStatuses);
     const recentStatuses = holdoutStatuses.slice(-RECENT_SIZE);
-    const allStatuses = [...discoveryStatuses, ...holdoutStatuses];
     const columnUsage = discoveryRows.reduce((sum, row) => sum + row.targetColumns.filter((column) => selected.has(column)).length, 0);
     const efficiency = columnUsage / Math.max(1, discoveryRows.length * columns.length);
     const audit: EchoAudit = {
       discoveryHit: discoveryStatuses.filter(Boolean).length,
       discoveryTotal: discoveryStatuses.length,
-      discoveryWeightedAccuracy: auditWindows.weightedAccuracy,
-      discoveryWindowStability: auditWindows.stability,
-      strongestWindow: auditWindows.strongestWindow,
-      weakestWindow: auditWindows.weakestWindow,
-      windows: auditWindows.windows,
-      holdoutHit,
+      discoveryRate: rateOf(discoveryStatuses),
+      discoveryWeightedAccuracy: discoveryWindows.weightedAccuracy,
+      discoveryBaselineRate,
+      discoveryLift: Number((discoveryWindows.weightedAccuracy - discoveryBaselineRate).toFixed(1)),
+      discoveryWindowStability: discoveryWindows.stability,
+      strongestWindow: discoveryWindows.strongestWindow,
+      weakestWindow: discoveryWindows.weakestWindow,
+      windows: discoveryWindows.windows,
+      validationHit: validationStatuses.filter(Boolean).length,
+      validationTotal: validationStatuses.length,
+      validationRate,
+      validationBaselineRate,
+      validationLift: Number((validationRate - validationBaselineRate).toFixed(1)),
+      holdoutHit: holdoutStatuses.filter(Boolean).length,
       holdoutTotal: holdoutStatuses.length,
-      holdoutRate: holdoutStatuses.length ? Number(((holdoutHit / holdoutStatuses.length) * 100).toFixed(1)) : 0,
+      holdoutRate,
+      holdoutBaselineRate,
+      holdoutLift: Number((holdoutRate - holdoutBaselineRate).toFixed(1)),
       recentHit: recentStatuses.filter(Boolean).length,
       recentTotal: recentStatuses.length,
       longestMissStreak: longestMissStreak(allStatuses),
     };
-    const selectedRows = rows.map((row, index) => ({ ...row, covered: allStatuses[index] }));
+    const selectedRows = rows.map((row, index) => ({ ...row, covered: allStatuses[index] ?? false }));
     const candidate: ColumnSelection = { columns: [...columns], audit, rows: selectedRows, efficiency };
 
     if (!best ||
@@ -501,11 +722,19 @@ function buildProfiles(scanMode: ScanMode, targetPos: Posisi, target2D: Target2D
   return profiles;
 }
 
-function backtestRows(draws: Draw[], profile: EchoProfile, scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D): EchoBacktestRow[] {
-  const start = Math.max(MIN_HISTORY, draws.length - MAX_BACKTEST);
+function backtestRows(
+  draws: Draw[],
+  profile: EchoProfile,
+  scanMode: ScanMode,
+  targetPos: Posisi,
+  target2D: Target2D,
+  target3D: Target3D,
+  plan: EvaluationPlan,
+): EchoBacktestRow[] {
+  const start = Math.max(MIN_HISTORY, draws.length - plan.totalRows);
   const rows: EchoBacktestRow[] = [];
   for (let targetIndex = start; targetIndex < draws.length; targetIndex += 1) {
-    const prediction = predictAt(draws, targetIndex, profile, scanMode, target2D);
+    const prediction = predictAt(draws, targetIndex, profile, scanMode, target2D, plan);
     if (!prediction) continue;
     const deret = deretForMode(prediction.patokan, scanMode);
     const targetDigits = targetDigitsOf(draws[targetIndex], scanMode, targetPos, target2D, target3D);
@@ -522,19 +751,31 @@ function backtestRows(draws: Draw[], profile: EchoProfile, scanMode: ScanMode, t
       effectiveNeighbors: prediction.quality.effectiveNeighbors,
     });
   }
-  return rows;
+  return rows.slice(-plan.totalRows);
+}
+
+function normalizedReliability(rate: number, baseline: number): number {
+  const lift = rate - baseline;
+  if (lift >= 0) return Math.min(1, 0.5 + 0.5 * (lift / Math.max(1, 100 - baseline)));
+  return Math.max(0, 0.5 + 0.5 * (lift / Math.max(1, baseline)));
 }
 
 function baseScore(selection: ColumnSelection, confidence: number, quality: EchoQuality): number {
-  const discovery = selection.audit.discoveryWeightedAccuracy / 100;
-  const holdout = selection.audit.holdoutRate / 100;
-  const recent = selection.audit.recentTotal ? selection.audit.recentHit / selection.audit.recentTotal : 0;
-  const stability = ((quality.stability * 0.55) + (selection.audit.discoveryWindowStability * 0.45)) / 100;
-  let score = (0.28 * discovery + 0.3 * holdout + 0.14 * recent + 0.16 * (confidence / 100) + 0.12 * stability) * 100;
-  if (quality.effectiveNeighbors < MIN_NEIGHBORS) score -= 15;
-  if (confidence < 55) score -= 8;
-  if (selection.audit.holdoutRate + 25 < selection.audit.discoveryWeightedAccuracy) score -= 10;
-  if (selection.audit.longestMissStreak > 3) score -= 7;
+  const discoveryReliability = 0.65 * normalizedReliability(selection.audit.discoveryWeightedAccuracy, selection.audit.discoveryBaselineRate) + 0.35 * (selection.audit.discoveryWeightedAccuracy / 100);
+  const validationReliability = 0.7 * normalizedReliability(selection.audit.validationRate, selection.audit.validationBaselineRate) + 0.3 * (selection.audit.validationRate / 100);
+  const stability = ((quality.ensembleStability * 0.55) + (selection.audit.discoveryWindowStability * 0.45)) / 100;
+  let score = (
+    0.28 * discoveryReliability +
+    0.32 * validationReliability +
+    0.18 * (confidence / 100) +
+    0.14 * stability +
+    0.08 * Math.min(1, selection.efficiency)
+  ) * 100;
+  if (quality.effectiveNeighbors < 6.5) score -= 10;
+  if (confidence < 50) score -= 6;
+  if (selection.audit.validationLift < -5) score -= 10;
+  if (selection.audit.discoveryWindowStability < 60) score -= 5;
+  if (selection.audit.longestMissStreak > 4) score -= 5;
   return Number(Math.max(0, score).toFixed(2));
 }
 
@@ -561,9 +802,24 @@ function addConsensus(items: EchoItem[]): EchoItem[] {
   });
 }
 
+function strengthOf(item: EchoItem): EchoStrength {
+  if (item.score >= 72 && item.audit.validationLift >= 5 && item.audit.holdoutLift >= 3 && item.confidence >= 60) return "KUAT";
+  if (item.score >= 58 && item.audit.validationLift >= 0 && item.audit.holdoutLift >= -3 && item.confidence >= 50) return "CUKUP";
+  return "PANTAU";
+}
+
+function passesMinimumSignal(item: EchoItem): boolean {
+  return item.score >= 45 &&
+    item.confidence >= 42 &&
+    item.echo.effectiveNeighbors >= 5 &&
+    item.audit.validationLift >= -15 &&
+    item.audit.holdoutLift >= -20;
+}
+
 export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   if (draws.length < MIN_TOTAL_DATA) throw new Error(`Data belum cukup. Echo Engine membutuhkan minimal ${MIN_TOTAL_DATA} result.`);
 
+  const plan = evaluationPlan(draws.length);
   const scanMode = scanModeOrDefault(config.scanMode);
   const targetPos = config.targetPos ?? "K";
   const target2D = target2DOrDefault(config.target2D);
@@ -573,9 +829,9 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const candidates: EchoItem[] = [];
 
   for (const profile of profiles) {
-    const rows = backtestRows(draws, profile, scanMode, targetPos, target2D, target3D);
-    const selection = selectColumns(rows, digitCount, scanMode);
-    const live = predictAt(draws, draws.length, profile, scanMode, target2D);
+    const rows = backtestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+    const selection = selectColumns(rows, digitCount, scanMode, plan);
+    const live = predictAt(draws, draws.length, profile, scanMode, target2D, plan);
     if (!selection || !live) continue;
 
     const deretLive = deretForMode(live.patokan, scanMode);
@@ -599,6 +855,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       kolomMati: [...kolomMati],
       activeColumns: selection.columns.join(""),
       score: baseScore(selection, live.confidence, live.quality),
+      strength: "PANTAU",
       confidence: live.confidence,
       confidenceLevel: live.confidenceLevel,
       familyAgreement: 0,
@@ -624,11 +881,16 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
 
   const ranked = addConsensus([...deduped.values()]).sort((left, right) =>
     right.score - left.score ||
-    right.audit.holdoutRate - left.audit.holdoutRate ||
+    right.audit.validationLift - left.audit.validationLift ||
     right.familyAgreement - left.familyAgreement ||
     right.confidence - left.confidence ||
     left.formula.localeCompare(right.formula)
   );
+  const top = ranked[0] ? { ...ranked[0], strength: strengthOf(ranked[0]) } : null;
+  const accepted = top && passesMinimumSignal(top) ? [top] : [];
+  const message = accepted.length
+    ? `Satu rekomendasi dipilih dari ${ranked.length} kandidat tanpa memakai final holdout untuk menentukan profile.`
+    : "Sinyal Echo saat ini berada di bawah batas minimum. Engine tidak memaksakan rekomendasi.";
 
   return {
     config: {
@@ -637,23 +899,24 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       target3D,
       digitCount,
       scanMode,
-      discoveryWindows: DISCOVERY_WINDOWS.map((window) => window.size),
-      holdoutSize: HOLDOUT_SIZE,
+      discoveryWindows: plan.discoveryWindows.map((window) => window.size),
+      validationSize: plan.validationSize,
+      holdoutSize: plan.holdoutSize,
+      evaluationRows: plan.totalRows,
+      sourceDataSize: draws.length,
     },
     totalProfiles: profiles.length,
     totalQualified: ranked.length,
-    items: ranked.slice(0, 1),
+    message,
+    items: accepted,
   };
 }
 
 export const ECHO_INTERNAL_CONFIG = {
   stateWindow: STATE_WINDOW,
-  minHistory: MIN_HISTORY,
+  minimumHistory: MIN_HISTORY,
   minimumTotalData: MIN_TOTAL_DATA,
-  maximumNeighbors: MAX_NEIGHBORS,
   minimumNeighbors: MIN_NEIGHBORS,
-  recencyHalfLife: RECENCY_HALF_LIFE,
-  neighborStabilityCounts: [...NEIGHBOR_STABILITY_COUNTS],
-  discoveryWindows: DISCOVERY_WINDOWS.map((window) => ({ ...window })),
-  holdoutSize: HOLDOUT_SIZE,
+  maximumNeighbors: ABSOLUTE_MAX_NEIGHBORS,
+  recentSize: RECENT_SIZE,
 };
