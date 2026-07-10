@@ -31,22 +31,30 @@ Aturan:
 - Data paling kiri adalah data lama.
 - Data paling kanan adalah data terbaru.
 
+## Keamanan Tabel Pasaran
+
+Data `markets` tidak boleh dapat dibaca langsung memakai anon key. Semua pembacaan data pasaran dilakukan melalui route server setelah session PIN diperiksa, lalu server memakai `SUPABASE_SERVICE_ROLE_KEY`.
+
+Jalankan migration berikut:
+
+```txt
+supabase/migrations/20260710_lock_down_markets.sql
+```
+
+Isi utama migration:
+
+```sql
+alter table public.markets enable row level security;
+
+drop policy if exists "allow public read markets" on public.markets;
+
+revoke select on table public.markets from anon;
+revoke select on table public.markets from authenticated;
+```
+
+Jangan membuat policy `SELECT` untuk role `anon` pada tabel `markets`, karena policy tersebut akan melewati proteksi PIN aplikasi.
+
 ## Contoh Query Supabase
-
-Aktifkan Row Level Security:
-
-```sql
-alter table markets enable row level security;
-```
-
-Izinkan public read untuk data pasaran:
-
-```sql
-create policy "allow public read markets"
-on markets for select
-to anon
-using (true);
-```
 
 Contoh insert data:
 
@@ -131,3 +139,4 @@ Catatan:
 - `ACCESS_SECRET` dipakai untuk hash PIN, hash session, hash IP, dan admin session.
 - `ADMIN_PASSWORD` dipakai untuk login `/admin`.
 - `SUPABASE_SERVICE_ROLE_KEY` hanya boleh dipakai di server.
+- Route pembaca data `markets` wajib memakai server client, bukan anon client.
