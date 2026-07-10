@@ -2,6 +2,7 @@ import type { Draw, Kolom, Posisi, ScanMode, Target2D, Target3D } from "../engin
 
 export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES";
 export type EchoConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+export type EchoStrength = "KUAT" | "CUKUP" | "PANTAU";
 export type EchoRegime = "TREND_UP" | "TREND_DOWN" | "ZIGZAG" | "FLAT" | "EXPANDING" | "COMPRESSING" | "REPEAT" | "MIXED";
 export type EchoSourceKind = "position" | "jumlah2d" | "shio";
 export type EchoVariant = "local" | "cross" | "regime" | "area";
@@ -51,14 +52,24 @@ export interface EchoWindowAudit {
 export interface EchoAudit {
   discoveryHit: number;
   discoveryTotal: number;
+  discoveryRate: number;
   discoveryWeightedAccuracy: number;
+  discoveryBaselineRate: number;
+  discoveryLift: number;
   discoveryWindowStability: number;
   strongestWindow: number;
   weakestWindow: number;
   windows: EchoWindowAudit[];
+  validationHit: number;
+  validationTotal: number;
+  validationRate: number;
+  validationBaselineRate: number;
+  validationLift: number;
   holdoutHit: number;
   holdoutTotal: number;
   holdoutRate: number;
+  holdoutBaselineRate: number;
+  holdoutLift: number;
   recentHit: number;
   recentTotal: number;
   longestMissStreak: number;
@@ -70,6 +81,8 @@ export interface EchoQuality {
   meanDistance: number;
   dominantShare: number;
   stability: number;
+  ensembleStability: number;
+  regimeAgreement: number;
   regime: EchoRegime;
 }
 
@@ -87,6 +100,7 @@ export interface EchoItem {
   kolomMati: Kolom[];
   activeColumns: string;
   score: number;
+  strength: EchoStrength;
   confidence: number;
   confidenceLevel: EchoConfidenceLevel;
   familyAgreement: number;
@@ -118,9 +132,13 @@ export interface EchoResult {
     digitCount: number;
     scanMode: ScanMode;
     discoveryWindows: number[];
+    validationSize: number;
     holdoutSize: number;
+    evaluationRows: number;
+    sourceDataSize: number;
   };
   totalProfiles: number;
   totalQualified: number;
+  message: string;
   items: EchoItem[];
 }
