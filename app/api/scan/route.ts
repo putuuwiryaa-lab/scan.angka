@@ -4,7 +4,7 @@ import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history
 import { isScanMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import type { Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { requireActiveAccess } from "@/lib/server/access";
-import { getSupabase } from "@/lib/supabase/client";
+import { createAdminClient } from "@/lib/server/supabase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       scanMode: (body?.scanMode ?? DEFAULT_SCAN_MODE) as ScanMode,
     };
 
-    const supabase = getSupabase();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("markets")
       .select("history_data, name")
