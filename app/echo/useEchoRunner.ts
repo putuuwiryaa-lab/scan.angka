@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { clampTextNumber, isShioMode } from "../shared/scan-utils";
+import { isShioMode } from "../shared/scan-utils";
 import type { Posisi, ScanMode, Target2D, Target3D } from "../scan/types";
 import type { EchoResult } from "../../lib/echo/types";
 
@@ -12,9 +12,7 @@ type RunEchoParams = {
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
-  stopScan: string;
   onDigitCountChange: (value: number) => void;
-  onStopScanChange: (value: string) => void;
   onBeforeRun?: () => void;
 };
 
@@ -33,9 +31,7 @@ export function useEchoRunner() {
     try {
       const maxDigit = isShioMode(params.scanMode) ? 12 : 9;
       const safeDigit = Math.max(1, Math.min(maxDigit, Number(params.digitCount) || 4));
-      const safeStop = clampTextNumber(params.stopScan, 3, 1, 20);
       params.onDigitCountChange(safeDigit);
-      params.onStopScanChange(String(safeStop));
 
       const response = await fetch("/api/echo", {
         method: "POST",
@@ -46,7 +42,6 @@ export function useEchoRunner() {
           target2D: params.target2D,
           target3D: params.target3D,
           digitCount: safeDigit,
-          stopScan: safeStop,
           scanMode: params.scanMode,
         }),
       });
