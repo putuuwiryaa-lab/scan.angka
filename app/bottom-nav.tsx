@@ -6,6 +6,7 @@ import type { CSSProperties } from "react";
 
 const items = [
   { href: "/", label: "Scan" },
+  { href: "/echo", label: "Echo" },
   { href: "/batch", label: "Batch" },
 ];
 
@@ -26,7 +27,7 @@ const navStyle: CSSProperties = {
   minHeight: 58,
   margin: "0 auto",
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 6,
   padding: 6,
   border: "1px solid rgba(110,155,255,.22)",
