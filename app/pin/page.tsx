@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 const DEVICE_KEY = "scan_device_id";
+const ADMIN_WHATSAPP_URL = "https://wa.me/6285119341538";
 
 function getDeviceId() {
   if (typeof window === "undefined") return "";
@@ -83,10 +84,10 @@ export default function PinPage() {
           <button className="access-primary-button" type="submit" disabled={loading}>{loading ? "Memeriksa Kode..." : "Lanjutkan ke Aplikasi"}</button>
         </form>
 
-        <div className="access-contact-box">
+        <a className="access-contact-box" href={ADMIN_WHATSAPP_URL} target="_blank" rel="noreferrer">
           <span>Belum punya kode akses?</span>
           <strong>Hubungi Admin</strong>
-        </div>
+        </a>
       </section>
     </main>
   );
