@@ -6,6 +6,7 @@ export type EchoStrength = "KUAT" | "CUKUP" | "PANTAU";
 export type EchoRegime = "TREND_UP" | "TREND_DOWN" | "ZIGZAG" | "FLAT" | "EXPANDING" | "COMPRESSING" | "REPEAT" | "MIXED";
 export type EchoSourceKind = "position" | "jumlah2d" | "shio";
 export type EchoVariant = "local" | "cross" | "regime" | "area";
+export type EchoAuditPhase = "discovery" | "validation" | "holdout";
 
 export interface EchoProfile {
   family: EchoFamily;
@@ -36,6 +37,7 @@ export interface EchoBacktestRow {
   targetDigits: number[];
   targetColumns: Kolom[];
   covered: boolean;
+  phase: EchoAuditPhase;
   confidence: number;
   effectiveNeighbors: number;
 }
@@ -65,6 +67,11 @@ export interface EchoAudit {
   validationRate: number;
   validationBaselineRate: number;
   validationLift: number;
+  walkForwardHit: number;
+  walkForwardTotal: number;
+  walkForwardRate: number;
+  walkForwardBaselineRate: number;
+  walkForwardLift: number;
   holdoutHit: number;
   holdoutTotal: number;
   holdoutRate: number;
@@ -136,6 +143,8 @@ export interface EchoResult {
     holdoutSize: number;
     evaluationRows: number;
     sourceDataSize: number;
+    nestedWalkForward: boolean;
+    finalHoldoutUsedForSelection: boolean;
   };
   totalProfiles: number;
   totalQualified: number;

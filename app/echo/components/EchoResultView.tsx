@@ -50,10 +50,10 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
       tone: liftTone(item.audit.discoveryLift),
     },
     {
-      label: "Validation",
-      value: `${item.audit.validationRate}%`,
-      helper: `${item.audit.validationHit}/${item.audit.validationTotal} · baseline ${item.audit.validationBaselineRate}% · ${signed(item.audit.validationLift)}`,
-      tone: liftTone(item.audit.validationLift),
+      label: "Nested walk-forward",
+      value: `${item.audit.walkForwardRate}%`,
+      helper: `${item.audit.walkForwardHit}/${item.audit.walkForwardTotal} · baseline ${item.audit.walkForwardBaselineRate}% · ${signed(item.audit.walkForwardLift)}`,
+      tone: liftTone(item.audit.walkForwardLift),
     },
     {
       label: "Final holdout",
@@ -74,7 +74,7 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
         <EchoStatGrid items={liveStats} />
       </Section>
 
-      <Section title="Validasi Objektif" subtitle="Discovery memilih kolom, validation memilih profile, final holdout hanya menguji hasil akhir.">
+      <Section title="Validasi Objektif" subtitle="Discovery memilih kolom. Validation mengulang pemilihan hanya dari data sebelumnya pada setiap titik. Final holdout tidak ikut memilih profile.">
         <EchoStatGrid items={validationStats} />
       </Section>
 
@@ -82,7 +82,7 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
         <EchoWindowList windows={item.audit.windows} />
       </Section>
 
-      <Section title="Konsensus Antar-Keluarga" subtitle="Dukungan dari pendekatan Echo yang berbeda.">
+      <Section title="Konsensus Antar-Keluarga" subtitle="Konsensus hanya informasi pendukung dan tidak digunakan untuk memilih profile.">
         <div className={styles.consensusCard}>
           <strong>{item.familyAgreement}%</strong>
           <div>
@@ -96,7 +96,7 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
         <EchoNeighborList neighbors={item.result.neighbors} />
       </Section>
 
-      <Section title="Audit Walk-Forward" subtitle="Setiap baris hanya menggunakan data yang tersedia sebelum target.">
+      <Section title="Audit Walk-Forward" subtitle="D = discovery, V = nested validation, H = final holdout yang dibekukan.">
         <EchoWalkForwardList rows={item.result.rows} />
       </Section>
     </div>
