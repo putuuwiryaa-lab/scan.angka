@@ -82,6 +82,11 @@ export default function PinPage() {
           {error ? <div className="access-error">{error}</div> : null}
           <button className="access-primary-button" type="submit" disabled={loading}>{loading ? "Memeriksa Kode..." : "Lanjutkan ke Aplikasi"}</button>
         </form>
+
+        <div className="access-contact-box">
+          <span>Belum punya kode akses?</span>
+          <strong>Hubungi Admin</strong>
+        </div>
       </section>
     </main>
   );

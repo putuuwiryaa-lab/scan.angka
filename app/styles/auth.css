@@ -136,6 +136,35 @@
   white-space: pre-line;
 }
 
+.access-contact-box {
+  margin-top: 14px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(224, 179, 65, .22);
+  border-radius: 14px;
+  background: rgba(224, 179, 65, .07);
+}
+
+.access-contact-box span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.access-contact-box strong {
+  flex-shrink: 0;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
 .admin-wrap {
   padding-bottom: 42px;
 }
