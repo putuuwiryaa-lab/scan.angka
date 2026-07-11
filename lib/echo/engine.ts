@@ -30,7 +30,11 @@ import {
   buildCycleProfiles,
   predictCycleAt,
 } from "./cycle";
-import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
+import {
+  buildCandidateDiagnostics,
+  echoGateFor,
+  evaluateHoldoutRelease,
+} from "./diagnostics";
 import { buildEchoEnsembleCandidate } from "./ensemble";
 import {
   buildPairBacktestRows,
@@ -55,6 +59,7 @@ import type {
   EchoFamilyContribution,
   EchoItem,
   EchoProfile,
+  EchoReleaseEvidence,
   EchoResult,
   EchoSelectionKind,
   EchoStrength,
@@ -73,7 +78,12 @@ function normalizedReliability(rate: number, baseline: number): number {
   return Math.max(0, 0.5 + 0.5 * (lift / Math.max(1, baseline)));
 }
 
-function scoreCandidate(candidate: Pick<EchoCandidate, "discoveryFit" | "validation" | "live">): number {
+function scoreCandidate(
+  candidate: Pick<EchoCandidate, "discoveryFit" | "validation" | "live">,
+  scanMode: ScanMode,
+  digitCount: number,
+): number {
+  const gate = echoGateFor(scanMode, digitCount);
   const discoveryReliability =
     0.65 * normalizedReliability(candidate.discoveryFit.weightedAccuracy, candidate.discoveryFit.baselineRate) +
     0.35 * (candidate.discoveryFit.weightedAccuracy / 100);
@@ -93,11 +103,11 @@ function scoreCandidate(candidate: Pick<EchoCandidate, "discoveryFit" | "validat
     0.06 * Math.min(1, candidate.discoveryFit.efficiency)
   ) * 100;
 
-  if (candidate.validation.lift < 0) score -= 12;
-  if (candidate.discoveryFit.lift < 0) score -= 6;
+  if (candidate.validation.lift < gate.minimumValidationLift) score -= 12;
+  if (candidate.discoveryFit.lift < gate.minimumDiscoveryLift) score -= 6;
   if (candidate.validation.rate + 15 < candidate.discoveryFit.weightedAccuracy) score -= 8;
-  if (candidate.live.quality.effectiveNeighbors < ECHO_MIN_NEIGHBORS - 1) score -= 8;
-  if (candidate.live.confidence < 50) score -= 6;
+  if (candidate.live.quality.effectiveNeighbors < gate.minimumEffectiveNeighbors) score -= 8;
+  if (candidate.live.confidence < gate.minimumConfidence) score -= 6;
   if (candidate.discoveryFit.windowStability < 60) score -= 5;
   if (candidate.validation.longestMissStreak > 3) score -= 5;
 
@@ -118,7 +128,15 @@ function verifiedScore(candidate: EchoCandidate, holdout: EchoPhaseAudit): numbe
   return Number(Math.max(0, Math.min(100, score)).toFixed(2));
 }
 
-function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScore: number): EchoStrength {
+function strengthOf(
+  candidate: EchoCandidate,
+  holdout: EchoPhaseAudit,
+  finalScore: number,
+  scanMode: ScanMode,
+  digitCount: number,
+  release: EchoReleaseEvidence,
+): EchoStrength {
+  const gate = echoGateFor(scanMode, digitCount);
   const validationDrop = candidate.validation.rate - holdout.rate;
 
   if (
@@ -132,12 +150,12 @@ function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScor
   ) return "KUAT";
 
   if (
-    finalScore >= 58 &&
-    candidate.discoveryFit.lift >= 0 &&
-    candidate.validation.lift >= 0 &&
-    holdout.lift >= 0 &&
-    validationDrop <= 30 &&
-    candidate.live.confidence >= 50
+    finalScore >= gate.minimumScore &&
+    candidate.discoveryFit.lift >= gate.minimumDiscoveryLift &&
+    candidate.validation.lift >= gate.minimumValidationLift &&
+    (holdout.lift >= 0 || release.softAccepted) &&
+    validationDrop <= gate.maximumValidationDrop &&
+    candidate.live.confidence >= gate.minimumConfidence
   ) return "CUKUP";
 
   return "PANTAU";
@@ -330,7 +348,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       selectionKind: "single",
       contributors: [],
     };
-    partial.score = scoreCandidate(partial);
+    partial.score = scoreCandidate(partial, scanMode, digitCount);
     partial.contributors = singleContribution(partial);
     candidates.push(partial);
   }
@@ -339,12 +357,12 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const ensemble = buildEchoEnsembleCandidate(representatives, digitCount, scanMode, plan);
   const modelCandidates: EchoCandidate[] = [...representatives];
   if (ensemble) {
-    ensemble.score = scoreCandidate(ensemble as EchoCandidate);
+    ensemble.score = scoreCandidate(ensemble as EchoCandidate, scanMode, digitCount);
     modelCandidates.push(ensemble as EchoCandidate);
   }
   const ranked = [...modelCandidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
-  const candidateDiagnostics = buildCandidateDiagnostics(top);
+  const candidateDiagnostics = buildCandidateDiagnostics(top, scanMode, digitCount);
   const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
 
   if (!top || candidateDiagnostics.length > 0) {
@@ -379,16 +397,16 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     "holdout",
   );
   const finalScore = verifiedScore(top, holdout);
-  const holdoutDiagnostics = buildHoldoutDiagnostics(top, holdout, finalScore);
+  const release = evaluateHoldoutRelease(top, holdout, finalScore, scanMode, digitCount);
 
-  if (holdoutDiagnostics.length > 0) {
+  if (release.diagnostics.length > 0) {
     return {
       config: configResult,
       totalProfiles: profiles.length,
       totalQualified: candidates.length,
       totalFamilies: representatives.length,
       message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.`,
-      diagnostics: holdoutDiagnostics,
+      diagnostics: release.diagnostics,
       items: [],
     };
   }
@@ -415,12 +433,13 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     kolomMati: inactive,
     activeColumns: activeColumns.join(""),
     score: finalScore,
-    strength: strengthOf(top, holdout, finalScore),
+    strength: strengthOf(top, holdout, finalScore, scanMode, digitCount, release.evidence),
     confidence: top.live.confidence,
     confidenceLevel: top.live.confidenceLevel,
     familyAgreement: consensus.familyAgreement,
     consensusFamilies: consensus.consensusFamilies,
     contributors: top.contributors.length ? top.contributors : singleContribution(top),
+    release: release.evidence,
     audit,
     echo: top.live.quality,
     result: {
@@ -441,7 +460,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     totalProfiles: profiles.length,
     totalQualified: candidates.length,
     totalFamilies: representatives.length,
-    message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, uji berurutan, dan verifikasi akhir.`,
+    message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, uji berurutan, dan verifikasi akhir${release.evidence.softAccepted ? " dengan dukungan bukti gabungan" : ""}.`,
     diagnostics: [],
     items: [item],
   };
@@ -454,6 +473,8 @@ export const ECHO_INTERNAL_CONFIG = {
   nestedWalkForward: true,
   familyRepresentativeSelection: true,
   ensembleFrozenBeforeHoldout: true,
+  modeSpecificGates: true,
+  combinedReleaseEvidence: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
 };
