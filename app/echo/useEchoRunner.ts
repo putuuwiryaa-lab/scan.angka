@@ -16,6 +16,23 @@ type RunEchoParams = {
   onBeforeRun?: () => void;
 };
 
+function userFacingError(message: unknown): string {
+  const text = String(message || "").toLowerCase();
+  if (text.includes("data belum cukup") || text.includes("minimal")) {
+    return "Riwayat keluaran pada pasaran ini belum mencukupi untuk analisa Echo yang andal.";
+  }
+  if (text.includes("pasaran") && text.includes("pilih")) {
+    return "Pilih pasaran terlebih dahulu untuk memulai analisa.";
+  }
+  if (text.includes("belum punya data") || text.includes("history")) {
+    return "Pasaran ini belum memiliki riwayat keluaran yang dapat dianalisa.";
+  }
+  if (text.includes("mengambil data")) {
+    return "Data pasaran belum dapat dimuat. Silakan coba kembali beberapa saat lagi.";
+  }
+  return "Analisa belum dapat diproses. Silakan coba kembali.";
+}
+
 export function useEchoRunner() {
   const [marketName, setMarketName] = useState("");
   const [result, setResult] = useState<EchoResult | null>(null);
@@ -47,13 +64,13 @@ export function useEchoRunner() {
       });
       const data = await response.json();
       if (!response.ok || data.error) {
-        setEchoError(data.error || "Echo gagal.");
+        setEchoError(userFacingError(data.error));
         return;
       }
       setMarketName(data.market ?? "");
       setResult(data.result);
     } catch {
-      setEchoError("Echo gagal. Coba lagi.");
+      setEchoError("Terjadi kendala saat memproses analisa. Periksa koneksi, lalu coba kembali.");
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { analysisTitle, labelsFromValues } from "../../scan/helpers";
 import type { EchoItem } from "../../../lib/echo/types";
-import { buildEchoCopyText, profileTitle } from "../presentation";
+import { buildEchoCopyText, confidenceLabel, profileTitle } from "../presentation";
 import styles from "../echo-result.module.css";
 
 export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; marketName: string }) {
@@ -32,12 +32,12 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
     <section id="echo-result" className={`${styles.panel} ${styles.primaryCard}`}>
       <div className={styles.primaryHead}>
         <div className={styles.primaryIdentity}>
-          <span className={styles.eyebrow}>REKOMENDASI UTAMA · {item.strength}</span>
+          <span className={styles.eyebrow}>REKOMENDASI UTAMA · KATEGORI {item.strength}</span>
           <h2>{profileTitle(item)}</h2>
           <code>{item.formula}</code>
         </div>
         <div className={`${styles.confidenceBadge} ${styles[item.confidenceLevel.toLowerCase()]}`}>
-          <span>{item.confidenceLevel}</span>
+          <span>{confidenceLabel(item.confidenceLevel)}</span>
           <strong>{item.confidence}</strong>
         </div>
       </div>
@@ -52,11 +52,11 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
         {digits.map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
       </div>
 
-      <div className={styles.chipRow} aria-label="Ringkasan performa">
-        <span>Skor {item.score}</span>
-        <span>Walk-forward {item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</span>
-        <span>Holdout {item.audit.holdoutHit}/{item.audit.holdoutTotal}</span>
-        <span>Konsensus {item.familyAgreement}%</span>
+      <div className={styles.chipRow} aria-label="Ringkasan evaluasi">
+        <span>Nilai {item.score}</span>
+        <span>Uji berurutan {item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</span>
+        <span>Verifikasi akhir {item.audit.holdoutHit}/{item.audit.holdoutTotal}</span>
+        <span>Dukungan metode {item.familyAgreement}%</span>
       </div>
 
       <button
@@ -66,7 +66,7 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
         aria-live="polite"
       >
         <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
-        <span>{copied ? "Hasil tersalin" : "Salin Hasil"}</span>
+        <span>{copied ? "Rekomendasi berhasil disalin" : "Salin Rekomendasi"}</span>
       </button>
     </section>
   );

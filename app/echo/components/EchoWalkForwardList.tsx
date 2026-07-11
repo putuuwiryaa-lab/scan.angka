@@ -2,9 +2,9 @@ import type { EchoAuditPhase, EchoBacktestRow } from "../../../lib/echo/types";
 import styles from "../echo-result.module.css";
 
 const PHASE_LABEL: Record<EchoAuditPhase, string> = {
-  discovery: "D",
-  validation: "V",
-  holdout: "H",
+  discovery: "A",
+  validation: "U",
+  holdout: "V",
 };
 
 export default function EchoWalkForwardList({ rows }: { rows: EchoBacktestRow[] }) {
@@ -15,7 +15,7 @@ export default function EchoWalkForwardList({ rows }: { rows: EchoBacktestRow[] 
           <span className={styles.rowIndex}>{PHASE_LABEL[row.phase]}</span>
           <div className={styles.rowMain}>
             <b>{row.displayDraw} ➜ {row.targetDraw}</b>
-            <small>#{index + 1} · Patokan {row.patokan} · confidence {row.confidence}</small>
+            <small>Pengujian {index + 1} · angka acuan {row.patokan} · keyakinan {row.confidence}</small>
           </div>
           <strong className={row.covered ? styles.hit : styles.miss}>{row.covered ? "✓" : "×"}</strong>
         </article>
