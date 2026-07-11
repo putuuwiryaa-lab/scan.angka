@@ -25,6 +25,7 @@ import {
   ECHO_MIN_NEIGHBORS,
   ECHO_STATE_WINDOW,
 } from "./config";
+import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
 import type {
@@ -122,30 +123,6 @@ function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScor
   ) return "CUKUP";
 
   return "PANTAU";
-}
-
-function passesMinimumSignal(candidate: EchoCandidate): boolean {
-  return candidate.score >= 58 &&
-    candidate.discoveryFit.lift >= 0 &&
-    candidate.validation.lift >= 0 &&
-    candidate.validation.rate >= candidate.validation.baselineRate &&
-    candidate.live.confidence >= 50 &&
-    candidate.live.quality.effectiveNeighbors >= 5.5 &&
-    candidate.validation.total >= 6;
-}
-
-function passesFinalVerification(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScore: number): boolean {
-  const expectedHits = Math.ceil((holdout.baselineRate / 100) * holdout.total);
-  const minimumHits = Math.max(Math.ceil(holdout.total * 0.25), expectedHits);
-  const maximumMissStreak = Math.max(3, Math.floor(holdout.total / 3));
-  const validationDrop = candidate.validation.rate - holdout.rate;
-
-  return holdout.total >= 6 &&
-    holdout.hit >= minimumHits &&
-    holdout.lift >= 0 &&
-    validationDrop <= 30 &&
-    holdout.longestMissStreak <= maximumMissStreak &&
-    finalScore >= 58;
 }
 
 function overlapRatio(left: number[], right: number[]): number {
@@ -279,15 +256,16 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
 
   const ranked = [...candidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
-  const acceptedBeforeVerification = top && passesMinimumSignal(top);
+  const candidateDiagnostics = buildCandidateDiagnostics(top);
   const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
 
-  if (!top || !acceptedBeforeVerification) {
+  if (!top || candidateDiagnostics.length > 0) {
     return {
       config: configResult,
       totalProfiles: profiles.length,
       totalQualified: ranked.length,
       message: "Belum ada metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
+      diagnostics: candidateDiagnostics,
       items: [],
     };
   }
@@ -310,13 +288,15 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     "holdout",
   );
   const finalScore = verifiedScore(top, holdout);
+  const holdoutDiagnostics = buildHoldoutDiagnostics(top, holdout, finalScore);
 
-  if (!passesFinalVerification(top, holdout, finalScore)) {
+  if (holdoutDiagnostics.length > 0) {
     return {
       config: configResult,
       totalProfiles: profiles.length,
       totalQualified: ranked.length,
       message: "Metode terbaik lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.",
+      diagnostics: holdoutDiagnostics,
       items: [],
     };
   }
@@ -365,6 +345,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     totalProfiles: profiles.length,
     totalQualified: ranked.length,
     message: "Rekomendasi lolos evaluasi awal, uji berurutan, dan verifikasi akhir.",
+    diagnostics: [],
     items: [item],
   };
 }
