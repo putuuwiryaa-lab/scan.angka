@@ -31,6 +31,7 @@ import {
   predictCycleAt,
 } from "./cycle";
 import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
+import { buildEchoEnsembleCandidate } from "./ensemble";
 import {
   buildPairBacktestRows,
   buildPairProfiles,
@@ -39,6 +40,11 @@ import {
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
 import {
+  familyGroupOf,
+  selectFamilyRepresentatives,
+  type EchoSelectableCandidate,
+} from "./selection";
+import {
   buildTransitionBacktestRows,
   buildTransitionProfiles,
   predictTransitionAt,
@@ -46,22 +52,19 @@ import {
 import type {
   EchoConfig,
   EchoFamily,
+  EchoFamilyContribution,
   EchoItem,
   EchoProfile,
   EchoResult,
+  EchoSelectionKind,
   EchoStrength,
 } from "./types";
 
-interface EchoCandidate {
-  profile: EchoProfile;
-  rows: ReturnType<typeof buildEchoBacktestRows>;
-  split: EchoRowSplit;
-  discoveryFit: EchoColumnFit;
-  validation: EchoPhaseAudit;
-  productionFit: EchoColumnFit;
-  live: EchoPrediction;
-  liveDigits: number[];
-  score: number;
+interface EchoCandidate extends EchoSelectableCandidate {
+  selectionKind: EchoSelectionKind;
+  contributors: EchoFamilyContribution[];
+  frozenColumns?: Kolom[];
+  liveDeret?: number[];
 }
 
 function normalizedReliability(rate: number, baseline: number): number {
@@ -148,16 +151,19 @@ function overlapRatio(left: number[], right: number[]): number {
   return common / Math.max(1, Math.min(leftSet.size, rightSet.size));
 }
 
-function consensusFor(top: EchoCandidate, candidates: EchoCandidate[]): {
+function consensusFor(top: EchoCandidate, representatives: EchoCandidate[]): {
   familyAgreement: number;
   consensusFamilies: EchoFamily[];
 } {
-  const availableFamilies = new Set(candidates.map((candidate) => candidate.profile.family));
-  const support = new Set<EchoFamily>([top.profile.family]);
-  for (const candidate of candidates) {
-    if (candidate === top || candidate.profile.family === top.profile.family) continue;
+  const availableFamilies = new Set(representatives.map((candidate) => candidate.profile.family));
+  const support = new Set<EchoFamily>();
+
+  if (top.selectionKind === "single") support.add(top.profile.family);
+  for (const candidate of representatives) {
+    if (top.selectionKind === "single" && candidate.profile.family === top.profile.family) continue;
     if (overlapRatio(top.liveDigits, candidate.liveDigits) >= 0.5) support.add(candidate.profile.family);
   }
+
   return {
     familyAgreement: availableFamilies.size
       ? Number(((support.size / availableFamilies.size) * 100).toFixed(1))
@@ -166,12 +172,15 @@ function consensusFor(top: EchoCandidate, candidates: EchoCandidate[]): {
   };
 }
 
-function liveDigits(fit: EchoColumnFit, live: EchoPrediction, scanMode: ScanMode): number[] {
-  const deret = echoDeretForMode(live.patokan, scanMode);
+function digitsForColumns(columns: Kolom[], deret: number[], scanMode: ScanMode): number[] {
   const sourceColumns = echoColumnsForMode(scanMode);
-  return fit.columns
+  return columns
     .map((column) => deret[sourceColumns.indexOf(column)])
     .filter((digit): digit is number => Number.isFinite(digit));
+}
+
+function liveDigits(fit: EchoColumnFit, live: EchoPrediction, scanMode: ScanMode): number[] {
+  return digitsForColumns(fit.columns, echoDeretForMode(live.patokan, scanMode), scanMode);
 }
 
 function inactiveColumns(active: Kolom[], scanMode: ScanMode): Kolom[] {
@@ -179,12 +188,8 @@ function inactiveColumns(active: Kolom[], scanMode: ScanMode): Kolom[] {
   return echoColumnsForMode(scanMode).filter((column) => !selected.has(column)) as Kolom[];
 }
 
-function inactiveDigits(active: Kolom[], live: EchoPrediction, scanMode: ScanMode): number[] {
-  const deret = echoDeretForMode(live.patokan, scanMode);
-  const sourceColumns = echoColumnsForMode(scanMode);
-  return inactiveColumns(active, scanMode)
-    .map((column) => deret[sourceColumns.indexOf(column)])
-    .filter((digit): digit is number => Number.isFinite(digit));
+function inactiveDigits(active: Kolom[], deret: number[], scanMode: ScanMode): number[] {
+  return digitsForColumns(inactiveColumns(active, scanMode), deret, scanMode);
 }
 
 function rankCandidates(left: EchoCandidate, right: EchoCandidate): number {
@@ -217,6 +222,8 @@ function resultConfig(
     evaluationRows: plan.totalRows,
     sourceDataSize,
     nestedWalkForward: true,
+    familyRepresentativeSelection: true,
+    ensembleFrozenBeforeHoldout: true,
     finalHoldoutUsedForSelection: false,
     finalHoldoutUsedAsReleaseGate: true,
   };
@@ -262,6 +269,17 @@ function livePredictionForProfile(
   return predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
 }
 
+function singleContribution(candidate: EchoCandidate): EchoFamilyContribution[] {
+  return [{
+    group: familyGroupOf(candidate.profile.family),
+    family: candidate.profile.family,
+    formula: candidate.profile.formula,
+    weight: 100,
+    digits: [...candidate.liveDigits],
+    validationLift: candidate.validation.lift,
+  }];
+}
+
 export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   if (draws.length < ECHO_MIN_TOTAL_DATA) {
     throw new Error(`Data belum cukup. Echo Engine membutuhkan minimal ${ECHO_MIN_TOTAL_DATA} result.`);
@@ -284,7 +302,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   for (const profile of profiles) {
     const rows = backtestRowsForProfile(draws, profile, scanMode, targetPos, target2D, target3D, plan);
     if (rows.length < plan.totalRows) continue;
-    const split = splitEchoRows(rows, plan);
+    const split: EchoRowSplit = splitEchoRows(rows, plan);
     const discoveryFit = fitEchoColumns(split.discovery, digitCount, scanMode, plan.discoveryWindows);
     if (!discoveryFit) continue;
 
@@ -309,12 +327,22 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       live,
       liveDigits: liveDigits(productionFit, live, scanMode),
       score: 0,
+      selectionKind: "single",
+      contributors: [],
     };
     partial.score = scoreCandidate(partial);
+    partial.contributors = singleContribution(partial);
     candidates.push(partial);
   }
 
-  const ranked = [...candidates].sort(rankCandidates);
+  const representatives = selectFamilyRepresentatives(candidates);
+  const ensemble = buildEchoEnsembleCandidate(representatives, digitCount, scanMode, plan);
+  const modelCandidates: EchoCandidate[] = [...representatives];
+  if (ensemble) {
+    ensemble.score = scoreCandidate(ensemble as EchoCandidate);
+    modelCandidates.push(ensemble as EchoCandidate);
+  }
+  const ranked = [...modelCandidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
   const candidateDiagnostics = buildCandidateDiagnostics(top);
   const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
@@ -323,26 +351,29 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     return {
       config: configResult,
       totalProfiles: profiles.length,
-      totalQualified: ranked.length,
-      message: "Belum ada metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
+      totalQualified: candidates.length,
+      totalFamilies: representatives.length,
+      message: "Belum ada keluarga metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
       diagnostics: candidateDiagnostics,
       items: [],
     };
   }
 
-  const preHoldoutFit = fitEchoColumns(
-    [...top.split.discovery, ...top.split.validation],
-    digitCount,
-    scanMode,
-    plan.discoveryWindows,
-  );
-  if (!preHoldoutFit) {
-    throw new Error("Gagal membekukan model sebelum final holdout.");
+  let preHoldoutColumns = top.frozenColumns;
+  if (!preHoldoutColumns) {
+    const preHoldoutFit = fitEchoColumns(
+      [...top.split.discovery, ...top.split.validation],
+      digitCount,
+      scanMode,
+      plan.discoveryWindows,
+    );
+    if (!preHoldoutFit) throw new Error("Gagal membekukan model sebelum final holdout.");
+    preHoldoutColumns = preHoldoutFit.columns;
   }
 
   const holdout = evaluateFrozenRows(
     top.split.holdout,
-    preHoldoutFit.columns,
+    preHoldoutColumns,
     digitCount,
     scanMode,
     "holdout",
@@ -354,28 +385,32 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     return {
       config: configResult,
       totalProfiles: profiles.length,
-      totalQualified: ranked.length,
-      message: "Metode terbaik lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.",
+      totalQualified: candidates.length,
+      totalFamilies: representatives.length,
+      message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.`,
       diagnostics: holdoutDiagnostics,
       items: [],
     };
   }
 
   const audit = composeEchoAudit(top.discoveryFit, top.validation, holdout);
-  const consensus = consensusFor(top, ranked);
-  const activeColumns = top.productionFit.columns;
+  const consensus = consensusFor(top, representatives);
+  const activeColumns = top.frozenColumns ?? top.productionFit.columns;
   const inactive = inactiveColumns(activeColumns, scanMode);
-  const deretLive = echoDeretForMode(top.live.patokan, scanMode);
+  const deretLive = top.liveDeret ?? echoDeretForMode(top.live.patokan, scanMode);
+  const angkaHidup = digitsForColumns(activeColumns, deretLive, scanMode);
   const item: EchoItem = {
     family: top.profile.family,
+    familyGroup: familyGroupOf(top.profile.family),
+    selectionKind: top.selectionKind,
     formula: top.profile.formula,
     anchorPos: top.profile.anchorPos,
     targetPos,
     target2D,
     target3D,
     scanMode,
-    angkaHidup: top.liveDigits,
-    angkaMati: inactiveDigits(activeColumns, top.live, scanMode),
+    angkaHidup,
+    angkaMati: inactiveDigits(activeColumns, deretLive, scanMode),
     kolomHidup: activeColumns,
     kolomMati: inactive,
     activeColumns: activeColumns.join(""),
@@ -385,6 +420,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     confidenceLevel: top.live.confidenceLevel,
     familyAgreement: consensus.familyAgreement,
     consensusFamilies: consensus.consensusFamilies,
+    contributors: top.contributors.length ? top.contributors : singleContribution(top),
     audit,
     echo: top.live.quality,
     result: {
@@ -403,8 +439,9 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   return {
     config: configResult,
     totalProfiles: profiles.length,
-    totalQualified: ranked.length,
-    message: "Rekomendasi lolos evaluasi awal, uji berurutan, dan verifikasi akhir.",
+    totalQualified: candidates.length,
+    totalFamilies: representatives.length,
+    message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, uji berurutan, dan verifikasi akhir.`,
     diagnostics: [],
     items: [item],
   };
@@ -415,6 +452,8 @@ export const ECHO_INTERNAL_CONFIG = {
   minimumTotalData: ECHO_MIN_TOTAL_DATA,
   minimumNeighbors: ECHO_MIN_NEIGHBORS,
   nestedWalkForward: true,
+  familyRepresentativeSelection: true,
+  ensembleFrozenBeforeHoldout: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
 };
