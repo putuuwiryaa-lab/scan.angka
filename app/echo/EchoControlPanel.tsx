@@ -99,7 +99,7 @@ export default function EchoControlPanel({
   const marketOptions: EchoSheetOption[] = filteredMarkets.map((market) => ({
     value: market.id,
     label: marketTitle(market),
-    secondary: market.latestResult ? `Result terbaru ${market.latestResult}` : undefined,
+    secondary: market.latestResult ? `Keluaran terakhir: ${market.latestResult}` : undefined,
   }));
 
   const analysisOptions: EchoSheetOption[] = ANALYSIS_OPTIONS.map((item) => ({
@@ -115,7 +115,7 @@ export default function EchoControlPanel({
 
   const selectedTarget = isPositionMode(scanMode) ? targetPos : is3DMode(scanMode) ? target3D : target2D;
   const digitLabel = isOffMode(scanMode)
-    ? isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF"
+    ? isShioMode(scanMode) ? "Jumlah Shio yang Dihilangkan" : "Jumlah Digit yang Dihilangkan"
     : isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit";
   const digitUnit = isShioMode(scanMode) ? "shio" : "digit";
   const digitOptions: EchoSheetOption[] = DIGIT_OPTIONS
@@ -136,25 +136,25 @@ export default function EchoControlPanel({
 
   return (
     <>
-      <section className={`panel ${styles.controlPanel}`} aria-label="Pengaturan Echo">
+      <section className={`panel ${styles.controlPanel}`} aria-label="Pengaturan analisa Echo">
         <div className={styles.controlIntro}>
           <div>
-            <span>SETUP ANALISA</span>
-            <b>Pilih parameter utama</b>
+            <span>PENGATURAN ANALISA</span>
+            <b>Sesuaikan kebutuhan analisa</b>
           </div>
-          <small>4 langkah</small>
+          <small>4 pilihan</small>
         </div>
 
         <FieldButton
           label="Pasaran"
           value={selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}
-          hint={selectedMarket?.latestResult ? `Result ${selectedMarket.latestResult}` : "Wajib dipilih"}
+          hint={selectedMarket?.latestResult ? `Keluaran terakhir: ${selectedMarket.latestResult}` : "Pasaran wajib dipilih"}
           onClick={onOpenMarket}
         />
 
         <div className={styles.controlGrid}>
-          <FieldButton label="Jenis Prediksi" value={ANALYSIS_LABEL[scanMode]} onClick={onToggleJenis} />
-          <FieldButton label="Target" value={targetText} onClick={onToggleTarget} />
+          <FieldButton label="Jenis Analisa" value={ANALYSIS_LABEL[scanMode]} onClick={onToggleJenis} />
+          <FieldButton label="Target Analisa" value={targetText} onClick={onToggleTarget} />
         </div>
 
         <FieldButton label={digitLabel} value={`${digitCount} ${digitUnit}`} onClick={onToggleDigit} />
@@ -162,14 +162,14 @@ export default function EchoControlPanel({
         <div className={styles.auditStrip}>
           <span className={styles.auditDot} aria-hidden="true" />
           <div>
-            <b>Audit otomatis aktif</b>
-            <small>Discovery → nested walk-forward → final holdout</small>
+            <b>Evaluasi otomatis aktif</b>
+            <small>Rekomendasi dipilih dari riwayat, diuji secara berurutan, lalu diverifikasi pada data terbaru.</small>
           </div>
         </div>
 
         <button className={styles.runButton} onClick={onRun} disabled={loading || !marketId}>
           {loading ? <span className={styles.loadingSpinner} aria-hidden="true" /> : null}
-          <span>{loading ? "Menganalisa pola..." : "Cari Rekomendasi Terbaik"}</span>
+          <span>{loading ? "Sedang menganalisa data..." : "Mulai Analisa Echo"}</span>
         </button>
         {error && <div className={styles.errorBox}>{error}</div>}
       </section>
@@ -180,7 +180,7 @@ export default function EchoControlPanel({
         options={marketOptions}
         selectedValue={marketId}
         searchValue={marketQuery}
-        searchPlaceholder="Cari nama pasaran..."
+        searchPlaceholder="Cari pasaran..."
         onSearchChange={onMarketQueryChange}
         onSelect={selectMarketById}
         onClose={onCloseMarket}
@@ -189,7 +189,7 @@ export default function EchoControlPanel({
 
       <EchoSelectSheet
         open={jenisOpen}
-        title="Jenis Prediksi"
+        title="Pilih Jenis Analisa"
         options={analysisOptions}
         selectedValue={scanMode}
         onSelect={(value) => onSelectJenis(String(value) as ScanMode)}
@@ -198,7 +198,7 @@ export default function EchoControlPanel({
 
       <EchoSelectSheet
         open={targetOpen}
-        title="Pilih Target"
+        title="Pilih Target Analisa"
         options={targetOptions}
         selectedValue={selectedTarget}
         onSelect={selectTarget}
