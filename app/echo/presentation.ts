@@ -13,6 +13,7 @@ export const FAMILY_LABEL: Record<EchoFamily, string> = {
   ET: "Echo Transisi",
   EC: "Echo Siklus",
   EP: "Echo Struktur",
+  EN: "Echo Ensemble",
 };
 
 const REGIME_LABEL: Record<EchoRegime, string> = {
@@ -48,9 +49,12 @@ export function confidenceLabel(level: EchoConfidenceLevel): string {
 export function buildEchoCopyText(item: EchoItem, marketName: string): string {
   const digits = labelsFromValues(item.angkaHidup, item.scanMode).join(isShioMode(item.scanMode) ? "-" : "");
   const periods = item.audit.windows.map((window) => `L${window.window} ${window.hit}/${window.total}`).join(" · ");
+  const selection = item.selectionKind === "ensemble"
+    ? `Gabungan ${item.contributors.length} keluarga metode`
+    : profileTitle(item);
   return [
     `*${marketName.toUpperCase()} · ECHO ENGINE*`,
-    `${analysisTitle(item.scanMode, item.targetPos, item.target2D, item.target3D)} · ${profileTitle(item)}`,
+    `${analysisTitle(item.scanMode, item.targetPos, item.target2D, item.target3D)} · ${selection}`,
     `Rekomendasi: ${digits}`,
     `Tingkat keyakinan: ${confidenceLabel(item.confidenceLevel)} (${item.confidence})`,
     `Evaluasi awal: ${item.audit.discoveryWeightedAccuracy}% (${item.audit.discoveryLift >= 0 ? "+" : ""}${item.audit.discoveryLift}% dari acuan)`,
