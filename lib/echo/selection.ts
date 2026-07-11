@@ -18,6 +18,8 @@ export function familyGroupOf(family: EchoFamily): EchoFamilyGroup {
   if (family === "ET") return "TRANSITION";
   if (family === "EC") return "CYCLE";
   if (family === "EP") return "PAIR";
+  if (family === "EF") return "FREQUENCY";
+  if (family === "EM") return "MOMENTUM";
   if (family === "EN") return "ENSEMBLE";
   return "ANALOG";
 }
