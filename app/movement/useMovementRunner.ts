@@ -18,19 +18,21 @@ type RunMovementParams = {
 function userFacingError(message: unknown): string {
   const text = String(message || "").toLowerCase();
   if (text.includes("data belum cukup") || text.includes("minimal 28")) {
-    return "Riwayat keluaran belum mencukupi. Diperlukan minimal 28 result untuk training awal dan walk-forward L14.";
+    return "Basis data belum memadai untuk validasi. Minimal 28 result diperlukan agar model dapat dievaluasi secara layak.";
   }
   if (text.includes("pasaran") && text.includes("pilih")) {
-    return "Pilih pasaran terlebih dahulu untuk memulai analisa.";
+    return "Pilih pasaran analisis sebelum menjalankan proses prediksi.";
   }
   if (text.includes("belum punya data") || text.includes("history")) {
-    return "Pasaran ini belum memiliki riwayat keluaran yang dapat dianalisa.";
+    return "Riwayat result pasaran ini belum tersedia untuk dianalisis.";
   }
-  if (text.includes("target")) return "Target analisa tidak sesuai dengan jenis output yang dipilih.";
+  if (text.includes("target")) {
+    return "Target analisis tidak sesuai dengan mode prediksi yang dipilih.";
+  }
   if (text.includes("mengambil data")) {
-    return "Data pasaran belum dapat dimuat. Silakan coba kembali.";
+    return "Data pasaran belum berhasil dimuat. Coba jalankan analisis kembali.";
   }
-  return "Analisa belum dapat diproses. Silakan coba kembali.";
+  return "Analisis belum dapat diselesaikan. Periksa konfigurasi, lalu coba kembali.";
 }
 
 export function useMovementRunner() {
@@ -64,7 +66,7 @@ export function useMovementRunner() {
       setMarketName(data.market ?? "");
       setResult(data.result);
     } catch {
-      setMovementError("Terjadi kendala saat memproses analisa. Periksa koneksi, lalu coba kembali.");
+      setMovementError("Koneksi terputus saat model sedang dievaluasi. Periksa jaringan, lalu jalankan kembali.");
     } finally {
       setLoading(false);
     }
