@@ -25,6 +25,11 @@ import {
   ECHO_MIN_NEIGHBORS,
   ECHO_STATE_WINDOW,
 } from "./config";
+import {
+  buildCycleBacktestRows,
+  buildCycleProfiles,
+  predictCycleAt,
+} from "./cycle";
 import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
@@ -212,6 +217,40 @@ function resultConfig(
   };
 }
 
+function backtestRowsForProfile(
+  draws: Draw[],
+  profile: EchoProfile,
+  scanMode: ScanMode,
+  targetPos: Posisi,
+  target2D: Target2D,
+  target3D: Target3D,
+  plan: ReturnType<typeof buildEchoEvaluationPlan>,
+): ReturnType<typeof buildEchoBacktestRows> {
+  if (profile.family === "ET") {
+    return buildTransitionBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+  }
+  if (profile.family === "EC") {
+    return buildCycleBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+  }
+  return buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+}
+
+function livePredictionForProfile(
+  draws: Draw[],
+  profile: EchoProfile,
+  scanMode: ScanMode,
+  target2D: Target2D,
+  plan: ReturnType<typeof buildEchoEvaluationPlan>,
+): EchoPrediction | null {
+  if (profile.family === "ET") {
+    return predictTransitionAt(draws, draws.length, profile, scanMode, target2D, plan);
+  }
+  if (profile.family === "EC") {
+    return predictCycleAt(draws, draws.length, profile, scanMode, target2D, plan);
+  }
+  return predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
+}
+
 export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   if (draws.length < ECHO_MIN_TOTAL_DATA) {
     throw new Error(`Data belum cukup. Echo Engine membutuhkan minimal ${ECHO_MIN_TOTAL_DATA} result.`);
@@ -226,13 +265,12 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const profiles = [
     ...buildEchoProfiles(scanMode, targetPos, target2D, target3D),
     ...buildTransitionProfiles(scanMode, targetPos, target2D, target3D),
+    ...buildCycleProfiles(scanMode, targetPos, target2D, target3D),
   ];
   const candidates: EchoCandidate[] = [];
 
   for (const profile of profiles) {
-    const rows = profile.family === "ET"
-      ? buildTransitionBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan)
-      : buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+    const rows = backtestRowsForProfile(draws, profile, scanMode, targetPos, target2D, target3D, plan);
     if (rows.length < plan.totalRows) continue;
     const split = splitEchoRows(rows, plan);
     const discoveryFit = fitEchoColumns(split.discovery, digitCount, scanMode, plan.discoveryWindows);
@@ -246,9 +284,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       plan.discoveryWindows,
     );
     const productionFit = fitEchoColumns(rows, digitCount, scanMode, plan.discoveryWindows);
-    const live = profile.family === "ET"
-      ? predictTransitionAt(draws, draws.length, profile, scanMode, target2D, plan)
-      : predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
+    const live = livePredictionForProfile(draws, profile, scanMode, target2D, plan);
     if (!productionFit || !live) continue;
 
     const partial: EchoCandidate = {
