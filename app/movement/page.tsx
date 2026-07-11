@@ -325,18 +325,20 @@ export default function MovementPage() {
               </div>
             </section>
 
-            <section className={styles.card}>
-              <header className={styles.sectionHead}><h3>Ranking Digit Live</h3><p>Dibentuk ulang memakai {METHOD_LABEL[result.selectedMethod]} dan {result.selectedWindow} data terbaru.</p></header>
-              <div className={styles.probabilityList}>
-                {result.probabilities.map((item) => (
-                  <div key={item.digit}>
-                    <b>{item.digit}</b>
-                    <span><i style={{ width: `${Math.min(100, item.score * 5)}%` }} /></span>
-                    <small>{item.score}%</small>
-                  </div>
-                ))}
-              </div>
-            </section>
+            {result.released && (
+              <section className={styles.card}>
+                <header className={styles.sectionHead}><h3>Ranking Digit Live</h3><p>Dibentuk ulang memakai {METHOD_LABEL[result.selectedMethod]} dan {result.selectedWindow} data terbaru.</p></header>
+                <div className={styles.probabilityList}>
+                  {result.probabilities.map((item) => (
+                    <div key={item.digit}>
+                      <b>{item.digit}</b>
+                      <span><i style={{ width: `${Math.min(100, item.score * 5)}%` }} /></span>
+                      <small>{item.score}%</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className={styles.card}>
               <header className={styles.sectionHead}><h3>Riwayat Uji L14</h3><p>Pada setiap baris, target tidak pernah ikut masuk ke data training.</p></header>
