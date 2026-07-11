@@ -47,13 +47,13 @@ export function useEchoRunner() {
       });
       const data = await response.json();
       if (!response.ok || data.error) {
-        setEchoError(data.error || "Echo gagal.");
+        setEchoError(data.error || "Analisa belum dapat diproses. Silakan coba kembali.");
         return;
       }
       setMarketName(data.market ?? "");
       setResult(data.result);
     } catch {
-      setEchoError("Echo gagal. Coba lagi.");
+      setEchoError("Terjadi kendala saat memproses analisa. Periksa koneksi, lalu coba kembali.");
     } finally {
       setLoading(false);
     }
