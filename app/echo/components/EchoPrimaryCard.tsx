@@ -5,6 +5,13 @@ import { analysisTitle, labelsFromValues } from "../../scan/helpers";
 import type { EchoItem } from "../../../lib/echo/types";
 import { buildEchoCopyText, confidenceLabel, profileTitle } from "../presentation";
 import styles from "../echo-result.module.css";
+import cardStyles from "./EchoPrimaryCard.module.css";
+
+function digitLayoutClass(count: number): string {
+  if (count >= 7) return cardStyles.mainDigitsDense;
+  if (count >= 5) return cardStyles.mainDigitsMedium;
+  return cardStyles.mainDigitsCompact;
+}
 
 export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; marketName: string }) {
   const digits = labelsFromValues(item.angkaHidup, item.scanMode);
@@ -48,15 +55,18 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
         <span>{analysisTitle(item.scanMode, item.targetPos, item.target2D, item.target3D)}</span>
       </p>
 
-      <div className={styles.mainDigits} aria-label="Angka rekomendasi">
+      <div
+        className={`${cardStyles.mainDigits} ${digitLayoutClass(digits.length)}`}
+        aria-label={`${digits.length} angka rekomendasi`}
+      >
         {digits.map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
       </div>
 
-      <div className={styles.chipRow} aria-label="Ringkasan evaluasi">
-        <span>Nilai {item.score}</span>
-        <span>Uji berurutan {item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</span>
-        <span>Verifikasi akhir {item.audit.holdoutHit}/{item.audit.holdoutTotal}</span>
-        <span>Dukungan metode {item.familyAgreement}%</span>
+      <div className={cardStyles.summaryGrid} aria-label="Ringkasan evaluasi">
+        <span><b>{item.score}</b><small>Nilai</small></span>
+        <span><b>{item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</b><small>Uji berurutan</small></span>
+        <span><b>{item.audit.holdoutHit}/{item.audit.holdoutTotal}</b><small>Verifikasi akhir</small></span>
+        <span><b>{item.familyAgreement}%</b><small>Dukungan metode</small></span>
       </div>
 
       <button
