@@ -24,6 +24,8 @@ import {
   ECHO_MIN_TOTAL_DATA,
   ECHO_MIN_NEIGHBORS,
   ECHO_STATE_WINDOW,
+  withEchoReferenceWindow,
+  type EchoEvaluationPlan,
 } from "./config";
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
@@ -38,6 +40,7 @@ import type {
 
 interface EchoCandidate {
   profile: EchoProfile;
+  plan: EchoEvaluationPlan;
   rows: ReturnType<typeof buildEchoBacktestRows>;
   split: EchoRowSplit;
   discoveryFit: EchoColumnFit;
@@ -200,7 +203,9 @@ function rankCandidates(left: EchoCandidate, right: EchoCandidate): number {
   return right.score - left.score ||
     right.validation.lift - left.validation.lift ||
     right.validation.rate - left.validation.rate ||
+    right.discoveryFit.windowStability - left.discoveryFit.windowStability ||
     right.discoveryFit.lift - left.discoveryFit.lift ||
+    right.plan.referenceWindow - left.plan.referenceWindow ||
     right.live.confidence - left.live.confidence ||
     left.profile.formula.localeCompare(right.profile.formula);
 }
@@ -211,7 +216,7 @@ function resultConfig(
   target3D: Target3D,
   digitCount: number,
   scanMode: ScanMode,
-  plan: ReturnType<typeof buildEchoEvaluationPlan>,
+  plan: EchoEvaluationPlan,
   sourceDataSize: number,
 ): EchoResult["config"] {
   return {
@@ -237,7 +242,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     throw new Error(`Data belum cukup. Echo Engine membutuhkan minimal ${ECHO_MIN_TOTAL_DATA} result.`);
   }
 
-  const plan = buildEchoEvaluationPlan(draws.length);
+  const basePlan = buildEchoEvaluationPlan(draws.length);
   const scanMode = scanModeOrDefault(config.scanMode);
   const targetPos: Posisi = config.targetPos ?? "K";
   const target2D: Target2D = target2DOrDefault(config.target2D);
@@ -245,44 +250,60 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const digitCount = clamp(config.digitCount, 4, 1, isShioMode(scanMode) ? 12 : 9);
   const profiles = buildEchoProfiles(scanMode, targetPos, target2D, target3D);
   const candidates: EchoCandidate[] = [];
+  const maximumReferenceWindow = Math.max(...basePlan.referenceWindows);
 
   for (const profile of profiles) {
-    const rows = buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
-    if (rows.length < plan.totalRows) continue;
-    const split = splitEchoRows(rows, plan);
-    const discoveryFit = fitEchoColumns(split.discovery, digitCount, scanMode, plan.discoveryWindows);
-    if (!discoveryFit) continue;
+    for (const referenceWindow of basePlan.referenceWindows) {
+      const plan = withEchoReferenceWindow(basePlan, referenceWindow);
+      const rows = buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+      if (rows.length < plan.totalRows) continue;
+      const split = splitEchoRows(rows, plan);
+      const discoveryFit = fitEchoColumns(split.discovery, digitCount, scanMode, plan.discoveryWindows);
+      if (!discoveryFit) continue;
 
-    const validation = evaluateNestedWalkForward(
-      split.discovery,
-      split.validation,
-      digitCount,
-      scanMode,
-      plan.discoveryWindows,
-    );
-    const productionFit = fitEchoColumns(rows, digitCount, scanMode, plan.discoveryWindows);
-    const live = predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
-    if (!productionFit || !live) continue;
+      const validation = evaluateNestedWalkForward(
+        split.discovery,
+        split.validation,
+        digitCount,
+        scanMode,
+        plan.discoveryWindows,
+      );
+      const productionFit = fitEchoColumns(rows, digitCount, scanMode, plan.discoveryWindows);
+      const live = predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
+      if (!productionFit || !live) continue;
 
-    const partial: EchoCandidate = {
-      profile,
-      rows,
-      split,
-      discoveryFit,
-      validation,
-      productionFit,
-      live,
-      liveDigits: liveDigits(productionFit, live, scanMode),
-      score: 0,
-    };
-    partial.score = scoreCandidate(partial);
-    candidates.push(partial);
+      const partial: EchoCandidate = {
+        profile,
+        plan,
+        rows,
+        split,
+        discoveryFit,
+        validation,
+        productionFit,
+        live,
+        liveDigits: liveDigits(productionFit, live, scanMode),
+        score: 0,
+      };
+      const shortWindowPenalty =
+        ((maximumReferenceWindow - plan.referenceWindow) / maximumReferenceWindow) * 1.5;
+      partial.score = Number(Math.max(0, scoreCandidate(partial) - shortWindowPenalty).toFixed(2));
+      candidates.push(partial);
+    }
   }
 
   const ranked = [...candidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
   const acceptedBeforeVerification = top && passesMinimumSignal(top);
-  const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
+  const selectedPlan = top?.plan ?? basePlan;
+  const configResult = resultConfig(
+    targetPos,
+    target2D,
+    target3D,
+    digitCount,
+    scanMode,
+    selectedPlan,
+    draws.length,
+  );
 
   if (!top || !acceptedBeforeVerification) {
     return {
@@ -298,7 +319,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     [...top.split.discovery, ...top.split.validation],
     digitCount,
     scanMode,
-    plan.discoveryWindows,
+    top.plan.discoveryWindows,
   );
   if (!preHoldoutFit) {
     throw new Error("Gagal membekukan model sebelum final holdout.");
@@ -366,7 +387,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     config: configResult,
     totalProfiles: profiles.length,
     totalQualified: ranked.length,
-    message: `Rekomendasi dibentuk dari maksimal ${plan.referenceWindow} hasil terbaru dan telah melewati evaluasi berurutan.`,
+    message: `Echo memilih ${top.plan.referenceWindow} hasil terbaru berdasarkan evaluasi berurutan dan verifikasi akhir.`,
     items: [item],
   };
 }
@@ -375,8 +396,9 @@ export const ECHO_INTERNAL_CONFIG = {
   stateWindow: ECHO_STATE_WINDOW,
   minimumTotalData: ECHO_MIN_TOTAL_DATA,
   minimumNeighbors: ECHO_MIN_NEIGHBORS,
-  minimumReferenceWindow: 36,
+  minimumReferenceWindow: 30,
   maximumReferenceWindow: 60,
+  adaptiveReferenceWindow: true,
   nestedWalkForward: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
