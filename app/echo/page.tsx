@@ -18,6 +18,8 @@ const FAMILY_GROUP_LABEL = {
   TRANSITION: "Transisi",
   CYCLE: "Siklus",
   PAIR: "Struktur",
+  FREQUENCY: "Frekuensi",
+  MOMENTUM: "Momentum",
   ENSEMBLE: "Ensemble",
 } as const;
 

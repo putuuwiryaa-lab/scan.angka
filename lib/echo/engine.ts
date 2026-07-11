@@ -37,6 +37,16 @@ import {
 } from "./diagnostics";
 import { buildEchoEnsembleCandidate } from "./ensemble";
 import {
+  buildFrequencyBacktestRows,
+  buildFrequencyProfiles,
+  predictFrequencyAt,
+} from "./frequency";
+import {
+  buildMomentumBacktestRows,
+  buildMomentumProfiles,
+  predictMomentumAt,
+} from "./momentum";
+import {
   buildPairBacktestRows,
   buildPairProfiles,
   predictPairAt,
@@ -292,6 +302,12 @@ function backtestRowsForProfile(
   if (profile.family === "EP") {
     return buildPairBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
   }
+  if (profile.family === "EF") {
+    return buildFrequencyBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+  }
+  if (profile.family === "EM") {
+    return buildMomentumBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+  }
   return buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
 }
 
@@ -310,6 +326,12 @@ function livePredictionForProfile(
   }
   if (profile.family === "EP") {
     return predictPairAt(draws, draws.length, profile, plan);
+  }
+  if (profile.family === "EF") {
+    return predictFrequencyAt(draws, draws.length, profile, scanMode, target2D, plan);
+  }
+  if (profile.family === "EM") {
+    return predictMomentumAt(draws, draws.length, profile, scanMode, target2D, plan);
   }
   return predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
 }
@@ -341,6 +363,8 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     ...buildTransitionProfiles(scanMode, targetPos, target2D, target3D),
     ...buildCycleProfiles(scanMode, targetPos, target2D, target3D),
     ...buildPairProfiles(scanMode, target2D, target3D),
+    ...buildFrequencyProfiles(scanMode, targetPos, target2D, target3D),
+    ...buildMomentumProfiles(scanMode, targetPos, target2D, target3D),
   ];
   const candidates: EchoCandidate[] = [];
 
@@ -507,6 +531,8 @@ export const ECHO_INTERNAL_CONFIG = {
   modeSpecificGates: true,
   combinedReleaseEvidence: true,
   familySummaries: true,
+  frequencyDecayFamily: true,
+  momentumFamily: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
 };

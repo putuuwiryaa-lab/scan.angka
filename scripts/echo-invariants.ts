@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { echoGateFor, evaluateHoldoutRelease } from "../lib/echo/diagnostics";
 import { familyGroupOf, selectFamilyRepresentatives, type EchoSelectableCandidate } from "../lib/echo/selection";
-import type { EchoFamily } from "../lib/echo/types";
+import type { EchoFamily, EchoVariant } from "../lib/echo/types";
+
+function variantFor(family: EchoFamily): EchoVariant {
+  if (family === "ET") return "transition1";
+  if (family === "EC") return "cycleGap";
+  if (family === "EP") return "pairGap";
+  if (family === "EF") return "frequencyHot";
+  if (family === "EM") return "momentumTrend";
+  if (family === "EN") return "ensemble";
+  return "local";
+}
 
 function selectable(
   family: EchoFamily,
@@ -14,7 +24,7 @@ function selectable(
     profile: {
       family,
       formula,
-      variant: family === "ET" ? "transition1" : family === "EC" ? "cycleGap" : "local",
+      variant: variantFor(family),
       anchorPos: "K",
       sourceKind: "position",
       areaPositions: [],
@@ -90,6 +100,8 @@ assert.equal(familyGroupOf("EL"), "ANALOG");
 assert.equal(familyGroupOf("ET"), "TRANSITION");
 assert.equal(familyGroupOf("EC"), "CYCLE");
 assert.equal(familyGroupOf("EP"), "PAIR");
+assert.equal(familyGroupOf("EF"), "FREQUENCY");
+assert.equal(familyGroupOf("EM"), "MOMENTUM");
 assert.equal(familyGroupOf("EN"), "ENSEMBLE");
 
 const representatives = selectFamilyRepresentatives([
@@ -97,10 +109,14 @@ const representatives = selectFamilyRepresentatives([
   selectable("EX", "EX-K", 2, 78, 90),
   selectable("ET", "ET1-K", 4, 70, 64),
   selectable("EC", "ECG-K", 3, 69, 63),
+  selectable("EF", "EFH-K", 5, 71, 65),
+  selectable("EM", "EMT-K", 4, 70, 64),
 ]);
-assert.equal(representatives.length, 3);
+assert.equal(representatives.length, 5);
 assert.ok(representatives.some((candidate) => candidate.profile.formula === "EL-K"));
 assert.ok(!representatives.some((candidate) => candidate.profile.formula === "EX-K"));
+assert.ok(representatives.some((candidate) => candidate.profile.formula === "EFH-K"));
+assert.ok(representatives.some((candidate) => candidate.profile.formula === "EMT-K"));
 
 const aiGate = echoGateFor("ai_2d_belakang", 4);
 const broadAiGate = echoGateFor("ai_2d_belakang", 8);
