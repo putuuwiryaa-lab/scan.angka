@@ -10,6 +10,7 @@ export interface EchoEvaluationPlan {
   holdoutSize: number;
   totalRows: number;
   referenceWindow: number;
+  referenceWindows: number[];
   maximumNeighbors: number;
   halfLives: number[];
 }
@@ -21,8 +22,32 @@ export const ECHO_MIN_NEIGHBORS = 7;
 export const ECHO_MAX_NEIGHBORS = 12;
 export const ECHO_RECENT_SIZE = 5;
 
+function halfLivesFor(referenceWindow: number): number[] {
+  return [
+    Math.max(6, Math.round(referenceWindow * 0.18)),
+    Math.max(10, Math.round(referenceWindow * 0.32)),
+    Math.max(15, Math.round(referenceWindow * 0.5)),
+  ];
+}
+
+export function withEchoReferenceWindow(
+  plan: EchoEvaluationPlan,
+  requestedWindow: number,
+): EchoEvaluationPlan {
+  const referenceWindow = plan.referenceWindows.includes(requestedWindow)
+    ? requestedWindow
+    : plan.referenceWindow;
+
+  return {
+    ...plan,
+    referenceWindow,
+    halfLives: halfLivesFor(referenceWindow),
+  };
+}
+
 export function buildEchoEvaluationPlan(totalData: number): EchoEvaluationPlan {
   if (totalData >= 150) {
+    const referenceWindow = 45;
     return {
       discoveryWindows: [
         { size: 12, weight: 0.5 },
@@ -33,13 +58,15 @@ export function buildEchoEvaluationPlan(totalData: number): EchoEvaluationPlan {
       validationSize: 12,
       holdoutSize: 12,
       totalRows: 60,
-      referenceWindow: 60,
+      referenceWindow,
+      referenceWindows: [30, 45, 60],
       maximumNeighbors: 12,
-      halfLives: [10, 18, 30],
+      halfLives: halfLivesFor(referenceWindow),
     };
   }
 
   if (totalData >= 120) {
+    const referenceWindow = 42;
     return {
       discoveryWindows: [
         { size: 10, weight: 0.5 },
@@ -50,13 +77,15 @@ export function buildEchoEvaluationPlan(totalData: number): EchoEvaluationPlan {
       validationSize: 10,
       holdoutSize: 10,
       totalRows: 50,
-      referenceWindow: 54,
+      referenceWindow,
+      referenceWindows: [30, 42, 54],
       maximumNeighbors: 11,
-      halfLives: [9, 16, 26],
+      halfLives: halfLivesFor(referenceWindow),
     };
   }
 
   if (totalData >= 95) {
+    const referenceWindow = 36;
     return {
       discoveryWindows: [
         { size: 8, weight: 0.5 },
@@ -67,12 +96,14 @@ export function buildEchoEvaluationPlan(totalData: number): EchoEvaluationPlan {
       validationSize: 8,
       holdoutSize: 8,
       totalRows: 40,
-      referenceWindow: 45,
+      referenceWindow,
+      referenceWindows: [30, 36, 45],
       maximumNeighbors: 10,
-      halfLives: [8, 14, 22],
+      halfLives: halfLivesFor(referenceWindow),
     };
   }
 
+  const referenceWindow = 30;
   return {
     discoveryWindows: [
       { size: 6, weight: 0.5 },
@@ -83,8 +114,9 @@ export function buildEchoEvaluationPlan(totalData: number): EchoEvaluationPlan {
     validationSize: 6,
     holdoutSize: 6,
     totalRows: 30,
-    referenceWindow: 36,
+    referenceWindow,
+    referenceWindows: [30, 36],
     maximumNeighbors: 9,
-    halfLives: [7, 12, 18],
+    halfLives: halfLivesFor(referenceWindow),
   };
 }
