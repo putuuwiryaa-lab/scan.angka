@@ -131,6 +131,11 @@ export default function EchoPage() {
             <div>
               <b>{failedFinalVerification ? "Belum lolos verifikasi akhir" : "Belum ada rekomendasi yang memenuhi standar"}</b>
               <p>{result.message}</p>
+              {result.diagnostics?.map((diagnostic) => (
+                <p key={diagnostic.code}>
+                  <strong>{diagnostic.label}:</strong> {diagnostic.detail}
+                </p>
+              ))}
             </div>
           </section>
         )}
