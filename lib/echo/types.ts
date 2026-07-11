@@ -1,7 +1,7 @@
 import type { Draw, Kolom, Posisi, ScanMode, Target2D, Target3D } from "../engine/types";
 
 export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES" | "ET" | "EC" | "EP" | "EN";
-export type EchoFamilyGroup = "ANALOG" | "TRANSITION" | "CYCLE" | "PAIR";
+export type EchoFamilyGroup = "ANALOG" | "TRANSITION" | "CYCLE" | "PAIR" | "ENSEMBLE";
 export type EchoSelectionKind = "single" | "ensemble";
 export type EchoConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
 export type EchoStrength = "KUAT" | "CUKUP" | "PANTAU";
