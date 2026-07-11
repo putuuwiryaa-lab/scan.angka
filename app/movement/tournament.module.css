@@ -1,0 +1,87 @@
+.noRelease {
+  display: grid;
+  place-items: center;
+  min-height: 92px;
+  margin: 18px 0 12px;
+  padding: 18px;
+  border: 1px solid rgba(230, 111, 111, 0.22);
+  border-radius: 15px;
+  background: rgba(230, 111, 111, 0.07);
+  color: #e5b2b2;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.tournamentList {
+  display: grid;
+  gap: 8px;
+}
+
+.tournamentList > div {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 48px 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid rgba(110, 155, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(4, 9, 16, 0.3);
+}
+
+.tournamentList > div:first-child {
+  border-color: rgba(224, 179, 65, 0.28);
+  background: rgba(224, 179, 65, 0.07);
+}
+
+.tournamentList > div > span:first-child {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(110, 155, 255, 0.09);
+  color: #93a4bd;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.tournamentList > div > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.tournamentList b {
+  color: #dce7f8;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.tournamentList small {
+  color: #7e8da2;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.tournamentList strong {
+  color: #e5c66e;
+  font-size: 12px;
+  text-align: right;
+}
+
+.tournamentList > div > small {
+  text-align: right;
+}
+
+@media (max-width: 420px) {
+  .tournamentList > div {
+    grid-template-columns: 24px minmax(0, 1fr) 42px;
+  }
+
+  .tournamentList > div > small {
+    grid-column: 2 / 4;
+    text-align: left;
+  }
+}

@@ -12,22 +12,38 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Pilihan output Movement: Posisi, AI, dan BBFS.
 - Pilihan target posisi, 2D, 3D, atau 4D.
 - Pilihan jumlah digit.
-- Evaluasi walk-forward, final holdout, L15, L30, dan L60.
-- Ranking probabilitas digit.
+- Walk-forward tetap pada 14 result terbaru.
+- Window training kelipatan 14.
+- Turnamen seluruh metode × window.
+- Joint Pair 00–99 untuk target 2D.
+- Release gate terhadap baseline.
+- Ranking probabilitas digit untuk rekomendasi yang lolos.
 - Output ringkas dan siap copy.
 - PWA installable.
 - Data pasaran dibaca dari Supabase melalui server.
 
 ## Movement Engine
 
-Movement Engine membaca:
+Movement Engine menguji metode berikut:
 
-- transisi digit dan delta;
-- motif gerakan terbaru;
-- jarak siklus kemunculan;
-- hubungan pergerakan AS, COP, KPL, dan EKR.
+- Delta;
+- Motif;
+- Cycle;
+- Cross-position;
+- Joint Pair untuk target 2D.
 
-Bobot model tidak dipilih oleh user. Beberapa profil bobot diuji secara walk-forward dan profil terbaik dipakai pada final holdout serta prediksi live.
+Empat belas result terbaru selalu dijadikan data uji walk-forward. Data sebelum target menjadi training dan diambil menggunakan window kelipatan 14.
+
+Dengan 168 result, window yang diuji:
+
+```txt
+W14, W28, W42, W56, W70, W84,
+W98, W112, W126, W140, W154
+```
+
+Setiap metode diuji pada seluruh window tersebut. Pemenang dipilih berdasarkan L14, L7, miss streak, L3, dan stabilitas window tetangga. Metode pemenang kemudian dilatih ulang memakai window terbaru untuk membentuk prediksi berikutnya.
+
+Rekomendasi tidak diterbitkan jika kemenangan pemenang belum melewati batas baseline.
 
 ### Posisi
 
@@ -40,6 +56,8 @@ User memilih target 2D, 3D, atau 4D. Status kena jika **minimal satu digit targe
 ### BBFS
 
 User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit target** terdapat di output BBFS.
+
+Untuk BBFS 2D, metode Joint Pair menilai pasangan 00–99 secara langsung.
 
 ## Struktur Halaman
 
@@ -58,7 +76,7 @@ User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit targ
 | --- | --- | --- |
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
-| `/api/movement` | POST | Analisa pergerakan dan membentuk output |
+| `/api/movement` | POST | Menjalankan turnamen L14 dan membentuk output |
 | `/api/batch-scan` | POST | Scan banyak pasaran sekaligus |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
@@ -70,8 +88,8 @@ User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit targ
 4. Pilih target.
 5. Pilih jumlah digit.
 6. Tekan **Jalankan Analisa**.
-7. Lihat rekomendasi, evaluasi, ranking digit, dan riwayat uji.
-8. Tekan **Salin Hasil**.
+7. Lihat pemenang metode × window dan riwayat uji L14.
+8. Jika lolos baseline, salin rekomendasi yang diterbitkan.
 
 ## Batch Scan
 

@@ -9,8 +9,8 @@ export type MovementGroupTarget =
   | "3d_belakang"
   | "4d";
 export type MovementTarget = Posisi | MovementGroupTarget;
-export type MovementModel = "transition" | "motif" | "cycle" | "cross";
-export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU";
+export type MovementMethod = "delta" | "motif" | "cycle" | "cross" | "joint_pair";
+export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
 
 export interface MovementConfig {
@@ -19,7 +19,6 @@ export interface MovementConfig {
   digitCount: number;
 }
 
-export type MovementWeights = Record<MovementModel, number>;
 export type DigitDistribution = number[];
 export type PositionDistributions = Record<Posisi, DigitDistribution>;
 
@@ -38,7 +37,7 @@ export interface MovementAuditRow {
   outputDigits: number[];
   targetDigits: number[];
   covered: boolean;
-  phase: "validation" | "holdout" | "recent";
+  phase: "walk_forward";
 }
 
 export interface MovementProbability {
@@ -46,30 +45,42 @@ export interface MovementProbability {
   score: number;
 }
 
+export interface MovementTournamentCandidate {
+  method: MovementMethod;
+  window: number;
+  evaluation: MovementEvaluation;
+  l7Hit: number;
+  l3Hit: number;
+  neighborAverageHit: number;
+  meanProbability: number;
+}
+
 export interface MovementResult {
   config: MovementConfig & {
     targetPositions: Posisi[];
     sourceDataSize: number;
-    validationSize: number;
-    holdoutSize: number;
+    walkForwardSize: 14;
+    windows: number[];
+    candidateCount: number;
   };
   latestDraw: Draw;
+  released: boolean;
   digits: number[];
   offDigits: number[];
   objective: string;
   strength: MovementStrength;
   confidence: number;
   regime: MovementRegime;
-  selectedProfile: string;
-  weights: MovementWeights;
+  selectedMethod: MovementMethod;
+  selectedWindow: number;
+  minimumReleaseHits: number;
   probabilities: MovementProbability[];
   evaluation: {
-    validation: MovementEvaluation;
-    holdout: MovementEvaluation;
-    l15: MovementEvaluation;
-    l30: MovementEvaluation;
-    l60: MovementEvaluation;
+    l14: MovementEvaluation;
+    l7: MovementEvaluation;
+    l3: MovementEvaluation;
   };
+  tournament: MovementTournamentCandidate[];
   rows: MovementAuditRow[];
   message: string;
 }
@@ -83,6 +94,8 @@ export const MOVEMENT_GROUP_TARGETS: MovementGroupTarget[] = [
   "3d_belakang",
   "4d",
 ];
+
+export const MOVEMENT_METHODS: MovementMethod[] = ["delta", "motif", "cycle", "cross", "joint_pair"];
 
 export function isMovementOutputType(value: unknown): value is MovementOutputType {
   return MOVEMENT_OUTPUT_TYPES.includes(value as MovementOutputType);

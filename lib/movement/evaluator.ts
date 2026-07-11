@@ -3,250 +3,283 @@ import {
   evaluationOf,
   isCovered,
   targetDigitsOf,
+  theoreticalBaseline,
 } from "./helpers";
 import {
-  blendDistributions,
-  buildComponentDistributions,
-  type ComponentDistributions,
+  buildJointPairDistribution,
+  buildMethodDistributions,
 } from "./models";
 import {
+  chooseJointPairDigits,
   chooseMovementDigits,
+  jointPairObjectiveProbability,
+  jointPairProbabilities,
+  movementProbabilities,
   objectiveProbability,
   type MovementSelection,
 } from "./optimizer";
 import type {
   MovementAuditRow,
   MovementEvaluation,
+  MovementMethod,
   MovementOutputType,
-  MovementWeights,
-  PositionDistributions,
+  MovementProbability,
+  MovementTournamentCandidate,
 } from "./types";
 
-interface WeightProfile {
-  name: string;
-  weights: MovementWeights;
+export const WALK_FORWARD_SIZE = 14 as const;
+export const TRAINING_WINDOW_STEP = 14 as const;
+
+interface PredictionResult {
+  selection: MovementSelection;
+  probabilities: MovementProbability[];
 }
 
-interface CachedTarget {
-  targetIndex: number;
-  targetDraw: Draw;
-  targetDigits: number[];
-  components: ComponentDistributions;
-}
-
-interface ProfileRun {
-  profile: WeightProfile;
-  evaluation: MovementEvaluation;
-  meanProbability: number;
-  score: number;
+interface CandidateRun extends MovementTournamentCandidate {
   statuses: boolean[];
   rows: MovementAuditRow[];
 }
 
-export interface MovementEvaluationPlan {
-  validationStart: number;
-  holdoutStart: number;
-  validationSize: number;
-  holdoutSize: number;
-  recentStart: number;
-}
-
-export interface MovementEvaluationBundle {
-  plan: MovementEvaluationPlan;
-  profileName: string;
-  weights: MovementWeights;
-  validation: MovementEvaluation;
-  holdout: MovementEvaluation;
-  l15: MovementEvaluation;
-  l30: MovementEvaluation;
-  l60: MovementEvaluation;
-  rows: MovementAuditRow[];
-  liveDistributions: PositionDistributions;
-  liveSelection: MovementSelection;
-}
-
-const WEIGHT_PROFILES: WeightProfile[] = [
-  { name: "Seimbang", weights: { transition: 0.3, motif: 0.3, cycle: 0.15, cross: 0.25 } },
-  { name: "Transisi", weights: { transition: 0.5, motif: 0.2, cycle: 0.1, cross: 0.2 } },
-  { name: "Motif", weights: { transition: 0.2, motif: 0.5, cycle: 0.1, cross: 0.2 } },
-  { name: "Struktur", weights: { transition: 0.2, motif: 0.2, cycle: 0.1, cross: 0.5 } },
-  { name: "Siklus", weights: { transition: 0.25, motif: 0.2, cycle: 0.35, cross: 0.2 } },
-  { name: "Gerak", weights: { transition: 0.4, motif: 0.35, cycle: 0.05, cross: 0.2 } },
-  { name: "Relasi", weights: { transition: 0.25, motif: 0.25, cycle: 0.05, cross: 0.45 } },
-];
-
-export function buildMovementEvaluationPlan(totalData: number): MovementEvaluationPlan {
-  if (totalData < 80) {
-    throw new Error("Data belum cukup. Movement Engine membutuhkan minimal 80 result.");
-  }
-
-  const holdoutSize = totalData >= 120 ? 15 : 10;
-  const validationSize = totalData >= 180 ? 45 : totalData >= 120 ? 30 : 20;
-  const holdoutStart = totalData - holdoutSize;
-  const validationStart = holdoutStart - validationSize;
-  const recentStart = Math.max(40, totalData - 60);
-
-  if (validationStart < 40) {
-    throw new Error("Data belum cukup untuk membentuk training, walk-forward, dan holdout.");
-  }
-
-  return {
-    validationStart,
-    holdoutStart,
-    validationSize,
-    holdoutSize,
-    recentStart,
+export interface MovementTournamentResult {
+  windows: number[];
+  candidateCount: number;
+  selectedMethod: MovementMethod;
+  selectedWindow: number;
+  minimumReleaseHits: number;
+  released: boolean;
+  evaluation: {
+    l14: MovementEvaluation;
+    l7: MovementEvaluation;
+    l3: MovementEvaluation;
   };
+  tournament: MovementTournamentCandidate[];
+  rows: MovementAuditRow[];
+  liveSelection: MovementSelection;
+  liveProbabilities: MovementProbability[];
 }
 
-function buildCache(
-  draws: Draw[],
-  start: number,
-  targetPositions: Posisi[],
-): CachedTarget[] {
-  const cache: CachedTarget[] = [];
-  for (let targetIndex = start; targetIndex < draws.length; targetIndex += 1) {
-    cache.push({
-      targetIndex,
-      targetDraw: draws[targetIndex],
-      targetDigits: targetDigitsOf(draws[targetIndex], targetPositions),
-      components: buildComponentDistributions(draws.slice(0, targetIndex)),
-    });
+export function buildTrainingWindows(totalData: number): number[] {
+  const maximumWindow = totalData - WALK_FORWARD_SIZE;
+  if (maximumWindow < TRAINING_WINDOW_STEP) {
+    throw new Error("Data belum cukup. Movement Engine membutuhkan minimal 28 result.");
   }
-  return cache;
+
+  const windows: number[] = [];
+  for (let window = TRAINING_WINDOW_STEP; window <= maximumWindow; window += TRAINING_WINDOW_STEP) {
+    windows.push(window);
+  }
+  return windows;
 }
 
-function evaluateCached(
-  cache: CachedTarget[],
-  profile: WeightProfile,
+function eligibleMethods(targetPositions: Posisi[]): MovementMethod[] {
+  const methods: MovementMethod[] = ["delta", "motif", "cycle", "cross"];
+  if (targetPositions.length === 2) methods.push("joint_pair");
+  return methods;
+}
+
+function predictWithMethod(
+  trainingDraws: Draw[],
+  method: MovementMethod,
   targetPositions: Posisi[],
   outputType: MovementOutputType,
   digitCount: number,
-  phase: MovementAuditRow["phase"],
-): ProfileRun {
-  const statuses: boolean[] = [];
-  const rows: MovementAuditRow[] = [];
-  let probabilityTotal = 0;
-
-  for (const target of cache) {
-    const distributions = blendDistributions(target.components, profile.weights);
-    const selection = chooseMovementDigits(distributions, targetPositions, outputType, digitCount);
-    const covered = isCovered(selection.digits, target.targetDigits, outputType);
-    const eventProbability = objectiveProbability(
-      distributions,
-      targetPositions,
-      outputType,
-      selection.digits,
-    );
-
-    statuses.push(covered);
-    probabilityTotal += eventProbability;
-    rows.push({
-      targetIndex: target.targetIndex,
-      targetDraw: target.targetDraw,
-      outputDigits: selection.digits,
-      targetDigits: target.targetDigits,
-      covered,
-      phase,
-    });
+): PredictionResult {
+  if (method === "joint_pair") {
+    if (targetPositions.length !== 2) {
+      throw new Error("Joint Pair hanya tersedia untuk target dua posisi.");
+    }
+    const positions: [Posisi, Posisi] = [targetPositions[0], targetPositions[1]];
+    const distribution = buildJointPairDistribution(trainingDraws, positions);
+    return {
+      selection: chooseJointPairDigits(distribution, outputType, digitCount),
+      probabilities: jointPairProbabilities(distribution),
+    };
   }
 
-  const evaluation = evaluationOf(statuses, outputType, digitCount, targetPositions.length);
-  const meanProbability = cache.length ? (probabilityTotal / cache.length) * 100 : 0;
-  const recentRate = statuses.length
-    ? statuses.slice(-Math.min(10, statuses.length)).filter(Boolean).length /
-      Math.min(10, statuses.length) * 100
-    : 0;
-  const score = evaluation.lift + meanProbability * 0.08 + recentRate * 0.025 -
-    evaluation.longestMissStreak * 1.5;
-
+  const distributions = buildMethodDistributions(trainingDraws, method);
   return {
-    profile,
-    evaluation,
-    meanProbability: Number(meanProbability.toFixed(2)),
-    score: Number(score.toFixed(3)),
-    statuses,
-    rows,
+    selection: chooseMovementDigits(distributions, targetPositions, outputType, digitCount),
+    probabilities: movementProbabilities(distributions, targetPositions, outputType),
   };
 }
 
+function predictionProbability(
+  trainingDraws: Draw[],
+  method: MovementMethod,
+  targetPositions: Posisi[],
+  outputType: MovementOutputType,
+  digits: number[],
+): number {
+  if (method === "joint_pair") {
+    const positions: [Posisi, Posisi] = [targetPositions[0], targetPositions[1]];
+    const distribution = buildJointPairDistribution(trainingDraws, positions);
+    return jointPairObjectiveProbability(distribution, outputType, digits);
+  }
+  const distributions = buildMethodDistributions(trainingDraws, method);
+  return objectiveProbability(distributions, targetPositions, outputType, digits);
+}
+
 function recentEvaluation(
-  run: ProfileRun,
+  statuses: boolean[],
   size: number,
   outputType: MovementOutputType,
   digitCount: number,
   targetPositionCount: number,
 ): MovementEvaluation {
   return evaluationOf(
-    run.statuses.slice(-Math.min(size, run.statuses.length)),
+    statuses.slice(-Math.min(size, statuses.length)),
     outputType,
     digitCount,
     targetPositionCount,
   );
 }
 
-export function evaluateMovement(
+function runCandidate(
+  draws: Draw[],
+  method: MovementMethod,
+  window: number,
+  targetPositions: Posisi[],
+  outputType: MovementOutputType,
+  digitCount: number,
+): CandidateRun {
+  const firstTargetIndex = draws.length - WALK_FORWARD_SIZE;
+  const statuses: boolean[] = [];
+  const rows: MovementAuditRow[] = [];
+  let probabilityTotal = 0;
+
+  for (let targetIndex = firstTargetIndex; targetIndex < draws.length; targetIndex += 1) {
+    const trainingStart = targetIndex - window;
+    if (trainingStart < 0) throw new Error(`Window ${window} tidak memiliki data training yang cukup.`);
+
+    const trainingDraws = draws.slice(trainingStart, targetIndex);
+    const prediction = predictWithMethod(
+      trainingDraws,
+      method,
+      targetPositions,
+      outputType,
+      digitCount,
+    );
+    const targetDigits = targetDigitsOf(draws[targetIndex], targetPositions);
+    const covered = isCovered(prediction.selection.digits, targetDigits, outputType);
+    const probability = predictionProbability(
+      trainingDraws,
+      method,
+      targetPositions,
+      outputType,
+      prediction.selection.digits,
+    );
+
+    statuses.push(covered);
+    probabilityTotal += probability;
+    rows.push({
+      targetIndex,
+      targetDraw: draws[targetIndex],
+      outputDigits: prediction.selection.digits,
+      targetDigits,
+      covered,
+      phase: "walk_forward",
+    });
+  }
+
+  const evaluation = evaluationOf(statuses, outputType, digitCount, targetPositions.length);
+  return {
+    method,
+    window,
+    evaluation,
+    l7Hit: statuses.slice(-7).filter(Boolean).length,
+    l3Hit: statuses.slice(-3).filter(Boolean).length,
+    neighborAverageHit: 0,
+    meanProbability: Number(((probabilityTotal / WALK_FORWARD_SIZE) * 100).toFixed(2)),
+    statuses,
+    rows,
+  };
+}
+
+function withNeighborStability(candidates: CandidateRun[]): CandidateRun[] {
+  const byKey = new Map(candidates.map((candidate) => [`${candidate.method}:${candidate.window}`, candidate]));
+  return candidates.map((candidate) => {
+    const neighbors = [
+      byKey.get(`${candidate.method}:${candidate.window - TRAINING_WINDOW_STEP}`),
+      byKey.get(`${candidate.method}:${candidate.window + TRAINING_WINDOW_STEP}`),
+    ].filter((value): value is CandidateRun => Boolean(value));
+    const neighborAverageHit = neighbors.length
+      ? Number((neighbors.reduce((sum, value) => sum + value.evaluation.hit, 0) / neighbors.length).toFixed(2))
+      : candidate.evaluation.hit;
+    return { ...candidate, neighborAverageHit };
+  });
+}
+
+function rankCandidates(candidates: CandidateRun[]): CandidateRun[] {
+  return [...candidates].sort((left, right) =>
+    right.evaluation.hit - left.evaluation.hit ||
+    right.l7Hit - left.l7Hit ||
+    left.evaluation.longestMissStreak - right.evaluation.longestMissStreak ||
+    right.l3Hit - left.l3Hit ||
+    right.neighborAverageHit - left.neighborAverageHit ||
+    right.meanProbability - left.meanProbability ||
+    right.window - left.window ||
+    left.method.localeCompare(right.method),
+  );
+}
+
+export function minimumReleaseHits(
+  outputType: MovementOutputType,
+  digitCount: number,
+  targetPositionCount: number,
+): number {
+  const baseline = theoreticalBaseline(outputType, digitCount, targetPositionCount);
+  const expectedHits = baseline / 100 * WALK_FORWARD_SIZE;
+  return Math.min(WALK_FORWARD_SIZE, Math.ceil(expectedHits) + 1);
+}
+
+export function evaluateMovementTournament(
   draws: Draw[],
   targetPositions: Posisi[],
   outputType: MovementOutputType,
   digitCount: number,
-): MovementEvaluationBundle {
-  const plan = buildMovementEvaluationPlan(draws.length);
-  const recentCache = buildCache(draws, plan.recentStart, targetPositions);
-  const validationCache = recentCache.filter((target) =>
-    target.targetIndex >= plan.validationStart && target.targetIndex < plan.holdoutStart,
+): MovementTournamentResult {
+  const windows = buildTrainingWindows(draws.length);
+  const methods = eligibleMethods(targetPositions);
+  const rawCandidates = methods.flatMap((method) =>
+    windows.map((window) => runCandidate(
+      draws,
+      method,
+      window,
+      targetPositions,
+      outputType,
+      digitCount,
+    )),
   );
-  const holdoutCache = recentCache.filter((target) => target.targetIndex >= plan.holdoutStart);
+  const ranked = rankCandidates(withNeighborStability(rawCandidates));
+  const winner = ranked[0];
+  if (!winner) throw new Error("Tidak ada metode dan window yang dapat diuji.");
 
-  const validationRuns = WEIGHT_PROFILES.map((profile) =>
-    evaluateCached(validationCache, profile, targetPositions, outputType, digitCount, "validation"),
-  ).sort((left, right) =>
-    right.score - left.score ||
-    right.evaluation.lift - left.evaluation.lift ||
-    right.evaluation.rate - left.evaluation.rate ||
-    left.evaluation.longestMissStreak - right.evaluation.longestMissStreak ||
-    left.profile.name.localeCompare(right.profile.name),
-  );
-
-  const selected = validationRuns[0];
-  if (!selected) throw new Error("Tidak ada profil Movement yang dapat dievaluasi.");
-
-  const holdout = evaluateCached(
-    holdoutCache,
-    selected.profile,
-    targetPositions,
-    outputType,
-    digitCount,
-    "holdout",
-  );
-  const recent = evaluateCached(
-    recentCache,
-    selected.profile,
-    targetPositions,
-    outputType,
-    digitCount,
-    "recent",
-  );
-  const liveComponents = buildComponentDistributions(draws);
-  const liveDistributions = blendDistributions(liveComponents, selected.profile.weights);
-  const liveSelection = chooseMovementDigits(
-    liveDistributions,
+  const requiredHits = minimumReleaseHits(outputType, digitCount, targetPositions.length);
+  const released = winner.evaluation.hit >= requiredHits;
+  const liveTraining = draws.slice(-winner.window);
+  const live = predictWithMethod(
+    liveTraining,
+    winner.method,
     targetPositions,
     outputType,
     digitCount,
   );
 
   return {
-    plan,
-    profileName: selected.profile.name,
-    weights: selected.profile.weights,
-    validation: selected.evaluation,
-    holdout: holdout.evaluation,
-    l15: recentEvaluation(recent, 15, outputType, digitCount, targetPositions.length),
-    l30: recentEvaluation(recent, 30, outputType, digitCount, targetPositions.length),
-    l60: recentEvaluation(recent, 60, outputType, digitCount, targetPositions.length),
-    rows: [...selected.rows, ...holdout.rows],
-    liveDistributions,
-    liveSelection,
+    windows,
+    candidateCount: ranked.length,
+    selectedMethod: winner.method,
+    selectedWindow: winner.window,
+    minimumReleaseHits: requiredHits,
+    released,
+    evaluation: {
+      l14: winner.evaluation,
+      l7: recentEvaluation(winner.statuses, 7, outputType, digitCount, targetPositions.length),
+      l3: recentEvaluation(winner.statuses, 3, outputType, digitCount, targetPositions.length),
+    },
+    tournament: ranked.slice(0, 12).map(({ statuses: _statuses, rows: _rows, ...candidate }) => candidate),
+    rows: winner.rows,
+    liveSelection: live.selection,
+    liveProbabilities: live.probabilities,
   };
 }

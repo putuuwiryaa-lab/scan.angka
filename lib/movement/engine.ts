@@ -1,5 +1,9 @@
 import type { Draw, Posisi } from "../engine/types";
-import { evaluateMovement } from "./evaluator";
+import {
+  TRAINING_WINDOW_STEP,
+  WALK_FORWARD_SIZE,
+  evaluateMovementTournament,
+} from "./evaluator";
 import {
   DIGITS,
   clamp,
@@ -9,13 +13,21 @@ import {
   signedDelta,
   targetPositionsFor,
 } from "./helpers";
-import { movementProbabilities } from "./optimizer";
 import type {
   MovementConfig,
+  MovementMethod,
   MovementRegime,
   MovementResult,
   MovementStrength,
 } from "./types";
+
+const METHOD_LABEL: Record<MovementMethod, string> = {
+  delta: "Delta",
+  motif: "Motif",
+  cycle: "Cycle",
+  cross: "Cross-position",
+  joint_pair: "Joint Pair",
+};
 
 function movementSigns(draws: Draw[], position: Posisi, size: number): number[] {
   const start = Math.max(1, draws.length - size);
@@ -62,38 +74,30 @@ function regimeOf(draws: Draw[], positions: Posisi[]): MovementRegime {
   return "CHAOTIC";
 }
 
-function strengthOf(
-  validationLift: number,
-  holdoutLift: number,
-  l30Lift: number,
-  holdoutMissStreak: number,
-): MovementStrength {
-  if (
-    validationLift >= 5 &&
-    holdoutLift >= 3 &&
-    l30Lift >= 3 &&
-    holdoutMissStreak <= 2
-  ) return "KUAT";
-
-  const combinedLift = validationLift * 0.45 + holdoutLift * 0.55;
-  if (combinedLift > 0 && holdoutLift >= -3 && holdoutMissStreak <= 3) return "CUKUP";
+function strengthOf(released: boolean, hit: number, minimumHits: number): MovementStrength {
+  if (!released) return "TIDAK_LAYAK";
+  if (hit >= minimumHits + 2 || hit >= 13) return "KUAT";
+  if (hit >= minimumHits + 1) return "CUKUP";
   return "PANTAU";
 }
 
 function confidenceOf(
-  validationLift: number,
-  holdoutLift: number,
-  l30Lift: number,
-  margin: number,
+  released: boolean,
+  l14Hit: number,
+  l7Hit: number,
+  l3Hit: number,
+  minimumHits: number,
+  lift: number,
   missStreak: number,
 ): number {
-  const combinedLift = validationLift * 0.35 + holdoutLift * 0.45 + l30Lift * 0.2;
-  const instability = Math.abs(validationLift - holdoutLift);
-  const marginBonus = Math.min(8, margin * 900);
+  if (!released) {
+    return Math.round(clamp(28 + l14Hit * 2 - missStreak * 2, 20, 49));
+  }
+  const excessHits = l14Hit - minimumHits;
   return Math.round(clamp(
-    52 + combinedLift * 0.75 - instability * 0.18 + marginBonus - missStreak * 2.5,
-    20,
-    92,
+    58 + excessHits * 6 + l7Hit * 1.3 + l3Hit * 1.5 + lift * 0.18 - missStreak * 2,
+    50,
+    94,
   ));
 }
 
@@ -101,65 +105,65 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
   const targetPositions = targetPositionsFor(input.outputType, input.target);
   const digitCount = normalizeDigitCount(input);
   const config: MovementConfig = { ...input, digitCount };
-  const evaluation = evaluateMovement(draws, targetPositions, config.outputType, digitCount);
-  const digits = [...evaluation.liveSelection.digits].sort((left, right) => left - right);
-  const selected = new Set(digits);
-  const offDigits = DIGITS.filter((digit) => !selected.has(digit));
+  const tournament = evaluateMovementTournament(
+    draws,
+    targetPositions,
+    config.outputType,
+    digitCount,
+  );
   const strength = strengthOf(
-    evaluation.validation.lift,
-    evaluation.holdout.lift,
-    evaluation.l30.lift,
-    evaluation.holdout.longestMissStreak,
+    tournament.released,
+    tournament.evaluation.l14.hit,
+    tournament.minimumReleaseHits,
   );
   const confidence = confidenceOf(
-    evaluation.validation.lift,
-    evaluation.holdout.lift,
-    evaluation.l30.lift,
-    evaluation.liveSelection.margin,
-    evaluation.holdout.longestMissStreak,
+    tournament.released,
+    tournament.evaluation.l14.hit,
+    tournament.evaluation.l7.hit,
+    tournament.evaluation.l3.hit,
+    tournament.minimumReleaseHits,
+    tournament.evaluation.l14.lift,
+    tournament.evaluation.l14.longestMissStreak,
   );
+  const liveDigits = [...tournament.liveSelection.digits].sort((left, right) => left - right);
+  const selected = new Set(liveDigits);
 
   return {
     config: {
       ...config,
       targetPositions,
       sourceDataSize: draws.length,
-      validationSize: evaluation.plan.validationSize,
-      holdoutSize: evaluation.plan.holdoutSize,
+      walkForwardSize: WALK_FORWARD_SIZE,
+      windows: tournament.windows,
+      candidateCount: tournament.candidateCount,
     },
     latestDraw: draws[draws.length - 1],
-    digits,
-    offDigits,
+    released: tournament.released,
+    digits: tournament.released ? liveDigits : [],
+    offDigits: tournament.released ? DIGITS.filter((digit) => !selected.has(digit)) : [],
     objective: objectiveLabel(config.outputType, targetPositions),
     strength,
     confidence,
     regime: regimeOf(draws, targetPositions),
-    selectedProfile: evaluation.profileName,
-    weights: evaluation.weights,
-    probabilities: movementProbabilities(
-      evaluation.liveDistributions,
-      targetPositions,
-      config.outputType,
-    ),
-    evaluation: {
-      validation: evaluation.validation,
-      holdout: evaluation.holdout,
-      l15: evaluation.l15,
-      l30: evaluation.l30,
-      l60: evaluation.l60,
-    },
-    rows: evaluation.rows,
-    message: strength === "PANTAU"
-      ? "Output tetap ditampilkan, tetapi performa terbaru belum memberi keunggulan yang stabil terhadap baseline."
-      : `Profil ${evaluation.profileName} memberi hasil ${strength.toLowerCase()} pada walk-forward dan holdout terbaru.`,
+    selectedMethod: tournament.selectedMethod,
+    selectedWindow: tournament.selectedWindow,
+    minimumReleaseHits: tournament.minimumReleaseHits,
+    probabilities: tournament.released ? tournament.liveProbabilities : [],
+    evaluation: tournament.evaluation,
+    tournament: tournament.tournament,
+    rows: tournament.rows,
+    message: tournament.released
+      ? `${METHOD_LABEL[tournament.selectedMethod]} W${tournament.selectedWindow} menang dengan ${tournament.evaluation.l14.hit}/14 pada walk-forward terbaru.`
+      : `Metode terbaik hanya ${tournament.evaluation.l14.hit}/14. Minimal ${tournament.minimumReleaseHits}/14 diperlukan, sehingga rekomendasi tidak diterbitkan.`,
   };
 }
 
 export const MOVEMENT_INTERNAL_CONFIG = {
-  minimumTotalData: 80,
-  models: ["transition", "motif", "cycle", "cross"],
-  outputAlwaysReturned: true,
+  minimumTotalData: 28,
+  walkForwardSize: WALK_FORWARD_SIZE,
+  trainingWindowStep: TRAINING_WINDOW_STEP,
+  methods: ["delta", "motif", "cycle", "cross", "joint_pair"],
   aiRequiresMinimumOneTarget: true,
   bbfsRequiresAllTargets: true,
-  holdoutUsedForProfileSelection: false,
+  releaseRequiresBaselineOutperformance: true,
 };
