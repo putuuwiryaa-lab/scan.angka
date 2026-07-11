@@ -9,12 +9,11 @@ import {
 } from "./helpers";
 import type {
   DigitDistribution,
-  MovementModel,
-  MovementWeights,
+  MovementMethod,
   PositionDistributions,
 } from "./types";
 
-export type ComponentDistributions = Record<MovementModel, PositionDistributions>;
+export type JointPairDistribution = number[];
 
 function blankScores(smoothing = 0.35): number[] {
   return DIGITS.map(() => smoothing);
@@ -29,7 +28,7 @@ function positionValues(draws: Draw[], position: Posisi): number[] {
   return draws.map((draw) => digitAt(draw, position));
 }
 
-function transitionDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+function deltaDistribution(draws: Draw[], position: Posisi): DigitDistribution {
   const values = positionValues(draws, position);
   if (values.length < 3) return normalizeDistribution(blankScores());
 
@@ -66,7 +65,7 @@ function transitionDistribution(draws: Draw[], position: Posisi): DigitDistribut
 
 function motifDistribution(draws: Draw[], position: Posisi): DigitDistribution {
   const values = positionValues(draws, position);
-  if (values.length < 8) return transitionDistribution(draws, position);
+  if (values.length < 8) return deltaDistribution(draws, position);
 
   const deltas = values.slice(1).map((value, index) => signedDelta(values[index], value));
   const patternLength = Math.min(5, Math.max(3, Math.floor(deltas.length / 18)));
@@ -105,7 +104,7 @@ function cycleDistribution(draws: Draw[], position: Posisi): DigitDistribution {
   const values = positionValues(draws, position);
   const scores = blankScores(0.3);
   const currentIndex = values.length - 1;
-  const recent = values.slice(-40);
+  const recent = values.slice(-Math.min(40, values.length));
 
   for (const digit of DIGITS) {
     const occurrences: number[] = [];
@@ -138,7 +137,7 @@ function cycleDistribution(draws: Draw[], position: Posisi): DigitDistribution {
 }
 
 function crossDistribution(draws: Draw[], targetPosition: Posisi): DigitDistribution {
-  if (draws.length < 4) return transitionDistribution(draws, targetPosition);
+  if (draws.length < 4) return deltaDistribution(draws, targetPosition);
 
   const scores = blankScores(0.3);
   const latest = draws[draws.length - 1];
@@ -168,10 +167,7 @@ function crossDistribution(draws: Draw[], targetPosition: Posisi): DigitDistribu
     const age = draws.length - 2 - anchor;
     const recency = Math.pow(0.997, age);
     const similarity = Math.exp(-averageDistance * 2.2) * recency;
-    matches.push({
-      nextDigit: digitAt(draws[anchor + 1], targetPosition),
-      similarity,
-    });
+    matches.push({ nextDigit: digitAt(draws[anchor + 1], targetPosition), similarity });
   }
 
   for (const match of matches.sort((left, right) => right.similarity - left.similarity).slice(0, 42)) {
@@ -180,42 +176,62 @@ function crossDistribution(draws: Draw[], targetPosition: Posisi): DigitDistribu
   return normalizeDistribution(scores);
 }
 
-function distributionsForModel(
+export function buildMethodDistributions(
   draws: Draw[],
-  model: MovementModel,
+  method: Exclude<MovementMethod, "joint_pair">,
 ): PositionDistributions {
   const result = {} as PositionDistributions;
   for (const position of POSITIONS) {
-    if (model === "transition") result[position] = transitionDistribution(draws, position);
-    else if (model === "motif") result[position] = motifDistribution(draws, position);
-    else if (model === "cycle") result[position] = cycleDistribution(draws, position);
+    if (method === "delta") result[position] = deltaDistribution(draws, position);
+    else if (method === "motif") result[position] = motifDistribution(draws, position);
+    else if (method === "cycle") result[position] = cycleDistribution(draws, position);
     else result[position] = crossDistribution(draws, position);
   }
   return result;
 }
 
-export function buildComponentDistributions(draws: Draw[]): ComponentDistributions {
-  return {
-    transition: distributionsForModel(draws, "transition"),
-    motif: distributionsForModel(draws, "motif"),
-    cycle: distributionsForModel(draws, "cycle"),
-    cross: distributionsForModel(draws, "cross"),
-  };
+function pairIndex(first: number, second: number): number {
+  return first * 10 + second;
 }
 
-export function blendDistributions(
-  components: ComponentDistributions,
-  weights: MovementWeights,
-): PositionDistributions {
-  const blended = {} as PositionDistributions;
-  for (const position of POSITIONS) {
-    const values = DIGITS.map((digit) =>
-      components.transition[position][digit] * weights.transition +
-      components.motif[position][digit] * weights.motif +
-      components.cycle[position][digit] * weights.cycle +
-      components.cross[position][digit] * weights.cross,
-    );
-    blended[position] = normalizeDistribution(values);
+export function buildJointPairDistribution(
+  draws: Draw[],
+  positions: [Posisi, Posisi],
+): JointPairDistribution {
+  const scores = Array.from({ length: 100 }, () => 0.04);
+  if (draws.length < 4) return normalizeDistribution(scores);
+
+  const latest = draws[draws.length - 1];
+  const previous = draws[draws.length - 2];
+  const liveFirst = digitAt(latest, positions[0]);
+  const liveSecond = digitAt(latest, positions[1]);
+  const liveDeltaFirst = signedDelta(digitAt(previous, positions[0]), liveFirst);
+  const liveDeltaSecond = signedDelta(digitAt(previous, positions[1]), liveSecond);
+
+  for (let anchor = 1; anchor <= draws.length - 2; anchor += 1) {
+    const current = draws[anchor];
+    const before = draws[anchor - 1];
+    const next = draws[anchor + 1];
+    const currentFirst = digitAt(current, positions[0]);
+    const currentSecond = digitAt(current, positions[1]);
+    const deltaFirst = signedDelta(digitAt(before, positions[0]), currentFirst);
+    const deltaSecond = signedDelta(digitAt(before, positions[1]), currentSecond);
+
+    const stateDistance = (
+      circularDistance(currentFirst, liveFirst) +
+      circularDistance(currentSecond, liveSecond)
+    ) / 10;
+    const movementDistance = (
+      Math.abs(deltaFirst - liveDeltaFirst) +
+      Math.abs(deltaSecond - liveDeltaSecond)
+    ) / 20;
+    const age = draws.length - 2 - anchor;
+    const recency = Math.pow(0.996, age);
+    const similarity = Math.exp(-(stateDistance * 0.35 + movementDistance * 0.65) * 2.4) * recency;
+    const nextFirst = digitAt(next, positions[0]);
+    const nextSecond = digitAt(next, positions[1]);
+    scores[pairIndex(nextFirst, nextSecond)] += 0.15 + similarity * 1.8;
   }
-  return blended;
+
+  return normalizeDistribution(scores);
 }
