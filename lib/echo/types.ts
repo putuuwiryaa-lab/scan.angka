@@ -1,11 +1,11 @@
 import type { Draw, Kolom, Posisi, ScanMode, Target2D, Target3D } from "../engine/types";
 
-export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES" | "ET" | "EC";
+export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES" | "ET" | "EC" | "EP";
 export type EchoConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
 export type EchoStrength = "KUAT" | "CUKUP" | "PANTAU";
 export type EchoRegime = "TREND_UP" | "TREND_DOWN" | "ZIGZAG" | "FLAT" | "EXPANDING" | "COMPRESSING" | "REPEAT" | "MIXED";
 export type EchoSourceKind = "position" | "jumlah2d" | "shio";
-export type EchoVariant = "local" | "cross" | "regime" | "area" | "transition1" | "transition2" | "transitionCross" | "cycleGap" | "cyclePhase";
+export type EchoVariant = "local" | "cross" | "regime" | "area" | "transition1" | "transition2" | "transitionCross" | "cycleGap" | "cyclePhase" | "pairGap" | "pairSum" | "pairRelation";
 export type EchoAuditPhase = "discovery" | "validation" | "holdout";
 export type EchoRejectReason =
   | "NO_QUALIFIED_PROFILE"
