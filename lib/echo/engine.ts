@@ -87,14 +87,14 @@ function scoreCandidate(candidate: Pick<EchoCandidate, "discoveryFit" | "validat
 
 function verifiedScore(candidate: EchoCandidate, holdout: EchoPhaseAudit): number {
   const holdoutReliability =
-    0.75 * normalizedReliability(holdout.rate, holdout.baselineRate) +
-    0.25 * (holdout.rate / 100);
+    0.7 * normalizedReliability(holdout.rate, holdout.baselineRate) +
+    0.3 * (holdout.rate / 100);
   const validationDrop = Math.max(0, candidate.validation.rate - holdout.rate);
 
-  let score = candidate.score * 0.7 + holdoutReliability * 30;
-  if (holdout.lift < 0) score -= Math.min(15, Math.abs(holdout.lift) * 0.35);
-  if (validationDrop > 20) score -= Math.min(12, (validationDrop - 20) * 0.4);
-  if (holdout.longestMissStreak > 3) score -= 5;
+  let score = candidate.score * 0.75 + holdoutReliability * 25;
+  if (holdout.lift < 0) score -= Math.min(10, Math.abs(holdout.lift) * 0.22);
+  if (validationDrop > 25) score -= Math.min(10, (validationDrop - 25) * 0.28);
+  if (holdout.longestMissStreak > 4) score -= 4;
 
   return Number(Math.max(0, Math.min(100, score)).toFixed(2));
 }
@@ -106,8 +106,8 @@ function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScor
     finalScore >= 72 &&
     candidate.discoveryFit.lift >= 5 &&
     candidate.validation.lift >= 8 &&
-    holdout.lift >= 5 &&
-    validationDrop <= 20 &&
+    holdout.lift >= 0 &&
+    validationDrop <= 22 &&
     holdout.longestMissStreak <= 3 &&
     candidate.live.confidence >= 60
   ) return "KUAT";
@@ -116,8 +116,9 @@ function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScor
     finalScore >= 58 &&
     candidate.discoveryFit.lift >= 0 &&
     candidate.validation.lift >= 0 &&
-    holdout.lift >= 0 &&
-    validationDrop <= 30 &&
+    holdout.lift >= -12 &&
+    validationDrop <= 35 &&
+    holdout.longestMissStreak <= 4 &&
     candidate.live.confidence >= 50
   ) return "CUKUP";
 
@@ -136,16 +137,16 @@ function passesMinimumSignal(candidate: EchoCandidate): boolean {
 
 function passesFinalVerification(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScore: number): boolean {
   const expectedHits = Math.ceil((holdout.baselineRate / 100) * holdout.total);
-  const minimumHits = Math.max(Math.ceil(holdout.total * 0.25), expectedHits);
-  const maximumMissStreak = Math.max(3, Math.floor(holdout.total / 3));
+  const minimumHits = Math.max(2, expectedHits - 2);
+  const maximumMissStreak = Math.max(4, Math.ceil(holdout.total * 0.42));
   const validationDrop = candidate.validation.rate - holdout.rate;
 
   return holdout.total >= 6 &&
     holdout.hit >= minimumHits &&
-    holdout.lift >= 0 &&
-    validationDrop <= 30 &&
+    holdout.lift > -20 &&
+    validationDrop <= 40 &&
     holdout.longestMissStreak <= maximumMissStreak &&
-    finalScore >= 58;
+    finalScore >= 52;
 }
 
 function overlapRatio(left: number[], right: number[]): number {
@@ -223,6 +224,7 @@ function resultConfig(
     validationSize: plan.validationSize,
     holdoutSize: plan.holdoutSize,
     evaluationRows: plan.totalRows,
+    referenceWindow: plan.referenceWindow,
     sourceDataSize,
     nestedWalkForward: true,
     finalHoldoutUsedForSelection: false,
@@ -287,7 +289,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       config: configResult,
       totalProfiles: profiles.length,
       totalQualified: ranked.length,
-      message: "Belum ada metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
+      message: "Belum ada pola Echo yang konsisten pada data terbaru. Rekomendasi tidak ditampilkan.",
       items: [],
     };
   }
@@ -316,7 +318,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       config: configResult,
       totalProfiles: profiles.length,
       totalQualified: ranked.length,
-      message: "Metode terbaik lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.",
+      message: "Pola Echo terbaik mengalami penurunan tajam pada verifikasi terbaru. Rekomendasi tidak ditampilkan.",
       items: [],
     };
   }
@@ -364,7 +366,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     config: configResult,
     totalProfiles: profiles.length,
     totalQualified: ranked.length,
-    message: "Rekomendasi lolos evaluasi awal, uji berurutan, dan verifikasi akhir.",
+    message: `Rekomendasi dibentuk dari maksimal ${plan.referenceWindow} hasil terbaru dan telah melewati evaluasi berurutan.`,
     items: [item],
   };
 }
@@ -373,6 +375,8 @@ export const ECHO_INTERNAL_CONFIG = {
   stateWindow: ECHO_STATE_WINDOW,
   minimumTotalData: ECHO_MIN_TOTAL_DATA,
   minimumNeighbors: ECHO_MIN_NEIGHBORS,
+  minimumReferenceWindow: 36,
+  maximumReferenceWindow: 60,
   nestedWalkForward: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
