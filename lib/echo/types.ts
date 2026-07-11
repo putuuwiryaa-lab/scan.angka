@@ -127,6 +127,14 @@ export interface EchoFamilyContribution {
   validationLift: number;
 }
 
+export interface EchoReleaseEvidence {
+  holdoutFloor: number;
+  combinedRate: number;
+  combinedBaselineRate: number;
+  combinedLift: number;
+  softAccepted: boolean;
+}
+
 export interface EchoItem {
   family: EchoFamily;
   familyGroup: EchoFamilyGroup;
@@ -149,6 +157,7 @@ export interface EchoItem {
   familyAgreement: number;
   consensusFamilies: EchoFamily[];
   contributors: EchoFamilyContribution[];
+  release: EchoReleaseEvidence;
   audit: EchoAudit;
   echo: EchoQuality;
   result: {
