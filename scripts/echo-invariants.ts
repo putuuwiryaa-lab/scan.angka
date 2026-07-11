@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { theoreticalBaselineRate } from "../lib/echo/audit";
 import {
   buildCandidateDiagnostics,
   echoEvidenceFor,
@@ -122,6 +123,14 @@ assert.ok(representatives.some((candidate) => candidate.profile.formula === "EL-
 assert.ok(!representatives.some((candidate) => candidate.profile.formula === "EX-K"));
 assert.ok(representatives.some((candidate) => candidate.profile.formula === "EFH-K"));
 assert.ok(representatives.some((candidate) => candidate.profile.formula === "EMT-K"));
+
+// Baselines are theoretical constants from digit count and the hit definition.
+assert.equal(theoreticalBaselineRate(8, "bbfs_2d_belakang"), 64);
+assert.equal(theoreticalBaselineRate(7, "bbfs_2d_belakang"), 49);
+assert.equal(theoreticalBaselineRate(6, "bbfs_2d_belakang"), 36);
+assert.equal(theoreticalBaselineRate(4, "ai_2d_belakang"), 64);
+assert.equal(theoreticalBaselineRate(1, "off_2d_belakang"), 81);
+assert.equal(theoreticalBaselineRate(1, "off_posisi"), 90);
 
 // The gate is driven by baseline and sample count, not analysis labels.
 const baseline64At12 = echoGateFor(64, 12);
