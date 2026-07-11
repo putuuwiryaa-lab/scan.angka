@@ -28,6 +28,11 @@ import {
 import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
+import {
+  buildTransitionBacktestRows,
+  buildTransitionProfiles,
+  predictTransitionAt,
+} from "./transition";
 import type {
   EchoConfig,
   EchoFamily,
@@ -218,11 +223,16 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const target2D: Target2D = target2DOrDefault(config.target2D);
   const target3D: Target3D = target3DOrDefault(config.target3D);
   const digitCount = clamp(config.digitCount, 4, 1, isShioMode(scanMode) ? 12 : 9);
-  const profiles = buildEchoProfiles(scanMode, targetPos, target2D, target3D);
+  const profiles = [
+    ...buildEchoProfiles(scanMode, targetPos, target2D, target3D),
+    ...buildTransitionProfiles(scanMode, targetPos, target2D, target3D),
+  ];
   const candidates: EchoCandidate[] = [];
 
   for (const profile of profiles) {
-    const rows = buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+    const rows = profile.family === "ET"
+      ? buildTransitionBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan)
+      : buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
     if (rows.length < plan.totalRows) continue;
     const split = splitEchoRows(rows, plan);
     const discoveryFit = fitEchoColumns(split.discovery, digitCount, scanMode, plan.discoveryWindows);
@@ -236,7 +246,9 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       plan.discoveryWindows,
     );
     const productionFit = fitEchoColumns(rows, digitCount, scanMode, plan.discoveryWindows);
-    const live = predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
+    const live = profile.family === "ET"
+      ? predictTransitionAt(draws, draws.length, profile, scanMode, target2D, plan)
+      : predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
     if (!productionFit || !live) continue;
 
     const partial: EchoCandidate = {
