@@ -15,10 +15,19 @@ import {
 } from "./helpers";
 import type {
   MovementConfig,
+  MovementMethod,
   MovementRegime,
   MovementResult,
   MovementStrength,
 } from "./types";
+
+const METHOD_LABEL: Record<MovementMethod, string> = {
+  delta: "Delta",
+  motif: "Motif",
+  cycle: "Cycle",
+  cross: "Cross-position",
+  joint_pair: "Joint Pair",
+};
 
 function movementSigns(draws: Draw[], position: Posisi, size: number): number[] {
   const start = Math.max(1, draws.length - size);
@@ -67,7 +76,7 @@ function regimeOf(draws: Draw[], positions: Posisi[]): MovementRegime {
 
 function strengthOf(released: boolean, hit: number, minimumHits: number): MovementStrength {
   if (!released) return "TIDAK_LAYAK";
-  if (hit >= Math.max(13, minimumHits + 2)) return "KUAT";
+  if (hit >= minimumHits + 2 || hit >= 13) return "KUAT";
   if (hit >= minimumHits + 1) return "CUKUP";
   return "PANTAU";
 }
@@ -139,12 +148,12 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     selectedMethod: tournament.selectedMethod,
     selectedWindow: tournament.selectedWindow,
     minimumReleaseHits: tournament.minimumReleaseHits,
-    probabilities: tournament.liveProbabilities,
+    probabilities: tournament.released ? tournament.liveProbabilities : [],
     evaluation: tournament.evaluation,
     tournament: tournament.tournament,
     rows: tournament.rows,
     message: tournament.released
-      ? `${tournament.selectedMethod} W${tournament.selectedWindow} menang dengan ${tournament.evaluation.l14.hit}/14 pada walk-forward terbaru.`
+      ? `${METHOD_LABEL[tournament.selectedMethod]} W${tournament.selectedWindow} menang dengan ${tournament.evaluation.l14.hit}/14 pada walk-forward terbaru.`
       : `Metode terbaik hanya ${tournament.evaluation.l14.hit}/14. Minimal ${tournament.minimumReleaseHits}/14 diperlukan, sehingga rekomendasi tidak diterbitkan.`,
   };
 }
