@@ -16,6 +16,7 @@ import MovementSelectSheet, {
   type MovementSheetOption,
 } from "./components/MovementSelectSheet";
 import styles from "./movement.module.css";
+import tournamentStyles from "./tournament.module.css";
 import { useMovementRunner } from "./useMovementRunner";
 
 const OUTPUT_LABEL: Record<MovementOutputType, string> = {
@@ -275,7 +276,7 @@ export default function MovementPage() {
                   <div className={styles.offLine}><span>OFF</span><b>{result.offDigits.join("") || "—"}</b></div>
                 </>
               ) : (
-                <div className={styles.noRelease}>Tidak ada metode yang cukup kuat untuk result berikutnya.</div>
+                <div className={tournamentStyles.noRelease}>Tidak ada metode yang cukup kuat untuk result berikutnya.</div>
               )}
 
               <p className={styles.message}>{result.message}</p>
@@ -312,7 +313,7 @@ export default function MovementPage() {
 
             <section className={styles.card}>
               <header className={styles.sectionHead}><h3>Ranking Metode × Window</h3><p>Urutan: win L14, L7, miss streak, L3, stabilitas window tetangga.</p></header>
-              <div className={styles.tournamentList}>
+              <div className={tournamentStyles.tournamentList}>
                 {result.tournament.map((candidate, index) => (
                   <div key={`${candidate.method}-${candidate.window}`}>
                     <span>{index + 1}</span>
