@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { EchoItem } from "../../../lib/echo/types";
-import { FAMILY_LABEL } from "../presentation";
+import { FAMILY_LABEL, regimeLabel } from "../presentation";
 import styles from "../echo-result.module.css";
 import EchoNeighborList from "./EchoNeighborList";
 import EchoPrimaryCard from "./EchoPrimaryCard";
@@ -14,8 +14,8 @@ function liftTone(value: number): EchoStat["tone"] {
   return "default";
 }
 
-function signed(value: number): string {
-  return `${value >= 0 ? "+" : ""}${value}%`;
+function differenceText(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value}% dari acuan`;
 }
 
 function Section({ id, title, subtitle, children }: { id: string; title: string; subtitle?: string; children: ReactNode }) {
@@ -32,79 +32,79 @@ function Section({ id, title, subtitle, children }: { id: string; title: string;
 
 export default function EchoResultView({ item, marketName }: { item: EchoItem; marketName: string }) {
   const liveStats: EchoStat[] = [
-    { label: "Result terakhir", value: item.result.latestDraw },
-    { label: "Patokan Echo", value: String(item.result.patokan) },
-    { label: "Kolom aktif", value: item.activeColumns },
-    { label: "Kondisi live", value: item.echo.regime.split("_").join(" ") },
-    { label: "Echo efektif", value: String(item.echo.effectiveNeighbors), helper: `${item.echo.neighborCount} analog terpilih` },
-    { label: "Stabilitas ensemble", value: `${item.echo.ensembleStability}%` },
-    { label: "Kesesuaian regime", value: `${item.echo.regimeAgreement}%` },
-    { label: "Jarak rata-rata", value: String(item.echo.meanDistance) },
+    { label: "Keluaran terakhir", value: item.result.latestDraw },
+    { label: "Angka acuan", value: String(item.result.patokan) },
+    { label: "Kolom terpilih", value: item.activeColumns },
+    { label: "Kondisi pola terkini", value: regimeLabel(item.echo.regime) },
+    { label: "Pola pembanding efektif", value: String(item.echo.effectiveNeighbors), helper: `${item.echo.neighborCount} pola historis digunakan` },
+    { label: "Konsistensi prediksi", value: `${item.echo.ensembleStability}%` },
+    { label: "Kesesuaian kondisi", value: `${item.echo.regimeAgreement}%` },
+    { label: "Jarak pola rata-rata", value: String(item.echo.meanDistance), helper: "Nilai lebih kecil menunjukkan pola yang lebih mirip" },
   ];
 
   const validationStats: EchoStat[] = [
     {
-      label: "Discovery",
+      label: "Evaluasi awal",
       value: `${item.audit.discoveryWeightedAccuracy}%`,
-      helper: `baseline ${item.audit.discoveryBaselineRate}% · ${signed(item.audit.discoveryLift)}`,
+      helper: `Acuan normal ${item.audit.discoveryBaselineRate}% · ${differenceText(item.audit.discoveryLift)}`,
       tone: liftTone(item.audit.discoveryLift),
     },
     {
-      label: "Nested walk-forward",
+      label: "Uji berurutan",
       value: `${item.audit.walkForwardRate}%`,
-      helper: `${item.audit.walkForwardHit}/${item.audit.walkForwardTotal} · baseline ${item.audit.walkForwardBaselineRate}% · ${signed(item.audit.walkForwardLift)}`,
+      helper: `${item.audit.walkForwardHit}/${item.audit.walkForwardTotal} berhasil · acuan ${item.audit.walkForwardBaselineRate}% · ${differenceText(item.audit.walkForwardLift)}`,
       tone: liftTone(item.audit.walkForwardLift),
     },
     {
-      label: "Final holdout",
+      label: "Verifikasi akhir",
       value: `${item.audit.holdoutRate}%`,
-      helper: `${item.audit.holdoutHit}/${item.audit.holdoutTotal} · baseline ${item.audit.holdoutBaselineRate}% · ${signed(item.audit.holdoutLift)}`,
+      helper: `${item.audit.holdoutHit}/${item.audit.holdoutTotal} berhasil · acuan ${item.audit.holdoutBaselineRate}% · ${differenceText(item.audit.holdoutLift)}`,
       tone: liftTone(item.audit.holdoutLift),
     },
-    { label: "Recent final", value: `${item.audit.recentHit}/${item.audit.recentTotal}` },
-    { label: "Stabilitas discovery", value: `${item.audit.discoveryWindowStability}%` },
-    { label: "Miss terpanjang", value: String(item.audit.longestMissStreak) },
+    { label: "Performa 5 hasil terakhir", value: `${item.audit.recentHit}/${item.audit.recentTotal}` },
+    { label: "Konsistensi evaluasi", value: `${item.audit.discoveryWindowStability}%` },
+    { label: "Gagal beruntun terpanjang", value: String(item.audit.longestMissStreak) },
   ];
 
   return (
     <div className={styles.resultStack}>
       <nav className={styles.quickNav} aria-label="Navigasi hasil Echo">
-        <a href="#echo-result">Hasil</a>
-        <a href="#echo-live">Live</a>
-        <a href="#echo-validation">Validasi</a>
-        <a href="#echo-pattern">Pola</a>
-        <a href="#echo-audit">Audit</a>
+        <a href="#echo-result">Rekomendasi</a>
+        <a href="#echo-live">Kondisi</a>
+        <a href="#echo-validation">Evaluasi</a>
+        <a href="#echo-pattern">Periode</a>
+        <a href="#echo-audit">Riwayat Uji</a>
       </nav>
 
       <EchoPrimaryCard item={item} marketName={marketName} />
 
-      <Section id="echo-live" title="Prediksi Live" subtitle="Kualitas kondisi saat ini dan analog yang membentuk patokan.">
+      <Section id="echo-live" title="Kondisi Analisa Saat Ini" subtitle="Ringkasan pola dan data pembanding yang membentuk rekomendasi.">
         <EchoStatGrid items={liveStats} />
       </Section>
 
-      <Section id="echo-validation" title="Validasi Objektif" subtitle="Discovery memilih kolom. Nested walk-forward menguji ulang tanpa membaca target. Final holdout hanya menjadi laporan akhir.">
+      <Section id="echo-validation" title="Hasil Evaluasi" subtitle="Rekomendasi diuji secara berurutan dan diverifikasi kembali pada data terbaru yang tidak digunakan saat pemilihan metode.">
         <EchoStatGrid items={validationStats} />
       </Section>
 
-      <Section id="echo-pattern" title="Discovery Multi-Window" subtitle={`Window terkuat L${item.audit.strongestWindow} · terlemah L${item.audit.weakestWindow}`}>
+      <Section id="echo-pattern" title="Evaluasi Beberapa Periode" subtitle={`Periode terbaik L${item.audit.strongestWindow} · periode terlemah L${item.audit.weakestWindow}`}>
         <EchoWindowList windows={item.audit.windows} />
       </Section>
 
-      <Section id="echo-consensus" title="Konsensus Antar-Keluarga" subtitle="Informasi pendukung; tidak digunakan untuk memilih profile.">
+      <Section id="echo-consensus" title="Dukungan Metode" subtitle="Menunjukkan seberapa banyak metode Echo lain yang menghasilkan arah serupa. Nilai ini hanya sebagai informasi pendukung.">
         <div className={styles.consensusCard}>
           <strong>{item.familyAgreement}%</strong>
           <div>
-            <b>{item.strength}</b>
+            <b>Kategori {item.strength}</b>
             <p>{item.consensusFamilies.map((family) => FAMILY_LABEL[family]).join(", ")}</p>
           </div>
         </div>
       </Section>
 
-      <Section id="echo-analogs" title="Analog Historis Terdekat" subtitle="Anchor berdekatan dibatasi agar satu periode tidak mendominasi.">
+      <Section id="echo-analogs" title="Pola Historis Paling Mirip" subtitle="Data yang terlalu berdekatan dibatasi agar satu periode tidak mendominasi hasil.">
         <EchoNeighborList neighbors={item.result.neighbors} />
       </Section>
 
-      <Section id="echo-audit" title="Audit Walk-Forward" subtitle="D = discovery, V = nested validation, H = final holdout yang dibekukan.">
+      <Section id="echo-audit" title="Riwayat Pengujian" subtitle="A = evaluasi awal, U = uji berurutan, V = verifikasi akhir.">
         <EchoWalkForwardList rows={item.result.rows} />
       </Section>
     </div>
