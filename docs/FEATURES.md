@@ -7,40 +7,48 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Scan satu pasaran.
 - Batch Scan banyak pasaran sekaligus.
 - Trek tersimpan lintas pasaran.
-- Pilihan jenis scan:
-  - Trek Posisi
-  - AI 2D
-  - BBFS 2D
-  - Jumlah 2D
-  - Shio
-  - OFF Posisi
-  - OFF 2D
-  - OFF Jumlah 2D
-  - OFF Shio
-- Pilihan jumlah digit 1 sampai 9.
-- Pilihan jumlah shio 1 sampai 12.
-- Pilihan Data Uji.
-- Batas jumlah hasil scan.
+- Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
+- Movement Engine untuk analisa pergerakan data.
+- Pilihan output Movement: Posisi, AI, dan BBFS.
+- Pilihan target posisi, 2D, 3D, atau 4D.
+- Pilihan jumlah digit.
+- Evaluasi walk-forward, final holdout, L15, L30, dan L60.
+- Ranking probabilitas digit.
 - Output ringkas dan siap copy.
-- Detail hasil scan per rumus.
-- Frekuensi digit dari hasil scan.
 - PWA installable.
-- Data pasaran dibaca dari Supabase.
+- Data pasaran dibaca dari Supabase melalui server.
 
-## Keunggulan Utama
+## Movement Engine
 
-Fitur pembeda utama aplikasi ini adalah **Batch Scan**.
+Movement Engine membaca:
 
-Dengan Batch Scan, pengguna tidak perlu scan pasaran satu per satu. Pengguna cukup memilih banyak pasaran, menentukan jenis scan, jumlah digit, dan Data Uji, lalu sistem menampilkan hasil seluruh pasaran dalam satu output yang rapi dan siap copy.
+- transisi digit dan delta;
+- motif gerakan terbaru;
+- jarak siklus kemunculan;
+- hubungan pergerakan AS, COP, KPL, dan EKR.
 
-Batas aman Batch Scan saat ini adalah **35 pasaran per proses batch**.
+Bobot model tidak dipilih oleh user. Beberapa profil bobot diuji secara walk-forward dan profil terbaik dipakai pada final holdout serta prediksi live.
+
+### Posisi
+
+User memilih AS, COP, KPL, atau EKR. Status kena jika digit posisi berikutnya terdapat di output.
+
+### AI
+
+User memilih target 2D, 3D, atau 4D. Status kena jika **minimal satu digit target** terdapat di output AI.
+
+### BBFS
+
+User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit target** terdapat di output BBFS.
 
 ## Struktur Halaman
 
 | Route | Fungsi |
 | --- | --- |
-| `/` | Halaman scan utama untuk satu pasaran |
-| `/batch` | Halaman Batch Scan untuk banyak pasaran |
+| `/` | Scan utama untuk satu pasaran |
+| `/movement` | Movement Engine: Posisi, AI, dan BBFS |
+| `/batch` | Batch Scan untuk banyak pasaran |
+| `/admin` | Pengelolaan PIN dan akses device |
 | `/manifest.webmanifest` | Manifest PWA |
 | `/sw.js` | Service worker PWA |
 
@@ -48,35 +56,23 @@ Batas aman Batch Scan saat ini adalah **35 pasaran per proses batch**.
 
 | API | Method | Fungsi |
 | --- | --- | --- |
-| `/api/markets` | GET | Mengambil daftar pasaran dari Supabase |
+| `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
+| `/api/movement` | POST | Analisa pergerakan dan membentuk output |
 | `/api/batch-scan` | POST | Scan banyak pasaran sekaligus |
-| `/api/saved-trek` | POST | Refresh trek tersimpan berdasarkan market asal |
+| `/api/saved-trek` | POST | Refresh trek tersimpan |
 
-## Cara Pakai Aplikasi
+## Cara Pakai Movement
 
-### Scan Satu Pasaran
-
-1. Buka halaman utama.
+1. Buka menu **Prediksi**.
 2. Pilih pasaran.
-3. Atur Data Uji.
-4. Pilih Jenis Trek.
-5. Pilih Jumlah Digit/Shio.
-6. Atur Batas Hasil.
-7. Tekan **Scan Sekarang**.
-8. Tekan **Simpan** untuk menyimpan trek.
-9. Tekan **Lihat** untuk membuka detail rumus dan riwayat scan.
+3. Pilih jenis output: Posisi, AI, atau BBFS.
+4. Pilih target.
+5. Pilih jumlah digit.
+6. Tekan **Jalankan Analisa**.
+7. Lihat rekomendasi, evaluasi, ranking digit, dan riwayat uji.
+8. Tekan **Salin Hasil**.
 
-### Trek Tersimpan
+## Batch Scan
 
-Trek tersimpan tidak terikat dengan pasaran yang sedang dibuka. Semua trek tersimpan akan tampil lintas market dan tetap dikelompokkan berdasarkan pasaran asal, jenis scan, target, jumlah digit, dan Data Uji.
-
-### Batch Scan
-
-1. Buka halaman **Batch Scan**.
-2. Pilih Data Uji.
-3. Pilih Jenis Trek.
-4. Pilih Jumlah Digit/Shio.
-5. Pilih satu atau banyak pasaran.
-6. Tekan **Batch Scan**.
-7. Copy output yang muncul.
+Batch Scan tetap menggunakan engine scan rumus. Batas aman saat ini adalah 35 pasaran per proses batch.
