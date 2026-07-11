@@ -2,14 +2,13 @@ import {
   ANALYSIS_LABEL,
   ANALYSIS_OPTIONS,
   DIGIT_OPTIONS,
-  NO_BADGE_OPTION_STYLE,
-  NO_BADGE_SELECT_STYLE,
   POS_OPTIONS,
   TARGET_2D_OPTIONS,
   TARGET_3D_OPTIONS,
 } from "../scan/constants";
 import { is3DMode, isOffMode, isPositionMode, isShioMode, marketTitle } from "../shared/scan-utils";
 import type { Market, Posisi, ScanMode, Target2D, Target3D } from "../scan/types";
+import EchoSelectSheet, { type EchoSheetOption } from "./components/EchoSelectSheet";
 import styles from "./echo.module.css";
 
 type Props = {
@@ -44,6 +43,28 @@ type Props = {
   onRun: () => void;
 };
 
+type FieldButtonProps = {
+  label: string;
+  value: string;
+  hint?: string;
+  onClick: () => void;
+};
+
+function FieldButton({ label, value, hint, onClick }: FieldButtonProps) {
+  return (
+    <div className={styles.controlField}>
+      <span className={styles.controlLabel}>{label}</span>
+      <button className={styles.fieldButton} type="button" onClick={onClick}>
+        <span className={styles.fieldButtonText}>
+          <b>{value}</b>
+          {hint && <small>{hint}</small>}
+        </span>
+        <span className={styles.fieldChevron} aria-hidden="true">›</span>
+      </button>
+    </div>
+  );
+}
+
 export default function EchoControlPanel({
   selectedMarket,
   filteredMarkets,
@@ -75,108 +96,123 @@ export default function EchoControlPanel({
   onSelectDigit,
   onRun,
 }: Props) {
+  const marketOptions: EchoSheetOption[] = filteredMarkets.map((market) => ({
+    value: market.id,
+    label: marketTitle(market),
+    secondary: market.latestResult ? `Result terbaru ${market.latestResult}` : undefined,
+  }));
+
+  const analysisOptions: EchoSheetOption[] = ANALYSIS_OPTIONS.map((item) => ({
+    value: item.value,
+    label: item.label,
+  }));
+
+  const targetOptions: EchoSheetOption[] = isPositionMode(scanMode)
+    ? POS_OPTIONS.map((item) => ({ value: item.value, label: item.label }))
+    : is3DMode(scanMode)
+      ? TARGET_3D_OPTIONS.map((item) => ({ value: item.value, label: item.label }))
+      : TARGET_2D_OPTIONS.map((item) => ({ value: item.value, label: item.label }));
+
+  const selectedTarget = isPositionMode(scanMode) ? targetPos : is3DMode(scanMode) ? target3D : target2D;
+  const digitLabel = isOffMode(scanMode)
+    ? isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF"
+    : isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit";
+  const digitUnit = isShioMode(scanMode) ? "shio" : "digit";
+  const digitOptions: EchoSheetOption[] = DIGIT_OPTIONS
+    .filter((value) => isShioMode(scanMode) || value <= 9)
+    .map((value) => ({ value, label: `${value} ${digitUnit}` }));
+
+  function selectMarketById(value: string | number) {
+    const market = filteredMarkets.find((item) => item.id === String(value));
+    if (market) onSelectMarket(market);
+  }
+
+  function selectTarget(value: string | number) {
+    const target = String(value);
+    if (isPositionMode(scanMode)) onSelectTargetPos(target as Posisi);
+    else if (is3DMode(scanMode)) onSelectTarget3D(target as Target3D);
+    else onSelectTarget2D(target as Target2D);
+  }
+
   return (
-    <div className={`panel ${styles.controlPanel}`}>
-      <div className="field market-field">
-        <label>Pasaran</label>
-        <button className="market-select" type="button" onClick={onOpenMarket}>
-          <span className="select-badge" />
-          <b>{selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}</b>
-          <span className="latest-result">{selectedMarket?.latestResult ?? "----"}</span>
-          <span className="select-arrow">{marketOpen ? "⌃" : "⌄"}</span>
-        </button>
-        {marketOpen && (
-          <div className="market-menu">
-            <div className="market-menu-top">
-              <input className="market-search" value={marketQuery} onChange={(event) => onMarketQueryChange(event.target.value)} placeholder="Cari pasaran..." autoFocus />
-              <button type="button" onClick={onCloseMarket}>×</button>
-            </div>
-            {filteredMarkets.length === 0 && <div className="market-empty">Pasaran tidak ditemukan</div>}
-            {filteredMarkets.map((market) => (
-              <button key={market.id} type="button" className={market.id === marketId ? "market-option active" : "market-option"} onClick={() => onSelectMarket(market)}>
-                <span className="option-badge" />
-                <span className="option-label">{marketTitle(market)}</span>
-                {market.latestResult && <em>{market.latestResult}</em>}
-                {market.id === marketId && <b>✓</b>}
-              </button>
-            ))}
+    <>
+      <section className={`panel ${styles.controlPanel}`} aria-label="Pengaturan Echo">
+        <div className={styles.controlIntro}>
+          <div>
+            <span>SETUP ANALISA</span>
+            <b>Pilih parameter utama</b>
           </div>
-        )}
-      </div>
-
-      <div className={styles.auditInfo}>
-        <div><b>Evaluasi Adaptif</b><span>Discovery · Validation · Final Holdout</span></div>
-        <p>Ukuran evaluasi menyesuaikan jumlah data. Seluruh histori sebelumnya tetap digunakan sebagai kolam analog tanpa membaca target masa depan.</p>
-      </div>
-
-      <div className="row two">
-        <div className="field trek-field">
-          <label>Jenis Prediksi</label>
-          <button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={onToggleJenis}>
-            <b>{ANALYSIS_LABEL[scanMode]}</b>
-            <span className="select-arrow">{jenisOpen ? "⌃" : "⌄"}</span>
-          </button>
-          {jenisOpen && (
-            <div className="trek-menu">
-              {ANALYSIS_OPTIONS.map((item) => (
-                <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === scanMode ? "trek-option active" : "trek-option"} onClick={() => onSelectJenis(item.value)}>
-                  <span className="option-label">{item.label}</span>
-                  {item.value === scanMode && <b>✓</b>}
-                </button>
-              ))}
-            </div>
-          )}
+          <small>4 langkah</small>
         </div>
 
-        <div className="field trek-field">
-          <label>Target</label>
-          <button className="trek-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={onToggleTarget}>
-            <b>{targetText}</b>
-            <span className="select-arrow">{targetOpen ? "⌃" : "⌄"}</span>
-          </button>
-          {targetOpen && (
-            <div className="trek-menu">
-              {isPositionMode(scanMode)
-                ? POS_OPTIONS.map((item) => (
-                    <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === targetPos ? "trek-option active" : "trek-option"} onClick={() => onSelectTargetPos(item.value)}>
-                      <span className="option-label">{item.label}</span>{item.value === targetPos && <b>✓</b>}
-                    </button>
-                  ))
-                : is3DMode(scanMode)
-                  ? TARGET_3D_OPTIONS.map((item) => (
-                      <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target3D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget3D(item.value)}>
-                        <span className="option-label">{item.label}</span>{item.value === target3D && <b>✓</b>}
-                      </button>
-                    ))
-                  : TARGET_2D_OPTIONS.map((item) => (
-                      <button key={item.value} type="button" style={NO_BADGE_OPTION_STYLE} className={item.value === target2D ? "trek-option active" : "trek-option"} onClick={() => onSelectTarget2D(item.value)}>
-                        <span className="option-label">{item.label}</span>{item.value === target2D && <b>✓</b>}
-                      </button>
-                    ))}
-            </div>
-          )}
+        <FieldButton
+          label="Pasaran"
+          value={selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}
+          hint={selectedMarket?.latestResult ? `Result ${selectedMarket.latestResult}` : "Wajib dipilih"}
+          onClick={onOpenMarket}
+        />
+
+        <div className={styles.controlGrid}>
+          <FieldButton label="Jenis Prediksi" value={ANALYSIS_LABEL[scanMode]} onClick={onToggleJenis} />
+          <FieldButton label="Target" value={targetText} onClick={onToggleTarget} />
         </div>
-      </div>
 
-      <div className="field digit-field">
-        <label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "Jumlah OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label>
-        <button className="digit-select" style={NO_BADGE_SELECT_STYLE} type="button" onClick={onToggleDigit}>
-          <b>{digitCount} {isShioMode(scanMode) ? "shio" : "digit"}</b>
-          <span className="select-arrow">{digitOpen ? "⌃" : "⌄"}</span>
-        </button>
-        {digitOpen && (
-          <div className="digit-menu">
-            {DIGIT_OPTIONS.filter((value) => isShioMode(scanMode) || value <= 9).map((value) => (
-              <button key={value} type="button" style={NO_BADGE_OPTION_STYLE} className={value === digitCount ? "digit-option active" : "digit-option"} onClick={() => onSelectDigit(value)}>
-                <span className="option-label">{value} {isShioMode(scanMode) ? "shio" : "digit"}</span>{value === digitCount && <b>✓</b>}
-              </button>
-            ))}
+        <FieldButton label={digitLabel} value={`${digitCount} ${digitUnit}`} onClick={onToggleDigit} />
+
+        <div className={styles.auditStrip}>
+          <span className={styles.auditDot} aria-hidden="true" />
+          <div>
+            <b>Audit otomatis aktif</b>
+            <small>Discovery → nested walk-forward → final holdout</small>
           </div>
-        )}
-      </div>
+        </div>
 
-      <button className="run" onClick={onRun} disabled={loading || !marketId}>{loading ? "Menganalisa Echo..." : "Cari Rekomendasi Terbaik"}</button>
-      {error && <div className="err">{error}</div>}
-    </div>
+        <button className={styles.runButton} onClick={onRun} disabled={loading || !marketId}>
+          {loading ? <span className={styles.loadingSpinner} aria-hidden="true" /> : null}
+          <span>{loading ? "Menganalisa pola..." : "Cari Rekomendasi Terbaik"}</span>
+        </button>
+        {error && <div className={styles.errorBox}>{error}</div>}
+      </section>
+
+      <EchoSelectSheet
+        open={marketOpen}
+        title="Pilih Pasaran"
+        options={marketOptions}
+        selectedValue={marketId}
+        searchValue={marketQuery}
+        searchPlaceholder="Cari nama pasaran..."
+        onSearchChange={onMarketQueryChange}
+        onSelect={selectMarketById}
+        onClose={onCloseMarket}
+        emptyText="Pasaran tidak ditemukan"
+      />
+
+      <EchoSelectSheet
+        open={jenisOpen}
+        title="Jenis Prediksi"
+        options={analysisOptions}
+        selectedValue={scanMode}
+        onSelect={(value) => onSelectJenis(String(value) as ScanMode)}
+        onClose={onCloseMarket}
+      />
+
+      <EchoSelectSheet
+        open={targetOpen}
+        title="Pilih Target"
+        options={targetOptions}
+        selectedValue={selectedTarget}
+        onSelect={selectTarget}
+        onClose={onCloseMarket}
+      />
+
+      <EchoSelectSheet
+        open={digitOpen}
+        title={digitLabel}
+        options={digitOptions}
+        selectedValue={digitCount}
+        onSelect={(value) => onSelectDigit(Number(value))}
+        onClose={onCloseMarket}
+      />
+    </>
   );
 }

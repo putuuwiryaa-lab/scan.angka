@@ -2,69 +2,72 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CSSProperties } from "react";
+import styles from "./bottom-nav.module.css";
 
-const items = [
-  { href: "/", label: "Scan" },
-  { href: "/echo", label: "Echo" },
-  { href: "/batch", label: "Batch" },
+type IconName = "scan" | "echo" | "batch";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconName;
+};
+
+const items: NavItem[] = [
+  { href: "/", label: "Scan", icon: "scan" },
+  { href: "/echo", label: "Echo", icon: "echo" },
+  { href: "/batch", label: "Batch", icon: "batch" },
 ];
 
-const shellStyle: CSSProperties = {
-  position: "fixed",
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 40,
-  padding: "8px 12px calc(8px + env(safe-area-inset-bottom))",
-  background: "linear-gradient(180deg, rgba(13,17,23,0), rgba(13,17,23,.98) 34%)",
-  pointerEvents: "none",
-};
+function NavIcon({ name }: { name: IconName }) {
+  if (name === "scan") {
+    return (
+      <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="5.5" />
+        <path d="m15 15 4 4" />
+        <path d="M8.5 10.5h4" />
+      </svg>
+    );
+  }
 
-const navStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: 560,
-  minHeight: 58,
-  margin: "0 auto",
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 6,
-  padding: 6,
-  border: "1px solid rgba(110,155,255,.22)",
-  borderRadius: 18,
-  background: "rgba(17,24,35,.96)",
-  boxShadow: "0 -14px 32px rgba(0,0,0,.34)",
-  backdropFilter: "blur(14px)",
-  pointerEvents: "auto",
-};
+  if (name === "echo") {
+    return (
+      <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="2.5" />
+        <path d="M6.7 8.4a6.2 6.2 0 0 0 0 7.2" />
+        <path d="M17.3 8.4a6.2 6.2 0 0 1 0 7.2" />
+        <path d="M4 5.8a9.5 9.5 0 0 0 0 12.4" />
+        <path d="M20 5.8a9.5 9.5 0 0 1 0 12.4" />
+      </svg>
+    );
+  }
 
-function itemStyle(active: boolean): CSSProperties {
-  return {
-    minHeight: 46,
-    display: "grid",
-    placeItems: "center",
-    borderRadius: 13,
-    border: active ? "1px solid rgba(224,179,65,.44)" : "1px solid transparent",
-    background: active ? "rgba(224,179,65,.16)" : "rgba(110,155,255,.08)",
-    color: active ? "#e0b341" : "#cfe0ff",
-    textDecoration: "none",
-    fontSize: 13,
-    fontWeight: 950,
-    letterSpacing: 0.2,
-  };
+  return (
+    <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4" width="6" height="6" rx="1.2" />
+      <rect x="14" y="4" width="6" height="6" rx="1.2" />
+      <rect x="4" y="14" width="6" height="6" rx="1.2" />
+      <rect x="14" y="14" width="6" height="6" rx="1.2" />
+    </svg>
+  );
 }
 
 export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav style={shellStyle} aria-label="Navigasi utama">
-      <div style={navStyle}>
+    <nav className={styles.shell} aria-label="Navigasi utama">
+      <div className={styles.nav}>
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
           return (
-            <Link key={item.href} href={item.href} style={itemStyle(Boolean(active))}>
-              {item.label}
+            <Link
+              key={item.href}
+              href={item.href}
+              className={active ? styles.activeItem : styles.item}
+              aria-current={active ? "page" : undefined}
+            >
+              <NavIcon name={item.icon} />
+              <span className={styles.label}>{item.label}</span>
             </Link>
           );
         })}

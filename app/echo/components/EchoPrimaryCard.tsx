@@ -1,20 +1,38 @@
+"use client";
+
+import { useState } from "react";
 import { analysisTitle, labelsFromValues } from "../../scan/helpers";
 import type { EchoItem } from "../../../lib/echo/types";
 import { buildEchoCopyText, profileTitle } from "../presentation";
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 
 export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; marketName: string }) {
   const digits = labelsFromValues(item.angkaHidup, item.scanMode);
+  const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(buildEchoCopyText(item, marketName));
+    const text = buildEchoCopyText(item, marketName);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1700);
   }
 
   return (
-    <section className={`${styles.panel} ${styles.primaryCard}`}>
+    <section id="echo-result" className={`${styles.panel} ${styles.primaryCard}`}>
       <div className={styles.primaryHead}>
         <div className={styles.primaryIdentity}>
-          <span className={styles.eyebrow}>REKOMENDASI UTAMA</span>
+          <span className={styles.eyebrow}>REKOMENDASI UTAMA · {item.strength}</span>
           <h2>{profileTitle(item)}</h2>
           <code>{item.formula}</code>
         </div>
@@ -34,14 +52,22 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
         {digits.map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
       </div>
 
-      <div className={styles.chipRow}>
+      <div className={styles.chipRow} aria-label="Ringkasan performa">
         <span>Skor {item.score}</span>
         <span>Walk-forward {item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</span>
         <span>Holdout {item.audit.holdoutHit}/{item.audit.holdoutTotal}</span>
         <span>Konsensus {item.familyAgreement}%</span>
       </div>
 
-      <button className={styles.copyButton} type="button" onClick={handleCopy}>Salin Hasil</button>
+      <button
+        className={`${styles.copyButton} ${copied ? styles.copyButtonCopied : ""}`}
+        type="button"
+        onClick={handleCopy}
+        aria-live="polite"
+      >
+        <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
+        <span>{copied ? "Hasil tersalin" : "Salin Hasil"}</span>
+      </button>
     </section>
   );
 }

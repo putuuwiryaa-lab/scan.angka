@@ -1,5 +1,5 @@
 import type { EchoWindowAudit } from "../../../lib/echo/types";
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 
 export default function EchoWindowList({ windows }: { windows: EchoWindowAudit[] }) {
   return (
@@ -12,7 +12,7 @@ export default function EchoWindowList({ windows }: { windows: EchoWindowAudit[]
           </div>
           <span>{window.hit}/{window.total}</span>
           <strong>{window.rate}%</strong>
-          <small>miss maks. {window.longestMissStreak}</small>
+          <small>Miss maksimum {window.longestMissStreak}</small>
         </article>
       ))}
     </div>

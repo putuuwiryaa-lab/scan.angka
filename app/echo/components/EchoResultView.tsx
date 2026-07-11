@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { EchoItem } from "../../../lib/echo/types";
 import { FAMILY_LABEL } from "../presentation";
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 import EchoNeighborList from "./EchoNeighborList";
 import EchoPrimaryCard from "./EchoPrimaryCard";
 import EchoStatGrid, { type EchoStat } from "./EchoStatGrid";
@@ -18,9 +18,9 @@ function signed(value: number): string {
   return `${value >= 0 ? "+" : ""}${value}%`;
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function Section({ id, title, subtitle, children }: { id: string; title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <section className={styles.panel}>
+    <section id={id} className={styles.panel}>
       <header className={styles.sectionHead}>
         <h3>{title}</h3>
         {subtitle && <p>{subtitle}</p>}
@@ -68,21 +68,29 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
 
   return (
     <div className={styles.resultStack}>
+      <nav className={styles.quickNav} aria-label="Navigasi hasil Echo">
+        <a href="#echo-result">Hasil</a>
+        <a href="#echo-live">Live</a>
+        <a href="#echo-validation">Validasi</a>
+        <a href="#echo-pattern">Pola</a>
+        <a href="#echo-audit">Audit</a>
+      </nav>
+
       <EchoPrimaryCard item={item} marketName={marketName} />
 
-      <Section title="Prediksi Live" subtitle="Kualitas kondisi saat ini dan analog yang membentuk patokan.">
+      <Section id="echo-live" title="Prediksi Live" subtitle="Kualitas kondisi saat ini dan analog yang membentuk patokan.">
         <EchoStatGrid items={liveStats} />
       </Section>
 
-      <Section title="Validasi Objektif" subtitle="Discovery memilih kolom. Validation mengulang pemilihan hanya dari data sebelumnya pada setiap titik. Final holdout tidak ikut memilih profile.">
+      <Section id="echo-validation" title="Validasi Objektif" subtitle="Discovery memilih kolom. Nested walk-forward menguji ulang tanpa membaca target. Final holdout hanya menjadi laporan akhir.">
         <EchoStatGrid items={validationStats} />
       </Section>
 
-      <Section title="Discovery Multi-Window" subtitle={`Window terkuat L${item.audit.strongestWindow} · terlemah L${item.audit.weakestWindow}`}>
+      <Section id="echo-pattern" title="Discovery Multi-Window" subtitle={`Window terkuat L${item.audit.strongestWindow} · terlemah L${item.audit.weakestWindow}`}>
         <EchoWindowList windows={item.audit.windows} />
       </Section>
 
-      <Section title="Konsensus Antar-Keluarga" subtitle="Konsensus hanya informasi pendukung dan tidak digunakan untuk memilih profile.">
+      <Section id="echo-consensus" title="Konsensus Antar-Keluarga" subtitle="Informasi pendukung; tidak digunakan untuk memilih profile.">
         <div className={styles.consensusCard}>
           <strong>{item.familyAgreement}%</strong>
           <div>
@@ -92,11 +100,11 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
         </div>
       </Section>
 
-      <Section title="Analog Historis Terdekat" subtitle="Anchor berdekatan dibatasi agar satu periode tidak mendominasi.">
+      <Section id="echo-analogs" title="Analog Historis Terdekat" subtitle="Anchor berdekatan dibatasi agar satu periode tidak mendominasi.">
         <EchoNeighborList neighbors={item.result.neighbors} />
       </Section>
 
-      <Section title="Audit Walk-Forward" subtitle="D = discovery, V = nested validation, H = final holdout yang dibekukan.">
+      <Section id="echo-audit" title="Audit Walk-Forward" subtitle="D = discovery, V = nested validation, H = final holdout yang dibekukan.">
         <EchoWalkForwardList rows={item.result.rows} />
       </Section>
     </div>

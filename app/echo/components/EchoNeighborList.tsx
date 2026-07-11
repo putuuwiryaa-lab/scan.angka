@@ -1,5 +1,5 @@
 import type { EchoNeighbor } from "../../../lib/echo/types";
-import styles from "../echo.module.css";
+import styles from "../echo-result.module.css";
 
 export default function EchoNeighborList({ neighbors }: { neighbors: EchoNeighbor[] }) {
   return (
@@ -9,7 +9,7 @@ export default function EchoNeighborList({ neighbors }: { neighbors: EchoNeighbo
           <span className={styles.rowIndex}>{index + 1}</span>
           <div className={styles.rowMain}>
             <b>{neighbor.anchorDraw} ➜ {neighbor.nextDraw}</b>
-            <small>{neighbor.regime}</small>
+            <small>{neighbor.regime.split("_").join(" ")}</small>
           </div>
           <span className={styles.delta}>Δ{neighbor.movement > 0 ? "+" : ""}{neighbor.movement}</span>
           <small className={styles.distance}>{neighbor.distance.toFixed(3)}</small>
