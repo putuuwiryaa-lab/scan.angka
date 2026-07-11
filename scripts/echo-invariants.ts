@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { echoGateFor, evaluateHoldoutRelease } from "../lib/echo/diagnostics";
+import {
+  buildCandidateDiagnostics,
+  echoEvidenceFor,
+  echoGateFor,
+  evaluateHoldoutRelease,
+} from "../lib/echo/diagnostics";
 import { familyGroupOf, selectFamilyRepresentatives, type EchoSelectableCandidate } from "../lib/echo/selection";
 import type { EchoFamily, EchoVariant } from "../lib/echo/types";
 
@@ -35,8 +40,8 @@ function selectable(
       columns: [],
       statuses: [],
       rows: [],
-      hit: 0,
-      total: 0,
+      hit: 26,
+      total: 36,
       rate: weightedAccuracy,
       weightedAccuracy,
       baselineRate: weightedAccuracy - discoveryLift,
@@ -62,8 +67,8 @@ function selectable(
       columns: [],
       statuses: [],
       rows: [],
-      hit: 0,
-      total: 0,
+      hit: 26,
+      total: 36,
       rate: weightedAccuracy,
       weightedAccuracy,
       baselineRate: weightedAccuracy - discoveryLift,
@@ -118,18 +123,29 @@ assert.ok(!representatives.some((candidate) => candidate.profile.formula === "EX
 assert.ok(representatives.some((candidate) => candidate.profile.formula === "EFH-K"));
 assert.ok(representatives.some((candidate) => candidate.profile.formula === "EMT-K"));
 
-const aiGate = echoGateFor("ai_2d_belakang", 4);
-const broadAiGate = echoGateFor("ai_2d_belakang", 8);
-const shioGate = echoGateFor("shio", 4);
-assert.equal(aiGate.minimumScore, 56);
-assert.equal(aiGate.softHoldoutFloor, -3);
-assert.equal(broadAiGate.minimumScore, 58);
-assert.equal(broadAiGate.softHoldoutFloor, 0);
-assert.ok(shioGate.minimumConfidence > aiGate.minimumConfidence);
+// The gate is driven by baseline and sample count, not analysis labels.
+const baseline64At12 = echoGateFor(64, 12);
+const sameBaseline64At12 = echoGateFor(64, 12);
+const baseline49At12 = echoGateFor(49, 12);
+const baseline64At24 = echoGateFor(64, 24);
+assert.deepEqual(baseline64At12, sameBaseline64At12);
+assert.equal(baseline64At12.minimumValidationHits, 9);
+assert.equal(baseline49At12.minimumValidationHits, 7);
+assert.equal(baseline64At24.minimumValidationHits, 16);
+assert.ok(baseline64At24.minimumValidationLift < baseline64At12.minimumValidationLift);
+assert.ok(baseline64At24.standardError < baseline64At12.standardError);
+
+const aiLikeEvidence = echoEvidenceFor(64, 12);
+const bbfsLikeEvidence = echoEvidenceFor(64, 12);
+assert.deepEqual(aiLikeEvidence, bbfsLikeEvidence);
 
 const baseCandidate = {
   score: 70,
-  discoveryFit: { lift: 8 },
+  discoveryFit: {
+    lift: 8,
+    baselineRate: 60,
+    total: 36,
+  },
   validation: {
     hit: 8,
     total: 10,
@@ -151,6 +167,33 @@ const baseCandidate = {
     },
   },
 };
+assert.equal(buildCandidateDiagnostics(baseCandidate).length, 0);
+
+const marginalBaseline64Candidate = {
+  ...baseCandidate,
+  validation: {
+    hit: 8,
+    total: 12,
+    rate: 66.7,
+    baselineRate: 64,
+    lift: 2.7,
+  },
+};
+assert.ok(buildCandidateDiagnostics(marginalBaseline64Candidate)
+  .some((diagnostic) => diagnostic.code === "NEGATIVE_VALIDATION_LIFT"));
+
+const supportedBaseline64Candidate = {
+  ...baseCandidate,
+  validation: {
+    hit: 9,
+    total: 12,
+    rate: 75,
+    baselineRate: 64,
+    lift: 11,
+  },
+};
+assert.ok(!buildCandidateDiagnostics(supportedBaseline64Candidate)
+  .some((diagnostic) => diagnostic.code === "NEGATIVE_VALIDATION_LIFT"));
 
 const positiveHoldout = {
   statuses: [true, true, false, true, true, false, true, true, true, false],
@@ -163,7 +206,7 @@ const positiveHoldout = {
   longestMissStreak: 1,
 };
 assert.equal(
-  evaluateHoldoutRelease(baseCandidate, positiveHoldout, 70, "posisi", 4).diagnostics.length,
+  evaluateHoldoutRelease(baseCandidate, positiveHoldout, 70).diagnostics.length,
   0,
 );
 
@@ -175,38 +218,33 @@ const weakHoldout = {
   lift: -30,
   longestMissStreak: 2,
 };
-assert.ok(
-  evaluateHoldoutRelease(baseCandidate, weakHoldout, 60, "posisi", 4).diagnostics.length > 0,
-);
+assert.ok(evaluateHoldoutRelease(baseCandidate, weakHoldout, 60).diagnostics.length > 0);
 
 const strongValidationCandidate = {
   ...baseCandidate,
   validation: {
-    hit: 17,
+    hit: 18,
     total: 20,
-    rate: 85,
-    baselineRate: 60,
-    lift: 25,
+    rate: 90,
+    baselineRate: 67,
+    lift: 23,
   },
 };
-const shortSampleHoldout = {
-  statuses: Array.from({ length: 50 }, (_, index) => index < 29),
+const nearBaselineShortHoldout = {
+  statuses: [true, true, true, true, true, true, true, true, false, false, false, false],
   rows: [],
-  hit: 29,
-  total: 50,
-  rate: 58,
-  baselineRate: 60,
-  lift: -2,
-  longestMissStreak: 2,
+  hit: 8,
+  total: 12,
+  rate: 66.7,
+  baselineRate: 67,
+  lift: -0.3,
+  longestMissStreak: 4,
 };
 const softened = evaluateHoldoutRelease(
   strongValidationCandidate,
-  shortSampleHoldout,
+  nearBaselineShortHoldout,
   70,
-  "posisi",
-  4,
 );
 assert.equal(softened.evidence.softAccepted, true);
-assert.equal(softened.diagnostics.length, 0);
 
 console.log("Echo invariants passed.");

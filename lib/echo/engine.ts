@@ -32,6 +32,7 @@ import {
 } from "./cycle";
 import {
   buildCandidateDiagnostics,
+  echoEvidenceFor,
   echoGateFor,
   evaluateHoldoutRelease,
 } from "./diagnostics";
@@ -83,23 +84,35 @@ interface EchoCandidate extends EchoSelectableCandidate {
   liveDeret?: number[];
 }
 
-function normalizedReliability(rate: number, baseline: number): number {
-  const lift = rate - baseline;
-  if (lift >= 0) return Math.min(1, 0.5 + 0.5 * (lift / Math.max(1, 100 - baseline)));
-  return Math.max(0, 0.5 + 0.5 * (lift / Math.max(1, baseline)));
+function normalizedReliability(rate: number, baseline: number, total: number): number {
+  const evidence = echoEvidenceFor(baseline, total, 0);
+  const zScore = (rate - baseline) / Math.max(1, evidence.standardError);
+  const evidenceScore = Math.max(0, Math.min(1, 0.5 + 0.28 * zScore));
+  return 0.75 * evidenceScore + 0.25 * (rate / 100);
 }
 
 function scoreCandidate(
   candidate: Pick<EchoCandidate, "discoveryFit" | "validation" | "live">,
-  scanMode: ScanMode,
-  digitCount: number,
 ): number {
-  const gate = echoGateFor(scanMode, digitCount);
+  const gate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
+  const discoveryEvidence = echoEvidenceFor(
+    candidate.discoveryFit.baselineRate,
+    candidate.discoveryFit.total,
+    0.12,
+  );
   const discoveryReliability =
-    0.65 * normalizedReliability(candidate.discoveryFit.weightedAccuracy, candidate.discoveryFit.baselineRate) +
+    0.65 * normalizedReliability(
+      candidate.discoveryFit.weightedAccuracy,
+      candidate.discoveryFit.baselineRate,
+      candidate.discoveryFit.total,
+    ) +
     0.35 * (candidate.discoveryFit.weightedAccuracy / 100);
   const walkForwardReliability =
-    0.75 * normalizedReliability(candidate.validation.rate, candidate.validation.baselineRate) +
+    0.75 * normalizedReliability(
+      candidate.validation.rate,
+      candidate.validation.baselineRate,
+      candidate.validation.total,
+    ) +
     0.25 * (candidate.validation.rate / 100);
   const stability = (
     candidate.live.quality.ensembleStability * 0.55 +
@@ -114,8 +127,11 @@ function scoreCandidate(
     0.06 * Math.min(1, candidate.discoveryFit.efficiency)
   ) * 100;
 
-  if (candidate.validation.lift < gate.minimumValidationLift) score -= 12;
-  if (candidate.discoveryFit.lift < gate.minimumDiscoveryLift) score -= 6;
+  if (
+    candidate.validation.hit < gate.minimumValidationHits ||
+    candidate.validation.lift < gate.minimumValidationLift
+  ) score -= 12;
+  if (candidate.discoveryFit.lift < discoveryEvidence.minimumLift) score -= 6;
   if (candidate.validation.rate + 15 < candidate.discoveryFit.weightedAccuracy) score -= 8;
   if (candidate.live.quality.effectiveNeighbors < gate.minimumEffectiveNeighbors) score -= 8;
   if (candidate.live.confidence < gate.minimumConfidence) score -= 6;
@@ -127,14 +143,17 @@ function scoreCandidate(
 
 function verifiedScore(candidate: EchoCandidate, holdout: EchoPhaseAudit): number {
   const holdoutReliability =
-    0.75 * normalizedReliability(holdout.rate, holdout.baselineRate) +
+    0.75 * normalizedReliability(holdout.rate, holdout.baselineRate, holdout.total) +
     0.25 * (holdout.rate / 100);
   const validationDrop = Math.max(0, candidate.validation.rate - holdout.rate);
+  const holdoutGate = echoGateFor(holdout.baselineRate, holdout.total);
 
   let score = candidate.score * 0.7 + holdoutReliability * 30;
   if (holdout.lift < 0) score -= Math.min(15, Math.abs(holdout.lift) * 0.35);
-  if (validationDrop > 20) score -= Math.min(12, (validationDrop - 20) * 0.4);
-  if (holdout.longestMissStreak > 3) score -= 5;
+  if (validationDrop > holdoutGate.maximumValidationDrop) {
+    score -= Math.min(12, (validationDrop - holdoutGate.maximumValidationDrop) * 0.4);
+  }
+  if (holdout.longestMissStreak > Math.max(3, Math.floor(holdout.total / 3))) score -= 5;
 
   return Number(Math.max(0, Math.min(100, score)).toFixed(2));
 }
@@ -143,30 +162,37 @@ function strengthOf(
   candidate: EchoCandidate,
   holdout: EchoPhaseAudit,
   finalScore: number,
-  scanMode: ScanMode,
-  digitCount: number,
   release: EchoReleaseEvidence,
 ): EchoStrength {
-  const gate = echoGateFor(scanMode, digitCount);
+  const validationGate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
+  const validationEvidence = echoEvidenceFor(
+    candidate.validation.baselineRate,
+    candidate.validation.total,
+    0.25,
+  );
+  const holdoutEvidence = echoEvidenceFor(holdout.baselineRate, holdout.total, 0.1);
   const validationDrop = candidate.validation.rate - holdout.rate;
+  const maximumDrop = Math.max(
+    validationGate.maximumValidationDrop,
+    echoGateFor(holdout.baselineRate, holdout.total).maximumValidationDrop,
+  );
 
   if (
     finalScore >= 72 &&
-    candidate.discoveryFit.lift >= 5 &&
-    candidate.validation.lift >= 8 &&
-    holdout.lift >= 5 &&
-    validationDrop <= 20 &&
-    holdout.longestMissStreak <= 3 &&
+    candidate.validation.lift >= validationEvidence.minimumLift + validationEvidence.oneHitStep &&
+    holdout.lift >= holdoutEvidence.minimumLift + holdoutEvidence.oneHitStep &&
+    validationDrop <= maximumDrop &&
+    holdout.longestMissStreak <= Math.max(3, Math.floor(holdout.total / 3)) &&
     candidate.live.confidence >= 60
   ) return "KUAT";
 
   if (
-    finalScore >= gate.minimumScore &&
-    candidate.discoveryFit.lift >= gate.minimumDiscoveryLift &&
-    candidate.validation.lift >= gate.minimumValidationLift &&
-    (holdout.lift >= 0 || release.softAccepted) &&
-    validationDrop <= gate.maximumValidationDrop &&
-    candidate.live.confidence >= gate.minimumConfidence
+    finalScore >= validationGate.minimumScore &&
+    candidate.validation.hit >= validationEvidence.minimumHits &&
+    candidate.validation.lift >= validationEvidence.minimumLift &&
+    (holdout.hit >= holdoutEvidence.minimumHits || release.softAccepted) &&
+    validationDrop <= maximumDrop &&
+    candidate.live.confidence >= validationGate.minimumConfidence
   ) return "CUKUP";
 
   return "PANTAU";
@@ -233,11 +259,9 @@ function rankCandidates(left: EchoCandidate, right: EchoCandidate): number {
 function familySummaries(
   models: EchoCandidate[],
   selected: EchoCandidate | null,
-  scanMode: ScanMode,
-  digitCount: number,
 ): EchoFamilySummary[] {
   return models.map((candidate) => {
-    const diagnostics = buildCandidateDiagnostics(candidate, scanMode, digitCount);
+    const diagnostics = buildCandidateDiagnostics(candidate);
     return {
       group: familyGroupOf(candidate.profile.family),
       family: candidate.profile.family,
@@ -399,7 +423,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       selectionKind: "single",
       contributors: [],
     };
-    partial.score = scoreCandidate(partial, scanMode, digitCount);
+    partial.score = scoreCandidate(partial);
     partial.contributors = singleContribution(partial);
     candidates.push(partial);
   }
@@ -408,13 +432,13 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   const ensemble = buildEchoEnsembleCandidate(representatives, digitCount, scanMode, plan);
   const modelCandidates: EchoCandidate[] = [...representatives];
   if (ensemble) {
-    ensemble.score = scoreCandidate(ensemble as EchoCandidate, scanMode, digitCount);
+    ensemble.score = scoreCandidate(ensemble as EchoCandidate);
     modelCandidates.push(ensemble as EchoCandidate);
   }
   const ranked = [...modelCandidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
-  const summaries = familySummaries(modelCandidates, top, scanMode, digitCount);
-  const candidateDiagnostics = buildCandidateDiagnostics(top, scanMode, digitCount);
+  const summaries = familySummaries(modelCandidates, top);
+  const candidateDiagnostics = buildCandidateDiagnostics(top);
   const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
 
   if (!top || candidateDiagnostics.length > 0) {
@@ -450,7 +474,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     "holdout",
   );
   const finalScore = verifiedScore(top, holdout);
-  const release = evaluateHoldoutRelease(top, holdout, finalScore, scanMode, digitCount);
+  const release = evaluateHoldoutRelease(top, holdout, finalScore);
 
   if (release.diagnostics.length > 0) {
     return {
@@ -487,7 +511,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     kolomMati: inactive,
     activeColumns: activeColumns.join(""),
     score: finalScore,
-    strength: strengthOf(top, holdout, finalScore, scanMode, digitCount, release.evidence),
+    strength: strengthOf(top, holdout, finalScore, release.evidence),
     confidence: top.live.confidence,
     confidenceLevel: top.live.confidenceLevel,
     familyAgreement: consensus.familyAgreement,
@@ -528,7 +552,7 @@ export const ECHO_INTERNAL_CONFIG = {
   nestedWalkForward: true,
   familyRepresentativeSelection: true,
   ensembleFrozenBeforeHoldout: true,
-  modeSpecificGates: true,
+  baselineSampleGates: true,
   combinedReleaseEvidence: true,
   familySummaries: true,
   frequencyDecayFamily: true,
