@@ -57,6 +57,7 @@ import type {
   EchoConfig,
   EchoFamily,
   EchoFamilyContribution,
+  EchoFamilySummary,
   EchoItem,
   EchoProfile,
   EchoReleaseEvidence,
@@ -219,6 +220,32 @@ function rankCandidates(left: EchoCandidate, right: EchoCandidate): number {
     left.profile.formula.localeCompare(right.profile.formula);
 }
 
+function familySummaries(
+  models: EchoCandidate[],
+  selected: EchoCandidate | null,
+  scanMode: ScanMode,
+  digitCount: number,
+): EchoFamilySummary[] {
+  return models.map((candidate) => {
+    const diagnostics = buildCandidateDiagnostics(candidate, scanMode, digitCount);
+    return {
+      group: familyGroupOf(candidate.profile.family),
+      family: candidate.profile.family,
+      formula: candidate.profile.formula,
+      score: candidate.score,
+      discoveryLift: candidate.discoveryFit.lift,
+      validationRate: candidate.validation.rate,
+      validationBaselineRate: candidate.validation.baselineRate,
+      validationLift: candidate.validation.lift,
+      confidence: candidate.live.confidence,
+      effectiveNeighbors: candidate.live.quality.effectiveNeighbors,
+      eligible: diagnostics.length === 0,
+      selected: candidate === selected,
+      rejectionCodes: diagnostics.map((diagnostic) => diagnostic.code),
+    };
+  });
+}
+
 function resultConfig(
   targetPos: Posisi,
   target2D: Target2D,
@@ -362,6 +389,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   }
   const ranked = [...modelCandidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
+  const summaries = familySummaries(modelCandidates, top, scanMode, digitCount);
   const candidateDiagnostics = buildCandidateDiagnostics(top, scanMode, digitCount);
   const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
 
@@ -373,6 +401,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       totalFamilies: representatives.length,
       message: "Belum ada keluarga metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
       diagnostics: candidateDiagnostics,
+      familySummaries: summaries,
       items: [],
     };
   }
@@ -407,6 +436,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
       totalFamilies: representatives.length,
       message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.`,
       diagnostics: release.diagnostics,
+      familySummaries: summaries,
       items: [],
     };
   }
@@ -462,6 +492,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     totalFamilies: representatives.length,
     message: `${top.selectionKind === "ensemble" ? "Ensemble keluarga" : "Keluarga metode terbaik"} lolos evaluasi awal, uji berurutan, dan verifikasi akhir${release.evidence.softAccepted ? " dengan dukungan bukti gabungan" : ""}.`,
     diagnostics: [],
+    familySummaries: summaries,
     items: [item],
   };
 }
@@ -475,6 +506,7 @@ export const ECHO_INTERNAL_CONFIG = {
   ensembleFrozenBeforeHoldout: true,
   modeSpecificGates: true,
   combinedReleaseEvidence: true,
+  familySummaries: true,
   finalHoldoutUsedForSelection: false,
   finalHoldoutUsedAsReleaseGate: true,
 };
