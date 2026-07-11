@@ -126,9 +126,10 @@ export function evaluationOf(
 }
 
 export function normalizeDistribution(values: number[]): DigitDistribution {
-  const safe = DIGITS.map((digit) => Math.max(0, Number.isFinite(values[digit]) ? values[digit] : 0));
+  const safe = values.map((value) => Math.max(0, Number.isFinite(value) ? value : 0));
   const total = safe.reduce((sum, value) => sum + value, 0);
-  if (!total) return DIGITS.map(() => 0.1);
+  if (!safe.length) return [];
+  if (!total) return safe.map(() => 1 / safe.length);
   return safe.map((value) => value / total);
 }
 
