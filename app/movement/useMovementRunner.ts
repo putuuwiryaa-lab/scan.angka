@@ -17,8 +17,8 @@ type RunMovementParams = {
 
 function userFacingError(message: unknown): string {
   const text = String(message || "").toLowerCase();
-  if (text.includes("data belum cukup") || text.includes("minimal 80")) {
-    return "Riwayat keluaran pada pasaran ini belum mencukupi. Movement Engine membutuhkan minimal 80 result.";
+  if (text.includes("data belum cukup") || text.includes("minimal 28")) {
+    return "Riwayat keluaran belum mencukupi. Diperlukan minimal 28 result untuk training awal dan walk-forward L14.";
   }
   if (text.includes("pasaran") && text.includes("pilih")) {
     return "Pilih pasaran terlebih dahulu untuk memulai analisa.";
