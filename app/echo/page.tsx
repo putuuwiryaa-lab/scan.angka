@@ -129,7 +129,7 @@ export default function EchoPage() {
             <span aria-hidden="true">—</span>
             <div>
               <b>Belum ada rekomendasi yang memenuhi standar</b>
-              <p>{result.message || "Data saat ini belum menunjukkan pola yang cukup konsisten untuk direkomendasikan."}</p>
+              <p>Data saat ini belum menunjukkan pola yang cukup konsisten. Echo tidak menampilkan rekomendasi agar hasil yang lemah tidak dipaksakan.</p>
             </div>
           </section>
         )}
