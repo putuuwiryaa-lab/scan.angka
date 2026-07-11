@@ -25,15 +25,15 @@ const OUTPUT_LABEL: Record<MovementOutputType, string> = {
 };
 
 const OUTPUT_DESCRIPTION: Record<MovementOutputType, string> = {
-  position: "Satu posisi wajib masuk",
+  position: "Fokus satu posisi",
   ai: "Minimal satu target masuk",
-  bbfs: "Semua target wajib masuk",
+  bbfs: "Seluruh target tercakup",
 };
 
 const METHOD_LABEL: Record<MovementMethod, string> = {
-  delta: "Delta",
-  motif: "Motif",
-  cycle: "Cycle",
+  delta: "Delta Movement",
+  motif: "Pattern Motif",
+  cycle: "Cycle Analysis",
   cross: "Cross Position",
   joint_pair: "Joint Pair",
 };
@@ -130,7 +130,7 @@ export default function MovementPage() {
   const marketOptions: MovementSheetOption[] = filteredMarkets.map((market) => ({
     value: market.id,
     label: marketTitle(market),
-    secondary: market.latestResult ? `Result terakhir ${market.latestResult}` : undefined,
+    secondary: market.latestResult ? `Result terbaru ${market.latestResult}` : undefined,
   }));
 
   useEffect(() => {
@@ -191,9 +191,9 @@ export default function MovementPage() {
       `*${result.digits.join("")}*`,
       result.offDigits.length ? `OFF: ${result.offDigits.join("")}` : "",
       "",
-      `Metode Unggul: ${METHOD_LABEL[result.selectedMethod]} W${result.selectedWindow}`,
-      `Uji Terbaru: ${result.evaluation.l14.hit}/14`,
-      `Status: ${result.strength}`,
+      `Model Terpilih: ${METHOD_LABEL[result.selectedMethod]} W${result.selectedWindow}`,
+      `Validasi L14: ${result.evaluation.l14.hit}/14`,
+      `Kualitas Sinyal: ${result.strength}`,
     ].filter(Boolean).join("\n");
 
     try {
@@ -219,18 +219,18 @@ export default function MovementPage() {
     <main className={`wrap ${styles.page}`} aria-busy={loading}>
       <header className={styles.hero}>
         <div className={styles.heroTop}>
-          <span>PREDIKSI CERDAS</span>
+          <span>ANALISIS PREDIKTIF</span>
           <small>{syncText}</small>
         </div>
-        <h1>Cari pola terkuat.<br />Ambil hasil terbaik.</h1>
-        <p>Engine menguji metode dan window secara otomatis. Kamu cukup pilih pasaran dan jenis output.</p>
+        <h1>Pola dibaca.<br />Model diuji. Hasil diseleksi.</h1>
+        <p>Sistem mengevaluasi berbagai metode dan rentang data, lalu memilih konfigurasi dengan performa validasi paling konsisten.</p>
       </header>
 
-      <section className={styles.setupCard} aria-label="Pengaturan prediksi">
+      <section className={styles.setupCard} aria-label="Konfigurasi analisis prediktif">
         <FieldButton
-          label="Pasaran"
+          label="Pasaran Analisis"
           value={selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}
-          hint={selectedMarket?.latestResult ? `Result terakhir ${selectedMarket.latestResult}` : "Wajib dipilih"}
+          hint={selectedMarket?.latestResult ? `Result terbaru ${selectedMarket.latestResult}` : "Pasaran wajib dipilih"}
           onClick={() => {
             if (!isOpen("market")) setMarketQuery("");
             toggleDropdown("market");
@@ -238,8 +238,8 @@ export default function MovementPage() {
         />
 
         <div className={styles.modeBlock}>
-          <span>Mode output</span>
-          <div className={styles.modeTabs} role="tablist" aria-label="Mode output">
+          <span>Mode Prediksi</span>
+          <div className={styles.modeTabs} role="tablist" aria-label="Mode prediksi">
             {OUTPUT_TYPES.map((type) => (
               <button
                 key={type}
@@ -258,19 +258,19 @@ export default function MovementPage() {
 
         <div className={styles.choiceGrid}>
           <FieldButton
-            label="Target"
+            label="Target Analisis"
             value={TARGET_LABEL[target]}
             onClick={() => toggleDropdown("target")}
           />
           <FieldButton
-            label="Jumlah angka"
+            label="Cakupan Digit"
             value={`${digitCount} digit`}
             onClick={() => toggleDropdown("digit")}
           />
         </div>
 
         <button className={styles.runButton} type="button" disabled={loading || !marketId} onClick={startAnalysis}>
-          {loading ? <><span className={styles.spinner} />Mencari pola terbaik...</> : "Cari Prediksi Terbaik"}
+          {loading ? <><span className={styles.spinner} />Mengevaluasi model...</> : "Jalankan Analisis Prediktif"}
         </button>
 
         {errorText && <div className={styles.error}>{errorText}</div>}
@@ -282,14 +282,14 @@ export default function MovementPage() {
             <div className={styles.resultHeader}>
               <div>
                 <span className={result.released ? styles.statusGood : styles.statusOff}>
-                  {result.released ? "HASIL TERPILIH" : "BELUM LAYAK TERBIT"}
+                  {result.released ? "REKOMENDASI TERVERIFIKASI" : "VALIDASI BELUM MEMADAI"}
                 </span>
                 <h2>{resolvedMarketName}</h2>
-                <p>{OUTPUT_LABEL[result.config.outputType]} {TARGET_LABEL[result.config.target]} · {result.config.digitCount} digit</p>
+                <p>{OUTPUT_LABEL[result.config.outputType]} {TARGET_LABEL[result.config.target]} · cakupan {result.config.digitCount} digit</p>
               </div>
               <div className={styles.scoreBadge}>
                 <b>{result.evaluation.l14.hit}<small>/14</small></b>
-                <span>Uji terbaru</span>
+                <span>Validasi L14</span>
               </div>
             </div>
 
@@ -297,42 +297,42 @@ export default function MovementPage() {
               <>
                 <div className={styles.numberResult}>{result.digits.join("")}</div>
                 <div className={styles.resultMeta}>
-                  <div><span>Metode unggul</span><b>{METHOD_LABEL[result.selectedMethod]} · W{result.selectedWindow}</b></div>
-                  <div><span>Digit OFF</span><b>{result.offDigits.join("") || "—"}</b></div>
-                  <div><span>Kekuatan</span><b>{result.strength}</b></div>
+                  <div><span>Model Terpilih</span><b>{METHOD_LABEL[result.selectedMethod]} · W{result.selectedWindow}</b></div>
+                  <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
+                  <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
                 </div>
                 <button className={styles.copyButton} type="button" onClick={copyResult}>
-                  {copied ? "✓ Berhasil disalin" : "Salin Angka"}
+                  {copied ? "✓ Rekomendasi disalin" : "Salin Rekomendasi"}
                 </button>
               </>
             ) : (
               <div className={styles.noRelease}>
-                <b>Belum ada pola yang cukup kuat.</b>
-                <span>Metode terbaik hanya mencatat {result.evaluation.l14.hit}/14. Minimal {result.minimumReleaseHits}/14 diperlukan.</span>
+                <b>Sinyal prediktif belum stabil.</b>
+                <span>Konfigurasi terbaik mencatat validasi {result.evaluation.l14.hit}/14. Ambang minimum penerbitan adalah {result.minimumReleaseHits}/14.</span>
               </div>
             )}
 
             <details className={styles.details}>
               <summary>
-                <span>Lihat detail analisa</span>
+                <span>Lihat Evaluasi Model</span>
                 <i aria-hidden="true">⌄</i>
               </summary>
 
               <div className={styles.detailBody}>
                 <div className={styles.quickStats}>
-                  <div><b>{result.evaluation.l7.hit}/7</b><span>7 terbaru</span></div>
-                  <div><b>{signed(result.evaluation.l14.lift)}</b><span>Di atas baseline</span></div>
-                  <div><b>{result.evaluation.l14.longestMissStreak}</b><span>Patah beruntun</span></div>
-                  <div><b>{result.confidence}%</b><span>Keyakinan</span></div>
+                  <div><b>{result.evaluation.l7.hit}/7</b><span>Validasi L7</span></div>
+                  <div><b>{signed(result.evaluation.l14.lift)}</b><span>Lift vs Baseline</span></div>
+                  <div><b>{result.evaluation.l14.longestMissStreak}</b><span>Streak Miss</span></div>
+                  <div><b>{result.confidence}%</b><span>Confidence Score</span></div>
                 </div>
 
                 <section className={styles.detailSection}>
-                  <header><h3>Peringkat metode</h3><span>{result.config.candidateCount} kandidat diuji</span></header>
+                  <header><h3>Peringkat Model</h3><span>{result.config.candidateCount} konfigurasi dievaluasi</span></header>
                   <div className={styles.rankingList}>
                     {result.tournament.slice(0, 6).map((candidate, index) => (
                       <div key={`${candidate.method}-${candidate.window}`}>
                         <span>{index + 1}</span>
-                        <div><b>{METHOD_LABEL[candidate.method]} · W{candidate.window}</b><small>7 terbaru {candidate.l7Hit}/7</small></div>
+                        <div><b>{METHOD_LABEL[candidate.method]} · W{candidate.window}</b><small>Validasi L7 {candidate.l7Hit}/7</small></div>
                         <strong>{candidate.evaluation.hit}/14</strong>
                       </div>
                     ))}
@@ -340,7 +340,7 @@ export default function MovementPage() {
                 </section>
 
                 <section className={styles.detailSection}>
-                  <header><h3>Jejak uji L14</h3><span>Tanpa membaca target lebih dulu</span></header>
+                  <header><h3>Audit Walk-Forward L14</h3><span>Target tidak pernah masuk ke data training</span></header>
                   <div className={styles.auditList}>
                     {result.rows.map((row) => (
                       <div key={`${row.targetIndex}-${row.phase}`}>
@@ -362,7 +362,7 @@ export default function MovementPage() {
 
       <MovementSelectSheet
         open={isOpen("market")}
-        title="Pilih Pasaran"
+        title="Pilih Pasaran Analisis"
         options={marketOptions}
         selectedValue={marketId}
         searchValue={marketQuery}
@@ -370,11 +370,11 @@ export default function MovementPage() {
         onSearchChange={setMarketQuery}
         onSelect={chooseMarket}
         onClose={closeDropdown}
-        emptyText="Pasaran tidak ditemukan"
+        emptyText="Pasaran tidak tersedia"
       />
       <MovementSelectSheet
         open={isOpen("target")}
-        title="Pilih Target"
+        title="Pilih Target Analisis"
         options={targetOptions}
         selectedValue={target}
         onSelect={(value) => chooseTarget(String(value) as MovementTarget)}
@@ -382,7 +382,7 @@ export default function MovementPage() {
       />
       <MovementSelectSheet
         open={isOpen("digit")}
-        title="Pilih Jumlah Angka"
+        title="Pilih Cakupan Digit"
         options={digitOptions}
         selectedValue={digitCount}
         onSelect={(value) => { setDigitCount(Number(value)); closeDropdown(); }}
