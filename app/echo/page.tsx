@@ -41,6 +41,7 @@ export default function EchoPage() {
 
   const item = result?.items[0] ?? null;
   const resolvedMarketName = marketName || selectedMarket?.name || selectedMarket?.id || "Pasaran";
+  const failedFinalVerification = result?.message.includes("verifikasi akhir") ?? false;
 
   useEffect(() => {
     if (!result) return;
@@ -128,8 +129,8 @@ export default function EchoPage() {
           <section className={styles.emptyState} role="status">
             <span aria-hidden="true">—</span>
             <div>
-              <b>Belum ada rekomendasi yang memenuhi standar</b>
-              <p>Data saat ini belum menunjukkan pola yang cukup konsisten. Echo tidak menampilkan rekomendasi agar hasil yang lemah tidak dipaksakan.</p>
+              <b>{failedFinalVerification ? "Belum lolos verifikasi akhir" : "Belum ada rekomendasi yang memenuhi standar"}</b>
+              <p>{result.message}</p>
             </div>
           </section>
         )}
