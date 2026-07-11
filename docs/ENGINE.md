@@ -25,29 +25,104 @@ belakang = K,E
 
 ## Movement Engine
 
-Movement Engine tidak memilih rumus A1–E9. Engine membentuk distribusi probabilitas digit berikutnya dari pergerakan historis.
+Movement Engine tidak memilih rumus A1–E9. Engine membandingkan metode pembaca pergerakan pada **14 result terbaru** dan memilih kombinasi metode × window dengan kemenangan tertinggi.
 
-### Alur
+## Struktur Data 168 Result
+
+Jika tersedia 168 result:
 
 ```txt
-history_data
-→ pisahkan AS/COP/KPL/EKR
-→ bentuk digit, delta, arah, motif, dan jarak siklus
-→ jalankan empat model
-→ uji beberapa profil bobot secara walk-forward
-→ pilih profil terbaik tanpa melihat final holdout
-→ verifikasi pada final holdout
-→ bentuk output live
+Data 1–154   = sumber training
+Data 155–168 = walk-forward tetap L14
+Data 169     = target prediksi berikutnya
 ```
 
-### Model
+Window training selalu kelipatan 14:
 
-1. **Transition** — membaca perpindahan digit dan delta sebelumnya.
-2. **Motif** — membandingkan urutan gerakan terbaru dengan urutan historis.
-3. **Cycle** — membaca jarak pengulangan digit.
+```txt
+W14, W28, W42, W56, W70, W84,
+W98, W112, W126, W140, W154
+```
+
+## Walk-forward L14
+
+Contoh Delta W28:
+
+```txt
+Prediksi data 155 → training data 127–154
+Prediksi data 156 → training data 128–155
+Prediksi data 157 → training data 129–156
+...
+Prediksi data 168 → training data 140–167
+```
+
+Target yang sedang diuji tidak pernah ikut masuk ke training.
+
+Setelah 14 pengujian selesai, engine mencatat:
+
+- jumlah KENA dari 14;
+- KENA pada 7 result terbaru;
+- KENA pada 3 result terbaru;
+- longest miss streak;
+- lift terhadap baseline;
+- kestabilan window tetangga.
+
+## Metode yang Diuji
+
+1. **Delta** — membaca perpindahan digit dan dua delta terakhir.
+2. **Motif** — mencari urutan gerakan historis yang mirip dengan kondisi terbaru.
+3. **Cycle** — membaca jarak pengulangan dan tekanan kemunculan digit.
 4. **Cross-position** — membaca hubungan kondisi AS, COP, KPL, dan EKR.
+5. **Joint Pair** — khusus target 2D; membentuk probabilitas pasangan 00–99 secara langsung.
 
-Setiap model menghasilkan probabilitas digit 0–9 untuk setiap posisi. Distribusi digabungkan memakai profil bobot yang dipilih pada walk-forward.
+Untuk target satu posisi, 3D, dan 4D, Joint Pair tidak ikut turnamen. Untuk target 2D, semua lima metode diuji.
+
+Dengan 168 data:
+
+```txt
+Posisi / 3D / 4D = 4 metode × 11 window = 44 kandidat
+Target 2D        = 5 metode × 11 window = 55 kandidat
+```
+
+## Ranking Kandidat
+
+Kandidat diurutkan berdasarkan:
+
+1. KENA L14 tertinggi;
+2. KENA L7 tertinggi;
+3. miss streak terpendek;
+4. KENA L3 tertinggi;
+5. rata-rata kemenangan window tetangga;
+6. rata-rata probabilitas output;
+7. window lebih panjang jika seluruh nilai masih sama.
+
+Contoh stabilitas:
+
+```txt
+Delta W28 = 11/14
+Delta W42 = 12/14
+Delta W56 = 11/14
+```
+
+W42 lebih didukung dibanding nilai tinggi yang berdiri sendiri di antara window lemah.
+
+## Prediksi Berikutnya
+
+Setelah pemenang dipilih, metode tersebut dilatih ulang memakai window terbaru.
+
+Contoh pemenang:
+
+```txt
+Joint Pair W98 = 12/14
+```
+
+Prediksi result ke-169 menggunakan:
+
+```txt
+98 data terbaru dari data 71–168
+```
+
+Saat result baru masuk, L14 bergeser satu langkah dan seluruh turnamen dijalankan ulang.
 
 ## Objektif Output
 
@@ -90,20 +165,24 @@ Contoh:
 ```txt
 KPL 7 digit       = 70%
 AI 2D 4 digit     = 64%
+BBFS 2D 8 digit   = 64%
 BBFS 4D 8 digit   = 40,96% ≈ 41%
 ```
 
-Hit rate dinilai bersama lift terhadap baseline, longest miss streak, stabilitas periode, dan final holdout.
+## Batas Penerbitan
 
-## Walk-forward dan Holdout
+Pemenang tidak otomatis diterbitkan. Minimal KENA dihitung satu tingkat di atas ekspektasi baseline L14.
 
-Movement Engine membutuhkan minimal 80 result.
+Contoh:
 
-- Data sebelum validation menjadi training yang terus bertambah.
-- Setiap baris validation diprediksi hanya dari data sebelumnya.
-- Profil bobot dipilih dari validation.
-- Final holdout tidak digunakan untuk memilih profil.
-- Output tetap ditampilkan. Jika bukti belum stabil, kekuatan diberi label `PANTAU`.
+```txt
+KPL 7 digit       → minimal 11/14
+AI 2D 4 digit     → minimal 10/14
+BBFS 2D 8 digit   → minimal 10/14
+BBFS 4D 8 digit   → minimal 7/14
+```
+
+Jika seluruh metode berada di bawah batas tersebut, engine tetap menampilkan hasil turnamen tetapi **tidak menerbitkan angka rekomendasi**.
 
 ## Pembentukan Output
 
@@ -112,5 +191,6 @@ Engine menguji seluruh kombinasi digit yang mungkin untuk jumlah digit pilihan.
 - Posisi memaksimalkan probabilitas digit posisi berada dalam output.
 - AI memaksimalkan probabilitas minimal satu posisi target tertutup.
 - BBFS memaksimalkan probabilitas semua posisi target tertutup.
+- Joint Pair menilai pasangan 00–99 langsung, bukan sekadar mengalikan ranking KPL dan EKR.
 
 Karena ruang digit hanya 0–9, enumerasi kombinasi tetap kecil; maksimum `C(10,5) = 252` kombinasi.
