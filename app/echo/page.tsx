@@ -13,6 +13,14 @@ import EchoResultView from "./components/EchoResultView";
 import styles from "./echo.module.css";
 import { useEchoRunner } from "./useEchoRunner";
 
+const FAMILY_GROUP_LABEL = {
+  ANALOG: "Analog",
+  TRANSITION: "Transisi",
+  CYCLE: "Siklus",
+  PAIR: "Struktur",
+  ENSEMBLE: "Ensemble",
+} as const;
+
 export default function EchoPage() {
   const {
     marketId,
@@ -86,7 +94,7 @@ export default function EchoPage() {
           <span className={styles.syncPill}>{syncText}</span>
         </div>
         <h1>Rekomendasi berdasarkan pola historis</h1>
-        <p>Echo menilai pola yang paling relevan, menguji konsistensinya, lalu menampilkan satu rekomendasi terbaik.</p>
+        <p>Echo menilai beberapa keluarga metode, menguji konsistensinya, lalu menampilkan model terbaik yang lolos verifikasi.</p>
       </header>
 
       <EchoControlPanel
@@ -131,6 +139,18 @@ export default function EchoPage() {
             <div>
               <b>{failedFinalVerification ? "Belum lolos verifikasi akhir" : "Belum ada rekomendasi yang memenuhi standar"}</b>
               <p>{result.message}</p>
+              {result.diagnostics?.map((diagnostic) => (
+                <p key={diagnostic.code}>
+                  <strong>{diagnostic.label}:</strong> {diagnostic.detail}
+                </p>
+              ))}
+              {result.familySummaries?.map((summary) => (
+                <p key={`${summary.group}-${summary.formula}`}>
+                  <strong>{FAMILY_GROUP_LABEL[summary.group]} · {summary.formula}:</strong>{" "}
+                  skor {summary.score} · lift uji {summary.validationLift >= 0 ? "+" : ""}{summary.validationLift}% · confidence {summary.confidence}
+                  {summary.eligible ? " · lolos internal" : ` · gugur ${summary.rejectionCodes.join(", ")}`}
+                </p>
+              ))}
             </div>
           </section>
         )}

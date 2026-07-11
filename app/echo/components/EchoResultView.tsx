@@ -33,6 +33,7 @@ function Section({ id, title, subtitle, children }: { id: string; title: string;
 export default function EchoResultView({ item, marketName }: { item: EchoItem; marketName: string }) {
   const liveStats: EchoStat[] = [
     { label: "Keluaran terakhir", value: item.result.latestDraw },
+    { label: "Model terpilih", value: item.selectionKind === "ensemble" ? "Ensemble" : "Satu keluarga" },
     { label: "Angka acuan", value: String(item.result.patokan) },
     { label: "Kolom terpilih", value: item.activeColumns },
     { label: "Kondisi pola terkini", value: regimeLabel(item.echo.regime) },
@@ -60,6 +61,12 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
       value: `${item.audit.holdoutRate}%`,
       helper: `${item.audit.holdoutHit}/${item.audit.holdoutTotal} berhasil · acuan ${item.audit.holdoutBaselineRate}% · ${differenceText(item.audit.holdoutLift)}`,
       tone: liftTone(item.audit.holdoutLift),
+    },
+    {
+      label: "Bukti gabungan",
+      value: `${item.release.combinedRate}%`,
+      helper: `Acuan ${item.release.combinedBaselineRate}% · ${differenceText(item.release.combinedLift)}${item.release.softAccepted ? " · toleransi sampel pendek digunakan" : ""}`,
+      tone: liftTone(item.release.combinedLift),
     },
     { label: "Performa 5 hasil terakhir", value: `${item.audit.recentHit}/${item.audit.recentTotal}` },
     { label: "Konsistensi evaluasi", value: `${item.audit.discoveryWindowStability}%` },
@@ -90,14 +97,23 @@ export default function EchoResultView({ item, marketName }: { item: EchoItem; m
         <EchoWindowList windows={item.audit.windows} />
       </Section>
 
-      <Section id="echo-consensus" title="Dukungan Metode" subtitle="Menunjukkan seberapa banyak metode Echo lain yang menghasilkan arah serupa. Nilai ini hanya sebagai informasi pendukung.">
+      <Section id="echo-consensus" title="Dukungan Metode" subtitle="Satu wakil dipilih dari setiap keluarga sebelum model dibandingkan. Ensemble dibekukan sebelum verifikasi akhir.">
         <div className={styles.consensusCard}>
           <strong>{item.familyAgreement}%</strong>
           <div>
             <b>Kategori {item.strength}</b>
-            <p>{item.consensusFamilies.map((family) => FAMILY_LABEL[family]).join(", ")}</p>
+            <p>{item.consensusFamilies.map((family) => FAMILY_LABEL[family]).join(", ") || FAMILY_LABEL[item.family]}</p>
           </div>
         </div>
+        {item.contributors.map((contributor) => (
+          <div className={styles.consensusCard} key={`${contributor.group}-${contributor.formula}`}>
+            <strong>{contributor.weight}%</strong>
+            <div>
+              <b>{FAMILY_LABEL[contributor.family]}</b>
+              <p>{contributor.formula} · angka {contributor.digits.join("")} · lift uji {contributor.validationLift >= 0 ? "+" : ""}{contributor.validationLift}%</p>
+            </div>
+          </div>
+        ))}
       </Section>
 
       <Section id="echo-analogs" title="Pola Historis Paling Mirip" subtitle="Data yang terlalu berdekatan dibatasi agar satu periode tidak mendominasi hasil.">

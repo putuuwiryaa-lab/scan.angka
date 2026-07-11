@@ -1,12 +1,37 @@
 import type { Draw, Kolom, Posisi, ScanMode, Target2D, Target3D } from "../engine/types";
 
-export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES";
+export type EchoFamily = "EL" | "EX" | "ER" | "EA" | "EJ" | "ES" | "ET" | "EC" | "EP" | "EN";
+export type EchoFamilyGroup = "ANALOG" | "TRANSITION" | "CYCLE" | "PAIR" | "ENSEMBLE";
+export type EchoSelectionKind = "single" | "ensemble";
 export type EchoConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
 export type EchoStrength = "KUAT" | "CUKUP" | "PANTAU";
 export type EchoRegime = "TREND_UP" | "TREND_DOWN" | "ZIGZAG" | "FLAT" | "EXPANDING" | "COMPRESSING" | "REPEAT" | "MIXED";
 export type EchoSourceKind = "position" | "jumlah2d" | "shio";
-export type EchoVariant = "local" | "cross" | "regime" | "area";
+export type EchoVariant = "local" | "cross" | "regime" | "area" | "transition1" | "transition2" | "transitionCross" | "cycleGap" | "cyclePhase" | "pairGap" | "pairSum" | "pairRelation" | "ensemble";
 export type EchoAuditPhase = "discovery" | "validation" | "holdout";
+export type EchoRejectReason =
+  | "NO_QUALIFIED_PROFILE"
+  | "SCORE_BELOW_MINIMUM"
+  | "NEGATIVE_DISCOVERY_LIFT"
+  | "NEGATIVE_VALIDATION_LIFT"
+  | "LOW_CONFIDENCE"
+  | "LOW_EFFECTIVE_SAMPLE"
+  | "INSUFFICIENT_VALIDATION"
+  | "INSUFFICIENT_HOLDOUT"
+  | "HOLDOUT_HIT_BELOW_BASELINE"
+  | "NEGATIVE_HOLDOUT_LIFT"
+  | "EXCESSIVE_VALIDATION_DROP"
+  | "HOLDOUT_MISS_STREAK"
+  | "LOW_FINAL_SCORE";
+
+export interface EchoDiagnostic {
+  code: EchoRejectReason;
+  phase: "candidate" | "holdout";
+  label: string;
+  actual?: number;
+  required?: number;
+  detail: string;
+}
 
 export interface EchoProfile {
   family: EchoFamily;
@@ -93,8 +118,43 @@ export interface EchoQuality {
   regime: EchoRegime;
 }
 
+export interface EchoFamilyContribution {
+  group: EchoFamilyGroup;
+  family: EchoFamily;
+  formula: string;
+  weight: number;
+  digits: number[];
+  validationLift: number;
+}
+
+export interface EchoReleaseEvidence {
+  holdoutFloor: number;
+  combinedRate: number;
+  combinedBaselineRate: number;
+  combinedLift: number;
+  softAccepted: boolean;
+}
+
+export interface EchoFamilySummary {
+  group: EchoFamilyGroup;
+  family: EchoFamily;
+  formula: string;
+  score: number;
+  discoveryLift: number;
+  validationRate: number;
+  validationBaselineRate: number;
+  validationLift: number;
+  confidence: number;
+  effectiveNeighbors: number;
+  eligible: boolean;
+  selected: boolean;
+  rejectionCodes: EchoRejectReason[];
+}
+
 export interface EchoItem {
   family: EchoFamily;
+  familyGroup: EchoFamilyGroup;
+  selectionKind: EchoSelectionKind;
   formula: string;
   anchorPos: Posisi | null;
   targetPos: Posisi;
@@ -112,6 +172,8 @@ export interface EchoItem {
   confidenceLevel: EchoConfidenceLevel;
   familyAgreement: number;
   consensusFamilies: EchoFamily[];
+  contributors: EchoFamilyContribution[];
+  release: EchoReleaseEvidence;
   audit: EchoAudit;
   echo: EchoQuality;
   result: {
@@ -144,11 +206,16 @@ export interface EchoResult {
     evaluationRows: number;
     sourceDataSize: number;
     nestedWalkForward: boolean;
+    familyRepresentativeSelection: boolean;
+    ensembleFrozenBeforeHoldout: boolean;
     finalHoldoutUsedForSelection: boolean;
     finalHoldoutUsedAsReleaseGate: boolean;
   };
   totalProfiles: number;
   totalQualified: number;
+  totalFamilies: number;
   message: string;
+  diagnostics: EchoDiagnostic[];
+  familySummaries: EchoFamilySummary[];
   items: EchoItem[];
 }
