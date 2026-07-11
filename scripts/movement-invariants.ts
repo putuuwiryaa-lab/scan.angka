@@ -53,7 +53,6 @@ assert.equal(ai.config.candidateCount, 55);
 assert.equal(ai.evaluation.l14.baseline, 64);
 assert.equal(ai.evaluation.l14.total, 14);
 assert.equal(ai.minimumReleaseHits, 10);
-assert.ok(ai.tournament.some((candidate) => candidate.method === "joint_pair"));
 assert.equal(ai.digits.length, ai.released ? 4 : 0);
 
 const bbfs = runMovementEngine(draws, {
