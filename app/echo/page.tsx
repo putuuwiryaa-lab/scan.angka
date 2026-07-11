@@ -84,8 +84,8 @@ export default function EchoPage() {
           <span className={styles.heroBadge}>ECHO ENGINE</span>
           <span className={styles.syncPill}>{syncText}</span>
         </div>
-        <h1>Analisa pola historis</h1>
-        <p>Satu rekomendasi utama, diuji dengan nested walk-forward dan final holdout.</p>
+        <h1>Rekomendasi berdasarkan pola historis</h1>
+        <p>Echo menilai pola yang paling relevan, menguji konsistensinya, lalu menampilkan satu rekomendasi terbaik.</p>
       </header>
 
       <EchoControlPanel
@@ -128,8 +128,8 @@ export default function EchoPage() {
           <section className={styles.emptyState} role="status">
             <span aria-hidden="true">—</span>
             <div>
-              <b>Belum ada rekomendasi kuat</b>
-              <p>{result.message || "Echo belum menemukan sinyal yang cukup kuat."}</p>
+              <b>Belum ada rekomendasi yang memenuhi standar</b>
+              <p>{result.message || "Data saat ini belum menunjukkan pola yang cukup konsisten untuk direkomendasikan."}</p>
             </div>
           </section>
         )}
