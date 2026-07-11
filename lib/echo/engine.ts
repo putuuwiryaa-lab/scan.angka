@@ -31,6 +31,11 @@ import {
   predictCycleAt,
 } from "./cycle";
 import { buildCandidateDiagnostics, buildHoldoutDiagnostics } from "./diagnostics";
+import {
+  buildPairBacktestRows,
+  buildPairProfiles,
+  predictPairAt,
+} from "./pair";
 import { predictEchoAt, type EchoPrediction } from "./pattern";
 import { buildEchoProfiles } from "./profiles";
 import {
@@ -232,6 +237,9 @@ function backtestRowsForProfile(
   if (profile.family === "EC") {
     return buildCycleBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
   }
+  if (profile.family === "EP") {
+    return buildPairBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
+  }
   return buildEchoBacktestRows(draws, profile, scanMode, targetPos, target2D, target3D, plan);
 }
 
@@ -247,6 +255,9 @@ function livePredictionForProfile(
   }
   if (profile.family === "EC") {
     return predictCycleAt(draws, draws.length, profile, scanMode, target2D, plan);
+  }
+  if (profile.family === "EP") {
+    return predictPairAt(draws, draws.length, profile, plan);
   }
   return predictEchoAt(draws, draws.length, profile, scanMode, target2D, plan);
 }
@@ -266,6 +277,7 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     ...buildEchoProfiles(scanMode, targetPos, target2D, target3D),
     ...buildTransitionProfiles(scanMode, targetPos, target2D, target3D),
     ...buildCycleProfiles(scanMode, targetPos, target2D, target3D),
+    ...buildPairProfiles(scanMode, target2D, target3D),
   ];
   const candidates: EchoCandidate[] = [];
 
