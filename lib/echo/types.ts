@@ -142,6 +142,7 @@ export interface EchoResult {
     validationSize: number;
     holdoutSize: number;
     evaluationRows: number;
+    referenceWindow: number;
     sourceDataSize: number;
     nestedWalkForward: boolean;
     finalHoldoutUsedForSelection: boolean;
