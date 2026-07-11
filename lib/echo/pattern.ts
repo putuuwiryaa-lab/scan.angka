@@ -119,7 +119,9 @@ function classifyRegime(draws: Draw[], anchor: number): EchoRegime {
   const positives = currentMoves.filter((value) => value > 0).length;
   const negatives = currentMoves.filter((value) => value < 0).length;
   const flat = currentMoves.filter((value) => Math.abs(value) <= 1).length;
-  const reversals = currentMoves.filter((value, index) => value !== 0 && priorMoves[index] !== 0 && Math.sign(value) !== Math.sign(priorMoves[index])).length;
+  const reversals = currentMoves.filter((value, index) =>
+    value !== 0 && priorMoves[index] !== 0 && Math.sign(value) !== Math.sign(priorMoves[index]),
+  ).length;
   const spreadChange = spreadOf(latest) - spreadOf(previous);
 
   if (repeatCount(latest) >= 2) return "REPEAT";
@@ -162,9 +164,15 @@ function buildState(draws: Draw[], anchor: number, profile: EchoProfile, target2
   const previousDraw = draws[anchor - 1];
   const beforeDraw = draws[anchor - 2];
   const thirdDraw = draws[anchor - 3];
-  const movementNow = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10));
-  const movementBefore = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10));
-  const movementNet3 = POSITIONS.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10));
+  const movementNow = POSITIONS.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10),
+  );
+  const movementBefore = POSITIONS.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10),
+  );
+  const movementNet3 = POSITIONS.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10),
+  );
   const spread = spreadOf(currentDraw) / 9;
   const spreadChange = (spreadOf(currentDraw) - spreadOf(previousDraw)) / 9;
   const repeats = repeatCount(currentDraw) / 3;
@@ -203,9 +211,15 @@ function buildState(draws: Draw[], anchor: number, profile: EchoProfile, target2
   }
 
   const area = profile.areaPositions.length ? profile.areaPositions : POSITIONS;
-  const areaNow = area.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10));
-  const areaBefore = area.map((pos) => normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10));
-  const areaNet3 = area.map((pos) => normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10));
+  const areaNow = area.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(previousDraw, pos), 10), 10),
+  );
+  const areaBefore = area.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(previousDraw, pos), digitOf(beforeDraw, pos), 10), 10),
+  );
+  const areaNet3 = area.map((pos) =>
+    normalizedDelta(circularDelta(digitOf(currentDraw, pos), digitOf(thirdDraw, pos), 10), 10),
+  );
   const left = area[0] ?? "K";
   const right = area[area.length - 1] ?? "E";
   const gapNow = circularDistance(digitOf(currentDraw, left), digitOf(currentDraw, right), 10) / 5;
@@ -253,15 +267,19 @@ function stateDistance(left: EchoState, right: EchoState, variant: EchoVariant):
   return base + penalty;
 }
 
-function adaptiveNeighbors(raw: RawNeighbor[], plan: EchoEvaluationPlan, targetIndex: number): RawNeighbor[] {
+function adaptiveNeighbors(
+  raw: RawNeighbor[],
+  plan: EchoEvaluationPlan,
+  referenceStart: number,
+): RawNeighbor[] {
   const maxNeighbors = Math.min(plan.maximumNeighbors, ECHO_MAX_NEIGHBORS);
-  const eraSize = targetIndex >= 150 ? 20 : 15;
+  const eraSize = Math.max(6, Math.round(plan.referenceWindow / 5));
   const sorted = [...raw].sort((left, right) => left.distance - right.distance || right.anchorIndex - left.anchorIndex);
   const selected: RawNeighbor[] = [];
   const eraCounts = new Map<number, number>();
 
   for (const candidate of sorted) {
-    const era = Math.floor(candidate.anchorIndex / eraSize);
+    const era = Math.floor((candidate.anchorIndex - referenceStart) / eraSize);
     if ((eraCounts.get(era) ?? 0) >= 2) continue;
     if (selected.some((item) => Math.abs(item.anchorIndex - candidate.anchorIndex) <= 1)) continue;
     selected.push(candidate);
@@ -272,7 +290,7 @@ function adaptiveNeighbors(raw: RawNeighbor[], plan: EchoEvaluationPlan, targetI
   if (selected.length < ECHO_MIN_NEIGHBORS) {
     for (const candidate of sorted) {
       if (selected.includes(candidate)) continue;
-      const era = Math.floor(candidate.anchorIndex / eraSize);
+      const era = Math.floor((candidate.anchorIndex - referenceStart) / eraSize);
       if ((eraCounts.get(era) ?? 0) >= 3) continue;
       selected.push(candidate);
       eraCounts.set(era, (eraCounts.get(era) ?? 0) + 1);
@@ -290,8 +308,10 @@ function adaptiveNeighbors(raw: RawNeighbor[], plan: EchoEvaluationPlan, targetI
 
   const core = selected.slice(0, ECHO_MIN_NEIGHBORS);
   const median = core[Math.floor(core.length / 2)]?.distance ?? 1;
-  const cutoff = Math.max(median * 1.9, median + 0.14);
-  return selected.filter((item, index) => index < ECHO_MIN_NEIGHBORS || item.distance <= cutoff).slice(0, maxNeighbors);
+  const cutoff = Math.max(median * 1.8, median + 0.12);
+  return selected
+    .filter((item, index) => index < ECHO_MIN_NEIGHBORS || item.distance <= cutoff)
+    .slice(0, maxNeighbors);
 }
 
 function weightedNeighbors(
@@ -317,7 +337,9 @@ function weightedNeighbors(
 function voteRanking(neighbors: EchoNeighbor[], modulus: number, take = neighbors.length): Array<{ digit: number; weight: number }> {
   const votes = Array.from({ length: modulus }, () => 0);
   for (const neighbor of neighbors.slice(0, take)) votes[neighbor.projectedDigit] += neighbor.weight;
-  return votes.map((weight, digit) => ({ digit, weight })).sort((left, right) => right.weight - left.weight || left.digit - right.digit);
+  return votes
+    .map((weight, digit) => ({ digit, weight }))
+    .sort((left, right) => right.weight - left.weight || left.digit - right.digit);
 }
 
 function confidenceLevel(confidence: number): EchoConfidenceLevel {
@@ -342,8 +364,12 @@ export function predictEchoAt(
   const liveState = buildState(draws, liveAnchor, profile, target2D);
   const liveValue = sourceValue(draws, liveAnchor, profile, target2D);
   const raw: RawNeighbor[] = [];
+  const referenceStart = Math.max(
+    ECHO_STATE_WINDOW - 1,
+    targetIndex - plan.referenceWindow - 1,
+  );
 
-  for (let anchor = ECHO_STATE_WINDOW - 1; anchor + 1 < targetIndex; anchor += 1) {
+  for (let anchor = referenceStart; anchor + 1 < targetIndex; anchor += 1) {
     const state = buildState(draws, anchor, profile, target2D);
     const current = sourceValue(draws, anchor, profile, target2D);
     const next = sourceValue(draws, anchor + 1, profile, target2D);
@@ -357,10 +383,10 @@ export function predictEchoAt(
     });
   }
 
-  const nearest = adaptiveNeighbors(raw, plan, targetIndex);
+  const nearest = adaptiveNeighbors(raw, plan, referenceStart);
   if (nearest.length < ECHO_MIN_NEIGHBORS) return null;
   const medianDistance = nearest[Math.floor(nearest.length / 2)]?.distance ?? 0.5;
-  const temperature = Math.max(0.3, Math.min(0.95, medianDistance * 1.4 + 0.16));
+  const temperature = Math.max(0.28, Math.min(0.9, medianDistance * 1.35 + 0.14));
   const middleHalfLife = plan.halfLives[Math.floor(plan.halfLives.length / 2)];
   const baseNeighbors = weightedNeighbors(nearest, liveAnchor, liveValue, modulus, temperature, middleHalfLife);
   const baseRanking = voteRanking(baseNeighbors, modulus);
@@ -374,14 +400,22 @@ export function predictEchoAt(
 
   for (const halfLife of plan.halfLives) {
     const weighted = weightedNeighbors(nearest, liveAnchor, liveValue, modulus, temperature, halfLife);
-    for (const take of kValues) ensemblePredictions.push(voteRanking(weighted, modulus, take)[0]?.digit ?? basePatokan);
+    for (const take of kValues) {
+      ensemblePredictions.push(voteRanking(weighted, modulus, take)[0]?.digit ?? basePatokan);
+    }
   }
 
   const predictionCounts = new Map<number, number>();
-  for (const digit of ensemblePredictions) predictionCounts.set(digit, (predictionCounts.get(digit) ?? 0) + 1);
+  for (const digit of ensemblePredictions) {
+    predictionCounts.set(digit, (predictionCounts.get(digit) ?? 0) + 1);
+  }
   const maxCount = Math.max(...predictionCounts.values());
-  const tied = [...predictionCounts.entries()].filter(([, count]) => count === maxCount).map(([digit]) => digit);
-  const patokan = tied.includes(basePatokan) ? basePatokan : tied.sort((left, right) => left - right)[0] ?? basePatokan;
+  const tied = [...predictionCounts.entries()]
+    .filter(([, count]) => count === maxCount)
+    .map(([digit]) => digit);
+  const patokan = tied.includes(basePatokan)
+    ? basePatokan
+    : tied.sort((left, right) => left - right)[0] ?? basePatokan;
   const ensembleStability = ensemblePredictions.length
     ? (ensemblePredictions.filter((digit) => digit === patokan).length / ensemblePredictions.length) * 100
     : 0;
@@ -390,7 +424,9 @@ export function predictEchoAt(
   const weightSum = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.weight, 0);
   const weightSquares = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.weight * neighbor.weight, 0);
   const weightedDistance = baseNeighbors.reduce((sum, neighbor) => sum + neighbor.distance * neighbor.weight, 0);
-  const sameRegimeWeight = baseNeighbors.filter((neighbor) => neighbor.regime === liveState.regime).reduce((sum, neighbor) => sum + neighbor.weight, 0);
+  const sameRegimeWeight = baseNeighbors
+    .filter((neighbor) => neighbor.regime === liveState.regime)
+    .reduce((sum, neighbor) => sum + neighbor.weight, 0);
   const dominantShare = weightSum > 0 ? (voteMap.get(patokan) ?? 0) / weightSum : 0;
   const effectiveNeighbors = weightSquares > 0 ? (weightSum * weightSum) / weightSquares : 0;
   const meanDistance = weightSum > 0 ? weightedDistance / weightSum : 1;
