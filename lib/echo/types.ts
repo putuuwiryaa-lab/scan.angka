@@ -145,6 +145,7 @@ export interface EchoResult {
     sourceDataSize: number;
     nestedWalkForward: boolean;
     finalHoldoutUsedForSelection: boolean;
+    finalHoldoutUsedAsReleaseGate: boolean;
   };
   totalProfiles: number;
   totalQualified: number;
