@@ -5,11 +5,12 @@ import { analysisTitle, labelsFromValues } from "../../scan/helpers";
 import type { EchoItem } from "../../../lib/echo/types";
 import { buildEchoCopyText, confidenceLabel, profileTitle } from "../presentation";
 import styles from "../echo-result.module.css";
+import cardStyles from "./EchoPrimaryCard.module.css";
 
 function digitLayoutClass(count: number): string {
-  if (count >= 7) return styles.mainDigitsDense;
-  if (count >= 5) return styles.mainDigitsMedium;
-  return styles.mainDigitsCompact;
+  if (count >= 7) return cardStyles.mainDigitsDense;
+  if (count >= 5) return cardStyles.mainDigitsMedium;
+  return cardStyles.mainDigitsCompact;
 }
 
 export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; marketName: string }) {
@@ -55,13 +56,13 @@ export default function EchoPrimaryCard({ item, marketName }: { item: EchoItem; 
       </p>
 
       <div
-        className={`${styles.mainDigits} ${digitLayoutClass(digits.length)}`}
+        className={`${cardStyles.mainDigits} ${digitLayoutClass(digits.length)}`}
         aria-label={`${digits.length} angka rekomendasi`}
       >
         {digits.map((digit, index) => <span key={`${digit}-${index}`}>{digit}</span>)}
       </div>
 
-      <div className={styles.chipRow} aria-label="Ringkasan evaluasi">
+      <div className={cardStyles.summaryGrid} aria-label="Ringkasan evaluasi">
         <span><b>{item.score}</b><small>Nilai</small></span>
         <span><b>{item.audit.walkForwardHit}/{item.audit.walkForwardTotal}</b><small>Uji berurutan</small></span>
         <span><b>{item.audit.holdoutHit}/{item.audit.holdoutTotal}</b><small>Verifikasi akhir</small></span>
