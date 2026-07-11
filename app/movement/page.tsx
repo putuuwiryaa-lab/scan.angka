@@ -8,7 +8,7 @@ import { useScanDropdowns } from "../scan/hooks/useScanDropdowns";
 import { marketTitle } from "../shared/scan-utils";
 import type { Market } from "../scan/types";
 import type {
-  MovementGroupTarget,
+  MovementMethod,
   MovementOutputType,
   MovementTarget,
 } from "../../lib/movement/types";
@@ -22,6 +22,14 @@ const OUTPUT_LABEL: Record<MovementOutputType, string> = {
   position: "Posisi",
   ai: "AI",
   bbfs: "BBFS",
+};
+
+const METHOD_LABEL: Record<MovementMethod, string> = {
+  delta: "Delta",
+  motif: "Motif",
+  cycle: "Cycle",
+  cross: "Cross-position",
+  joint_pair: "Joint Pair",
 };
 
 const POSITION_OPTIONS: MovementSheetOption[] = [
@@ -173,7 +181,7 @@ export default function MovementPage() {
   }
 
   async function copyResult() {
-    if (!result) return;
+    if (!result?.released) return;
     const resolvedMarket = marketName || selectedMarket?.name || selectedMarket?.id || "Pasaran";
     const text = [
       `*${String(resolvedMarket).toUpperCase()}*`,
@@ -181,9 +189,9 @@ export default function MovementPage() {
       "",
       result.digits.join(""),
       result.offDigits.length ? `OFF: ${result.offDigits.join("")}` : "",
+      `Metode: ${METHOD_LABEL[result.selectedMethod]} W${result.selectedWindow}`,
+      `Walk-forward: ${result.evaluation.l14.hit}/14`,
       `Kekuatan: ${result.strength} · Confidence ${result.confidence}%`,
-      `L15: ${result.evaluation.l15.hit}/${result.evaluation.l15.total}`,
-      `L30: ${result.evaluation.l30.hit}/${result.evaluation.l30.total}`,
     ].filter(Boolean).join("\n");
 
     try {
@@ -208,14 +216,14 @@ export default function MovementPage() {
     <main className={`wrap ${styles.page}`} aria-busy={loading}>
       <header className={styles.hero}>
         <div><span>MOVEMENT ENGINE</span><small>{syncText}</small></div>
-        <h1>Prediksi berdasarkan pergerakan data</h1>
-        <p>Engine membaca transisi, motif gerakan, siklus, dan hubungan antarposisi. Bobot dipilih otomatis melalui walk-forward.</p>
+        <h1>Turnamen metode pada 14 result terbaru</h1>
+        <p>Semua metode diuji dengan window training kelipatan 14. Pemenang L14 dilatih ulang pada window terbaru untuk memprediksi result berikutnya.</p>
       </header>
 
       <section className={`panel ${styles.controls}`} aria-label="Pengaturan Movement Engine">
         <div className={styles.controlHead}>
           <div><span>PENGATURAN OUTPUT</span><b>Pilih kebutuhan analisa</b></div>
-          <small>4 pilihan</small>
+          <small>L14 otomatis</small>
         </div>
 
         <FieldButton
@@ -237,11 +245,11 @@ export default function MovementPage() {
 
         <div className={styles.ruleBox}>
           <b>{outputType === "ai" ? "AI: minimal satu digit" : outputType === "bbfs" ? "BBFS: semua digit target" : "Posisi: satu digit posisi"}</b>
-          <span>{outputType === "ai" ? "Status kena jika sekurangnya satu digit target masuk." : outputType === "bbfs" ? "Status kena hanya jika seluruh digit target masuk." : "Status kena jika digit posisi berikutnya terdapat dalam output."}</span>
+          <span>Metode hanya diterbitkan jika pemenang L14 melampaui batas baseline yang ditetapkan engine.</span>
         </div>
 
         <button className={styles.runButton} type="button" disabled={loading || !marketId} onClick={startAnalysis}>
-          {loading ? "Membaca pergerakan data..." : "Jalankan Analisa"}
+          {loading ? "Menguji metode dan window..." : "Jalankan Analisa"}
         </button>
         {(movementError || marketError) && <div className={styles.error}>{movementError || marketError}</div>}
       </section>
@@ -252,50 +260,72 @@ export default function MovementPage() {
             <section className={`${styles.card} ${styles.primaryCard}`}>
               <div className={styles.primaryHead}>
                 <div>
-                  <span>REKOMENDASI · {result.strength}</span>
+                  <span>{result.released ? `REKOMENDASI · ${result.strength}` : "REKOMENDASI TIDAK DITERBITKAN"}</span>
                   <h2>{resolvedMarketName}</h2>
                   <p>{OUTPUT_LABEL[result.config.outputType]} {TARGET_LABEL[result.config.target]} · {result.config.digitCount} digit</p>
                 </div>
                 <div className={styles.confidence}><b>{result.confidence}%</b><small>Confidence</small></div>
               </div>
 
-              <div className={styles.digits} aria-label="Angka rekomendasi">
-                {result.digits.map((digit) => <span key={digit}>{digit}</span>)}
-              </div>
+              {result.released ? (
+                <>
+                  <div className={styles.digits} aria-label="Angka rekomendasi">
+                    {result.digits.map((digit) => <span key={digit}>{digit}</span>)}
+                  </div>
+                  <div className={styles.offLine}><span>OFF</span><b>{result.offDigits.join("") || "—"}</b></div>
+                </>
+              ) : (
+                <div className={styles.noRelease}>Tidak ada metode yang cukup kuat untuk result berikutnya.</div>
+              )}
 
-              <div className={styles.offLine}><span>OFF</span><b>{result.offDigits.join("") || "—"}</b></div>
               <p className={styles.message}>{result.message}</p>
-              <button className={styles.copyButton} type="button" onClick={copyResult}>
-                {copied ? "✓ Hasil berhasil disalin" : "Salin Hasil"}
-              </button>
+              {result.released && (
+                <button className={styles.copyButton} type="button" onClick={copyResult}>
+                  {copied ? "✓ Hasil berhasil disalin" : "Salin Hasil"}
+                </button>
+              )}
             </section>
 
             <section className={styles.card}>
-              <header className={styles.sectionHead}><h3>Evaluasi</h3><p>{result.objective}</p></header>
+              <header className={styles.sectionHead}><h3>Walk-forward Tetap L14</h3><p>{result.objective}</p></header>
               <div className={styles.metricGrid}>
-                <div><b>{rateText(result.evaluation.l15.hit, result.evaluation.l15.total, result.evaluation.l15.lift)}</b><span>L15 · lift</span></div>
-                <div><b>{rateText(result.evaluation.l30.hit, result.evaluation.l30.total, result.evaluation.l30.lift)}</b><span>L30 · lift</span></div>
-                <div><b>{rateText(result.evaluation.l60.hit, result.evaluation.l60.total, result.evaluation.l60.lift)}</b><span>L60 · lift</span></div>
-                <div><b>{rateText(result.evaluation.holdout.hit, result.evaluation.holdout.total, result.evaluation.holdout.lift)}</b><span>Holdout · lift</span></div>
-                <div><b>{result.evaluation.holdout.baseline}%</b><span>Baseline</span></div>
-                <div><b>{result.evaluation.holdout.longestMissStreak}</b><span>Miss streak</span></div>
+                <div><b>{rateText(result.evaluation.l14.hit, 14, result.evaluation.l14.lift)}</b><span>L14 · lift</span></div>
+                <div><b>{result.evaluation.l7.hit}/7</b><span>7 terbaru</span></div>
+                <div><b>{result.evaluation.l3.hit}/3</b><span>3 terbaru</span></div>
+                <div><b>{result.evaluation.l14.baseline}%</b><span>Baseline</span></div>
+                <div><b>{result.minimumReleaseHits}/14</b><span>Minimal terbit</span></div>
+                <div><b>{result.evaluation.l14.longestMissStreak}</b><span>Miss streak</span></div>
               </div>
             </section>
 
             <section className={styles.card}>
-              <header className={styles.sectionHead}><h3>Cara Engine Membaca Data</h3><p>Profil {result.selectedProfile} dipilih tanpa memakai final holdout.</p></header>
+              <header className={styles.sectionHead}><h3>Pemenang Turnamen</h3><p>Dipilih dari seluruh metode dan window yang diuji terhadap 14 result terbaru.</p></header>
               <div className={styles.metricGrid}>
-                <div><b>{result.regime}</b><span>Kondisi gerakan</span></div>
+                <div><b>{METHOD_LABEL[result.selectedMethod]}</b><span>Metode terpilih</span></div>
+                <div><b>W{result.selectedWindow}</b><span>Window training</span></div>
+                <div><b>{result.config.candidateCount}</b><span>Total kandidat</span></div>
+                <div><b>{result.config.windows.length}</b><span>Jumlah window</span></div>
                 <div><b>{result.config.sourceDataSize}</b><span>Jumlah result</span></div>
-                <div><b>{Math.round(result.weights.transition * 100)}%</b><span>Transisi</span></div>
-                <div><b>{Math.round(result.weights.motif * 100)}%</b><span>Motif</span></div>
-                <div><b>{Math.round(result.weights.cycle * 100)}%</b><span>Siklus</span></div>
-                <div><b>{Math.round(result.weights.cross * 100)}%</b><span>Relasi posisi</span></div>
+                <div><b>{result.regime}</b><span>Kondisi gerakan</span></div>
               </div>
             </section>
 
             <section className={styles.card}>
-              <header className={styles.sectionHead}><h3>Ranking Digit</h3><p>Skor relatif dari distribusi probabilitas live.</p></header>
+              <header className={styles.sectionHead}><h3>Ranking Metode × Window</h3><p>Urutan: win L14, L7, miss streak, L3, stabilitas window tetangga.</p></header>
+              <div className={styles.tournamentList}>
+                {result.tournament.map((candidate, index) => (
+                  <div key={`${candidate.method}-${candidate.window}`}>
+                    <span>{index + 1}</span>
+                    <div><b>{METHOD_LABEL[candidate.method]} · W{candidate.window}</b><small>Stabilitas tetangga {candidate.neighborAverageHit}/14</small></div>
+                    <strong>{candidate.evaluation.hit}/14</strong>
+                    <small>L7 {candidate.l7Hit}/7</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.card}>
+              <header className={styles.sectionHead}><h3>Ranking Digit Live</h3><p>Dibentuk ulang memakai {METHOD_LABEL[result.selectedMethod]} dan {result.selectedWindow} data terbaru.</p></header>
               <div className={styles.probabilityList}>
                 {result.probabilities.map((item) => (
                   <div key={item.digit}>
@@ -308,9 +338,9 @@ export default function MovementPage() {
             </section>
 
             <section className={styles.card}>
-              <header className={styles.sectionHead}><h3>Riwayat Uji Terbaru</h3><p>Prediksi dibentuk hanya dari data yang tersedia sebelum target.</p></header>
+              <header className={styles.sectionHead}><h3>Riwayat Uji L14</h3><p>Pada setiap baris, target tidak pernah ikut masuk ke data training.</p></header>
               <div className={styles.auditList}>
-                {result.rows.slice(-15).map((row) => (
+                {result.rows.map((row) => (
                   <div key={`${row.targetIndex}-${row.phase}`}>
                     <span>{row.outputDigits.join("")}</span>
                     <span>→ {row.targetDraw}</span>
