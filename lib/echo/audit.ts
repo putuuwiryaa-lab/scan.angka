@@ -6,8 +6,22 @@ import {
   targetDigitsOf,
   uniqueDigits,
 } from "../engine/helpers";
-import { KOLOM, SHIO_KOLOM, type Draw, type Kolom, type Posisi, type ScanMode, type Target2D, type Target3D } from "../engine/types";
-import { ECHO_MIN_HISTORY, ECHO_RECENT_SIZE, type EchoEvaluationPlan, type EchoWindowSpec } from "./config";
+import {
+  KOLOM,
+  SHIO_KOLOM,
+  type Draw,
+  type Kolom,
+  type Posisi,
+  type ScanMode,
+  type Target2D,
+  type Target3D,
+} from "../engine/types";
+import {
+  ECHO_MIN_HISTORY,
+  ECHO_RECENT_SIZE,
+  type EchoEvaluationPlan,
+  type EchoWindowSpec,
+} from "./config";
 import { predictEchoAt } from "./pattern";
 import type { EchoAudit, EchoBacktestRow, EchoProfile, EchoWindowAudit } from "./types";
 
@@ -61,10 +75,14 @@ function targetColumnsForRow(deret: number[], targetDigits: number[], scanMode: 
     .filter((column): column is Kolom => Boolean(column));
 }
 
+function requiredCoverCount(scanMode: ScanMode, targetCount: number): number {
+  if (scanMode === "ai_2d_belakang") return Math.min(1, targetCount);
+  if (scanMode === "ai_3d") return Math.min(2, targetCount);
+  return targetCount;
+}
+
 function requiredCover(scanMode: ScanMode, targetColumns: Kolom[]): number {
-  if (scanMode === "ai_2d_belakang") return Math.min(1, targetColumns.length);
-  if (scanMode === "ai_3d") return Math.min(2, targetColumns.length);
-  return targetColumns.length;
+  return requiredCoverCount(scanMode, targetColumns.length);
 }
 
 function rowCovered(targetColumns: Kolom[], selected: Set<Kolom>, scanMode: ScanMode): boolean {
@@ -95,36 +113,76 @@ function combination(n: number, k: number): number {
   if (k === 0 || k === n) return 1;
   const safeK = Math.min(k, n - k);
   let result = 1;
-  for (let index = 1; index <= safeK; index += 1) result = (result * (n - safeK + index)) / index;
+  for (let index = 1; index <= safeK; index += 1) {
+    result = (result * (n - safeK + index)) / index;
+  }
   return result;
 }
 
-function mean(values: number[]): number {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-}
-
-function randomCoverageProbability(total: number, selected: number, targets: number, required: number, offMode: boolean): number {
+function randomCoverageProbability(
+  total: number,
+  selected: number,
+  targets: number,
+  required: number,
+  offMode: boolean,
+): number {
   const denominator = combination(total, selected);
   if (!denominator || targets <= 0) return 0;
   if (offMode) return combination(total - targets, selected) / denominator;
+
   let probability = 0;
   for (let hits = required; hits <= Math.min(targets, selected); hits += 1) {
-    probability += combination(targets, hits) * combination(total - targets, selected - hits) / denominator;
+    probability += combination(targets, hits) *
+      combination(total - targets, selected - hits) /
+      denominator;
   }
   return probability;
 }
 
-function baselineRate(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode): number {
+function targetArity(scanMode: ScanMode): number {
+  if (scanMode === "ai_3d" || scanMode === "bbfs_3d" || scanMode === "off_3d") return 3;
+  if (
+    scanMode === "ai_2d_belakang" ||
+    scanMode === "bbfs_2d_belakang" ||
+    scanMode === "off_2d_belakang"
+  ) return 2;
+  return 1;
+}
+
+export function theoreticalBaselineRate(digitCount: number, scanMode: ScanMode): number {
   const totalColumns = echoColumnsForMode(scanMode).length;
-  if (!rows.length) return 0;
-  const probabilities = rows.map((row) => randomCoverageProbability(
-    totalColumns,
-    digitCount,
-    row.targetColumns.length,
-    requiredCover(scanMode, row.targetColumns),
-    isOffMode(scanMode),
-  ));
-  return Number((mean(probabilities) * 100).toFixed(1));
+  if (digitCount < 1 || digitCount > totalColumns) return 0;
+
+  const arity = targetArity(scanMode);
+  const outcome: number[] = [];
+  let probabilityTotal = 0;
+  let outcomeCount = 0;
+
+  function walk(depth: number) {
+    if (depth === arity) {
+      const uniqueTargets = new Set(outcome).size;
+      probabilityTotal += randomCoverageProbability(
+        totalColumns,
+        digitCount,
+        uniqueTargets,
+        requiredCoverCount(scanMode, uniqueTargets),
+        isOffMode(scanMode),
+      );
+      outcomeCount += 1;
+      return;
+    }
+
+    for (let value = 0; value < totalColumns; value += 1) {
+      outcome.push(value);
+      walk(depth + 1);
+      outcome.pop();
+    }
+  }
+
+  walk(0);
+  return outcomeCount
+    ? Number(((probabilityTotal / outcomeCount) * 100).toFixed(1))
+    : 0;
 }
 
 function longestMissStreak(statuses: boolean[]): number {
@@ -141,7 +199,9 @@ function longestMissStreak(statuses: boolean[]): number {
 }
 
 function rateOf(statuses: boolean[]): number {
-  return statuses.length ? Number(((statuses.filter(Boolean).length / statuses.length) * 100).toFixed(1)) : 0;
+  return statuses.length
+    ? Number(((statuses.filter(Boolean).length / statuses.length) * 100).toFixed(1))
+    : 0;
 }
 
 function discoveryWindows(statuses: boolean[], specs: EchoWindowSpec[]): {
@@ -162,14 +222,22 @@ function discoveryWindows(statuses: boolean[], specs: EchoWindowSpec[]): {
       longestMissStreak: longestMissStreak(sample),
     };
   }).filter((window) => window.total > 0);
+
   const weightTotal = windows.reduce((sum, window) => sum + window.weight, 0);
   const weightedAccuracy = weightTotal
     ? windows.reduce((sum, window) => sum + window.rate * window.weight, 0) / weightTotal
     : 0;
   const rates = windows.map((window) => window.rate);
-  const stability = rates.length ? Math.max(0, 100 - (Math.max(...rates) - Math.min(...rates))) : 0;
-  const strongest = [...windows].sort((left, right) => right.rate - left.rate || left.window - right.window)[0];
-  const weakest = [...windows].sort((left, right) => left.rate - right.rate || right.window - left.window)[0];
+  const stability = rates.length
+    ? Math.max(0, 100 - (Math.max(...rates) - Math.min(...rates)))
+    : 0;
+  const strongest = [...windows].sort(
+    (left, right) => right.rate - left.rate || left.window - right.window,
+  )[0];
+  const weakest = [...windows].sort(
+    (left, right) => left.rate - right.rate || right.window - left.window,
+  )[0];
+
   return {
     windows,
     weightedAccuracy: Number(weightedAccuracy.toFixed(1)),
@@ -179,22 +247,15 @@ function discoveryWindows(statuses: boolean[], specs: EchoWindowSpec[]): {
   };
 }
 
-function weightedBaseline(rows: EchoBacktestRow[], digitCount: number, scanMode: ScanMode, specs: EchoWindowSpec[]): number {
-  const windows = specs.map((window) => ({
-    weight: window.weight,
-    baseline: baselineRate(rows.slice(-Math.min(window.size, rows.length)), digitCount, scanMode),
-  }));
-  const weightTotal = windows.reduce((sum, window) => sum + window.weight, 0);
-  return weightTotal
-    ? Number((windows.reduce((sum, window) => sum + window.baseline * window.weight, 0) / weightTotal).toFixed(1))
-    : 0;
-}
-
 function weakestRate(windows: EchoWindowAudit[]): number {
   return windows.reduce((minimum, window) => Math.min(minimum, window.rate), 100);
 }
 
-function markRows(rows: EchoBacktestRow[], statuses: boolean[], phase: EchoBacktestRow["phase"]): EchoBacktestRow[] {
+function markRows(
+  rows: EchoBacktestRow[],
+  statuses: boolean[],
+  phase: EchoBacktestRow["phase"],
+): EchoBacktestRow[] {
   return rows.map((row, index) => ({ ...row, covered: statuses[index] ?? false, phase }));
 }
 
@@ -206,6 +267,25 @@ export function splitEchoRows(rows: EchoBacktestRow[], plan: EchoEvaluationPlan)
   };
 }
 
+function isBetterFit(candidate: EchoColumnFit, best: EchoColumnFit): boolean {
+  if (candidate.weightedAccuracy !== best.weightedAccuracy) {
+    return candidate.weightedAccuracy > best.weightedAccuracy;
+  }
+  if (candidate.lift !== best.lift) return candidate.lift > best.lift;
+
+  const candidateWeakest = weakestRate(candidate.windows);
+  const bestWeakest = weakestRate(best.windows);
+  if (candidateWeakest !== bestWeakest) return candidateWeakest > bestWeakest;
+  if (candidate.windowStability !== best.windowStability) {
+    return candidate.windowStability > best.windowStability;
+  }
+  if (candidate.longestMissStreak !== best.longestMissStreak) {
+    return candidate.longestMissStreak < best.longestMissStreak;
+  }
+  if (candidate.efficiency !== best.efficiency) return candidate.efficiency > best.efficiency;
+  return candidate.columns.join("") < best.columns.join("");
+}
+
 export function fitEchoColumns(
   trainingRows: EchoBacktestRow[],
   digitCount: number,
@@ -214,13 +294,14 @@ export function fitEchoColumns(
 ): EchoColumnFit | null {
   const available = echoColumnsForMode(scanMode);
   if (!trainingRows.length || digitCount < 1 || digitCount > available.length) return null;
+
+  const baseline = theoreticalBaselineRate(digitCount, scanMode);
   let best: EchoColumnFit | null = null;
 
   for (const columns of combinations(available, digitCount)) {
     const selected = new Set<Kolom>(columns);
     const statuses = trainingRows.map((row) => rowCovered(row.targetColumns, selected, scanMode));
     const windows = discoveryWindows(statuses, specs);
-    const baseline = weightedBaseline(trainingRows, digitCount, scanMode, specs);
     const columnUsage = trainingRows.reduce(
       (sum, row) => sum + row.targetColumns.filter((column) => selected.has(column)).length,
       0,
@@ -228,6 +309,7 @@ export function fitEchoColumns(
     const efficiency = isOffMode(scanMode)
       ? 1 - columnUsage / Math.max(1, trainingRows.length * columns.length)
       : columnUsage / Math.max(1, trainingRows.length * columns.length);
+
     const candidate: EchoColumnFit = {
       columns: [...columns],
       statuses,
@@ -246,17 +328,9 @@ export function fitEchoColumns(
       efficiency,
     };
 
-    if (!best ||
-      candidate.weightedAccuracy > best.weightedAccuracy ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift > best.lift) ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift === best.lift && weakestRate(candidate.windows) > weakestRate(best.windows)) ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift === best.lift && weakestRate(candidate.windows) === weakestRate(best.windows) && candidate.windowStability > best.windowStability) ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift === best.lift && weakestRate(candidate.windows) === weakestRate(best.windows) && candidate.windowStability === best.windowStability && candidate.longestMissStreak < best.longestMissStreak) ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift === best.lift && weakestRate(candidate.windows) === weakestRate(best.windows) && candidate.windowStability === best.windowStability && candidate.longestMissStreak === best.longestMissStreak && candidate.efficiency > best.efficiency) ||
-      (candidate.weightedAccuracy === best.weightedAccuracy && candidate.lift === best.lift && weakestRate(candidate.windows) === weakestRate(best.windows) && candidate.windowStability === best.windowStability && candidate.longestMissStreak === best.longestMissStreak && candidate.efficiency === best.efficiency && columns.join("") < best.columns.join(""))) {
-      best = candidate;
-    }
+    if (!best || isBetterFit(candidate, best)) best = candidate;
   }
+
   return best;
 }
 
@@ -270,7 +344,8 @@ export function evaluateFrozenRows(
   const selected = new Set<Kolom>(columns);
   const statuses = rows.map((row) => rowCovered(row.targetColumns, selected, scanMode));
   const rate = rateOf(statuses);
-  const baseline = baselineRate(rows, digitCount, scanMode);
+  const baseline = theoreticalBaselineRate(digitCount, scanMode);
+
   return {
     statuses,
     rows: markRows(rows, statuses, phase),
@@ -296,14 +371,16 @@ export function evaluateNestedWalkForward(
 
   for (const row of validationRows) {
     const fit = fitEchoColumns(priorRows, digitCount, scanMode, specs);
-    const covered = fit ? rowCovered(row.targetColumns, new Set(fit.columns), scanMode) : false;
+    const covered = fit
+      ? rowCovered(row.targetColumns, new Set(fit.columns), scanMode)
+      : false;
     statuses.push(covered);
     markedRows.push({ ...row, covered, phase: "validation" });
     priorRows.push(row);
   }
 
   const rate = rateOf(statuses);
-  const baseline = baselineRate(validationRows, digitCount, scanMode);
+  const baseline = theoreticalBaselineRate(digitCount, scanMode);
   return {
     statuses,
     rows: markedRows,
@@ -366,11 +443,18 @@ export function buildEchoBacktestRows(
 ): EchoBacktestRow[] {
   const start = Math.max(ECHO_MIN_HISTORY, draws.length - plan.totalRows);
   const rows: EchoBacktestRow[] = [];
+
   for (let targetIndex = start; targetIndex < draws.length; targetIndex += 1) {
     const prediction = predictEchoAt(draws, targetIndex, profile, scanMode, target2D, plan);
     if (!prediction) continue;
     const deret = echoDeretForMode(prediction.patokan, scanMode);
-    const targetDigits = targetDigitsOf(draws[targetIndex], scanMode, targetPos, target2D, target3D);
+    const targetDigits = targetDigitsOf(
+      draws[targetIndex],
+      scanMode,
+      targetPos,
+      target2D,
+      target3D,
+    );
     rows.push({
       targetIndex,
       displayDraw: draws[targetIndex - 1],
@@ -385,5 +469,6 @@ export function buildEchoBacktestRows(
       effectiveNeighbors: prediction.quality.effectiveNeighbors,
     });
   }
+
   return rows.slice(-plan.totalRows);
 }
