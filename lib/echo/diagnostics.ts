@@ -1,7 +1,15 @@
-import type { ScanMode } from "../engine/types";
 import type { EchoColumnFit, EchoPhaseAudit } from "./audit";
 import type { EchoPrediction } from "./pattern";
 import type { EchoDiagnostic, EchoReleaseEvidence } from "./types";
+
+export interface EchoEvidenceProfile {
+  baselineRate: number;
+  rows: number;
+  standardError: number;
+  oneHitStep: number;
+  minimumLift: number;
+  minimumHits: number;
+}
 
 export interface EchoGateProfile {
   minimumScore: number;
@@ -9,111 +17,85 @@ export interface EchoGateProfile {
   minimumEffectiveNeighbors: number;
   minimumDiscoveryLift: number;
   minimumValidationLift: number;
+  minimumValidationHits: number;
   minimumValidationRows: number;
   minimumHoldoutRows: number;
   maximumValidationDrop: number;
   softHoldoutFloor: number;
+  baselineRate: number;
+  walkForwardRows: number;
+  standardError: number;
+  oneHitStep: number;
 }
 
 interface DiagnosticCandidate {
   score: number;
-  discoveryFit: Pick<EchoColumnFit, "lift">;
+  discoveryFit: Pick<EchoColumnFit, "lift" | "baselineRate" | "total">;
   validation: Pick<EchoPhaseAudit, "hit" | "lift" | "rate" | "baselineRate" | "total">;
   live: Pick<EchoPrediction, "confidence" | "quality">;
 }
 
-function baseGate(scanMode: ScanMode): EchoGateProfile {
-  if (scanMode === "ai_2d_belakang" || scanMode === "bbfs_2d_belakang") {
-    return {
-      minimumScore: 56,
-      minimumConfidence: 48,
-      minimumEffectiveNeighbors: 5,
-      minimumDiscoveryLift: 0,
-      minimumValidationLift: 0,
-      minimumValidationRows: 6,
-      minimumHoldoutRows: 6,
-      maximumValidationDrop: 30,
-      softHoldoutFloor: -3,
-    };
-  }
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value));
+}
 
-  if (scanMode === "posisi") {
-    return {
-      minimumScore: 57,
-      minimumConfidence: 49,
-      minimumEffectiveNeighbors: 5.2,
-      minimumDiscoveryLift: 0,
-      minimumValidationLift: 0,
-      minimumValidationRows: 6,
-      minimumHoldoutRows: 6,
-      maximumValidationDrop: 28,
-      softHoldoutFloor: -2,
-    };
-  }
+function rounded(value: number): number {
+  return Number(value.toFixed(1));
+}
 
-  if (scanMode === "ai_3d" || scanMode === "bbfs_3d") {
-    return {
-      minimumScore: 58,
-      minimumConfidence: 50,
-      minimumEffectiveNeighbors: 5.2,
-      minimumDiscoveryLift: 0,
-      minimumValidationLift: 0,
-      minimumValidationRows: 6,
-      minimumHoldoutRows: 6,
-      maximumValidationDrop: 28,
-      softHoldoutFloor: -2,
-    };
-  }
-
-  if (scanMode === "shio") {
-    return {
-      minimumScore: 60,
-      minimumConfidence: 55,
-      minimumEffectiveNeighbors: 5.5,
-      minimumDiscoveryLift: 1,
-      minimumValidationLift: 1,
-      minimumValidationRows: 6,
-      minimumHoldoutRows: 6,
-      maximumValidationDrop: 25,
-      softHoldoutFloor: 0,
-    };
-  }
-
-  if (scanMode.startsWith("off_")) {
-    return {
-      minimumScore: 59,
-      minimumConfidence: 52,
-      minimumEffectiveNeighbors: 5.5,
-      minimumDiscoveryLift: 0,
-      minimumValidationLift: 0,
-      minimumValidationRows: 6,
-      minimumHoldoutRows: 6,
-      maximumValidationDrop: 25,
-      softHoldoutFloor: 0,
-    };
-  }
+export function echoEvidenceFor(
+  baselineRate: number,
+  rows: number,
+  uncertaintyFraction = 0.25,
+): EchoEvidenceProfile {
+  const safeRows = Math.max(1, Math.trunc(rows));
+  const safeBaseline = clamp(Number.isFinite(baselineRate) ? baselineRate : 0, 0.1, 99.9);
+  const probability = safeBaseline / 100;
+  const standardError = Math.sqrt((probability * (1 - probability)) / safeRows) * 100;
+  const oneHitStep = 100 / safeRows;
+  const minimumLift = clamp(standardError * uncertaintyFraction, 0, 8);
+  const minimumHits = Math.min(
+    safeRows,
+    Math.ceil((((safeBaseline + minimumLift) / 100) * safeRows) - 1e-9),
+  );
 
   return {
-    minimumScore: 58,
-    minimumConfidence: 52,
-    minimumEffectiveNeighbors: 5.5,
-    minimumDiscoveryLift: 0,
-    minimumValidationLift: 0,
-    minimumValidationRows: 6,
-    minimumHoldoutRows: 6,
-    maximumValidationDrop: 28,
-    softHoldoutFloor: 0,
+    baselineRate: rounded(safeBaseline),
+    rows: safeRows,
+    standardError: rounded(standardError),
+    oneHitStep: rounded(oneHitStep),
+    minimumLift: rounded(minimumLift),
+    minimumHits,
   };
 }
 
-export function echoGateFor(scanMode: ScanMode, digitCount: number): EchoGateProfile {
-  const gate = baseGate(scanMode);
-  const broadSelectionPenalty = digitCount >= 8 ? 2 : digitCount >= 6 ? 1 : 0;
-  const softHoldoutFloor = digitCount <= 5 ? gate.softHoldoutFloor : 0;
+export function echoGateFor(baselineRate: number, walkForwardRows: number): EchoGateProfile {
+  const evidence = echoEvidenceFor(baselineRate, walkForwardRows, 0.25);
+  const minimumScore = Math.round(55 + Math.min(4, evidence.standardError * 0.22));
+  const minimumConfidence = Math.round(48 + Math.min(5, evidence.standardError * 0.18));
+  const maximumValidationDrop = rounded(Math.max(
+    evidence.oneHitStep * 2,
+    Math.min(30, evidence.standardError * 1.8),
+  ));
+  const softHoldoutFloor = evidence.rows <= 12
+    ? -rounded(Math.min(3, evidence.standardError * 0.2))
+    : 0;
+
   return {
-    ...gate,
-    minimumScore: gate.minimumScore + broadSelectionPenalty,
+    minimumScore,
+    minimumConfidence,
+    minimumEffectiveNeighbors: 5,
+    minimumDiscoveryLift: rounded(Math.min(4, evidence.standardError * 0.12)),
+    minimumValidationLift: evidence.minimumLift,
+    minimumValidationHits: evidence.minimumHits,
+    minimumValidationRows: 6,
+    minimumHoldoutRows: 6,
+    maximumValidationDrop,
     softHoldoutFloor,
+    baselineRate: evidence.baselineRate,
+    walkForwardRows: evidence.rows,
+    standardError: evidence.standardError,
+    oneHitStep: evidence.oneHitStep,
   };
 }
 
@@ -121,11 +103,7 @@ function metric(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-export function buildCandidateDiagnostics(
-  candidate: DiagnosticCandidate | null,
-  scanMode: ScanMode,
-  digitCount: number,
-): EchoDiagnostic[] {
+export function buildCandidateDiagnostics(candidate: DiagnosticCandidate | null): EchoDiagnostic[] {
   if (!candidate) {
     return [{
       code: "NO_QUALIFIED_PROFILE",
@@ -135,7 +113,12 @@ export function buildCandidateDiagnostics(
     }];
   }
 
-  const gate = echoGateFor(scanMode, digitCount);
+  const gate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
+  const discoveryEvidence = echoEvidenceFor(
+    candidate.discoveryFit.baselineRate,
+    candidate.discoveryFit.total,
+    0.12,
+  );
   const diagnostics: EchoDiagnostic[] = [];
 
   if (candidate.score < gate.minimumScore) {
@@ -145,32 +128,33 @@ export function buildCandidateDiagnostics(
       label: "Skor evaluasi belum cukup",
       actual: candidate.score,
       required: gate.minimumScore,
-      detail: `Skor ${metric(candidate.score)}; minimum mode ini ${gate.minimumScore}.`,
+      detail: `Skor ${metric(candidate.score)}; minimum ${gate.minimumScore} berdasarkan baseline ${metric(gate.baselineRate)}% dan ${gate.walkForwardRows} walk-forward.`,
     });
   }
 
-  if (candidate.discoveryFit.lift < gate.minimumDiscoveryLift) {
+  if (candidate.discoveryFit.lift < discoveryEvidence.minimumLift) {
     diagnostics.push({
       code: "NEGATIVE_DISCOVERY_LIFT",
       phase: "candidate",
-      label: "Discovery belum mengungguli baseline",
+      label: "Discovery belum memberi keunggulan cukup",
       actual: candidate.discoveryFit.lift,
-      required: gate.minimumDiscoveryLift,
-      detail: `Lift discovery ${metric(candidate.discoveryFit.lift)}%; minimum mode ini ${metric(gate.minimumDiscoveryLift)}%.`,
+      required: discoveryEvidence.minimumLift,
+      detail: `Lift discovery ${metric(candidate.discoveryFit.lift)}%; minimum ${metric(discoveryEvidence.minimumLift)}% berdasarkan baseline ${metric(discoveryEvidence.baselineRate)}% dan ${discoveryEvidence.rows} pengujian.`,
     });
   }
 
   if (
+    candidate.validation.hit < gate.minimumValidationHits ||
     candidate.validation.lift < gate.minimumValidationLift ||
     candidate.validation.rate < candidate.validation.baselineRate
   ) {
     diagnostics.push({
       code: "NEGATIVE_VALIDATION_LIFT",
       phase: "candidate",
-      label: "Walk-forward belum mengungguli baseline",
-      actual: candidate.validation.lift,
-      required: gate.minimumValidationLift,
-      detail: `Lift walk-forward ${metric(candidate.validation.lift)}% dari ${candidate.validation.total} pengujian; minimum mode ini ${metric(gate.minimumValidationLift)}%.`,
+      label: "Walk-forward belum memberi bukti cukup",
+      actual: candidate.validation.hit,
+      required: gate.minimumValidationHits,
+      detail: `Hit ${candidate.validation.hit}/${candidate.validation.total}; minimum ${gate.minimumValidationHits}/${candidate.validation.total}. Lift ${metric(candidate.validation.lift)}%; kebutuhan ${metric(gate.minimumValidationLift)}% berdasarkan baseline ${metric(candidate.validation.baselineRate)}%.`,
     });
   }
 
@@ -181,7 +165,7 @@ export function buildCandidateDiagnostics(
       label: "Keyakinan live rendah",
       actual: candidate.live.confidence,
       required: gate.minimumConfidence,
-      detail: `Confidence ${metric(candidate.live.confidence)}; minimum mode ini ${gate.minimumConfidence}.`,
+      detail: `Confidence ${metric(candidate.live.confidence)}; minimum ${gate.minimumConfidence} untuk ${candidate.validation.total} walk-forward.`,
     });
   }
 
@@ -192,7 +176,7 @@ export function buildCandidateDiagnostics(
       label: "Sampel efektif terlalu sedikit",
       actual: candidate.live.quality.effectiveNeighbors,
       required: gate.minimumEffectiveNeighbors,
-      detail: `Effective sample ${metric(candidate.live.quality.effectiveNeighbors)}; minimum mode ini ${metric(gate.minimumEffectiveNeighbors)}.`,
+      detail: `Effective sample ${metric(candidate.live.quality.effectiveNeighbors)}; minimum ${metric(gate.minimumEffectiveNeighbors)}.`,
     });
   }
 
@@ -213,7 +197,7 @@ export function buildCandidateDiagnostics(
 function releaseEvidence(
   candidate: DiagnosticCandidate,
   holdout: EchoPhaseAudit,
-  gate: EchoGateProfile,
+  holdoutGate: EchoGateProfile,
 ): EchoReleaseEvidence {
   const total = candidate.validation.total + holdout.total;
   const hits = candidate.validation.hit + holdout.hit;
@@ -223,23 +207,29 @@ function releaseEvidence(
       holdout.baselineRate * holdout.total
     ) / total
     : 0;
-  const priorStrength = 6;
+  const priorStrength = Math.max(4, Math.min(8, Math.round(Math.sqrt(total))));
   const posteriorRate = total > 0
     ? ((hits + (baselineRate / 100) * priorStrength) / (total + priorStrength)) * 100
     : 0;
   const evidenceLift = posteriorRate - baselineRate;
+  const validationEvidence = echoEvidenceFor(
+    candidate.validation.baselineRate,
+    candidate.validation.total,
+    0.25,
+  );
+  const combinedEvidence = echoEvidenceFor(baselineRate, total, 0.12);
   const softAccepted =
-    gate.softHoldoutFloor < 0 &&
+    holdoutGate.softHoldoutFloor < 0 &&
     holdout.lift < 0 &&
-    holdout.lift >= gate.softHoldoutFloor &&
-    candidate.validation.lift >= 5 &&
-    evidenceLift >= 1;
+    holdout.lift >= holdoutGate.softHoldoutFloor &&
+    candidate.validation.hit >= validationEvidence.minimumHits &&
+    evidenceLift >= combinedEvidence.minimumLift;
 
   return {
-    holdoutFloor: gate.softHoldoutFloor,
-    combinedRate: Number(posteriorRate.toFixed(1)),
-    combinedBaselineRate: Number(baselineRate.toFixed(1)),
-    combinedLift: Number(evidenceLift.toFixed(1)),
+    holdoutFloor: holdoutGate.softHoldoutFloor,
+    combinedRate: rounded(posteriorRate),
+    combinedBaselineRate: rounded(baselineRate),
+    combinedLift: rounded(evidenceLift),
     softAccepted,
   };
 }
@@ -248,26 +238,35 @@ export function evaluateHoldoutRelease(
   candidate: DiagnosticCandidate,
   holdout: EchoPhaseAudit,
   finalScore: number,
-  scanMode: ScanMode,
-  digitCount: number,
 ): { diagnostics: EchoDiagnostic[]; evidence: EchoReleaseEvidence } {
-  const gate = echoGateFor(scanMode, digitCount);
-  const evidence = releaseEvidence(candidate, holdout, gate);
+  const validationGate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
+  const holdoutGate = echoGateFor(holdout.baselineRate, holdout.total);
+  const holdoutEvidence = echoEvidenceFor(holdout.baselineRate, holdout.total, 0.1);
+  const combinedBaseline = (
+    candidate.validation.baselineRate * candidate.validation.total +
+    holdout.baselineRate * holdout.total
+  ) / Math.max(1, candidate.validation.total + holdout.total);
+  const combinedGate = echoGateFor(combinedBaseline, candidate.validation.total + holdout.total);
+  const evidence = releaseEvidence(candidate, holdout, holdoutGate);
   const diagnostics: EchoDiagnostic[] = [];
-  const expectedHits = Math.ceil((holdout.baselineRate / 100) * holdout.total);
-  const minimumHits = Math.max(Math.ceil(holdout.total * 0.25), expectedHits);
-  const allowedHits = evidence.softAccepted ? Math.max(0, minimumHits - 1) : minimumHits;
+  const allowedHits = evidence.softAccepted
+    ? Math.max(0, holdoutEvidence.minimumHits - 1)
+    : holdoutEvidence.minimumHits;
   const maximumMissStreak = Math.max(3, Math.floor(holdout.total / 3));
   const validationDrop = candidate.validation.rate - holdout.rate;
+  const maximumValidationDrop = Math.max(
+    validationGate.maximumValidationDrop,
+    holdoutGate.maximumValidationDrop,
+  );
 
-  if (holdout.total < gate.minimumHoldoutRows) {
+  if (holdout.total < holdoutGate.minimumHoldoutRows) {
     diagnostics.push({
       code: "INSUFFICIENT_HOLDOUT",
       phase: "holdout",
       label: "Sampel verifikasi akhir belum cukup",
       actual: holdout.total,
-      required: gate.minimumHoldoutRows,
-      detail: `Tersedia ${holdout.total} pengujian; minimum ${gate.minimumHoldoutRows}.`,
+      required: holdoutGate.minimumHoldoutRows,
+      detail: `Tersedia ${holdout.total} pengujian; minimum ${holdoutGate.minimumHoldoutRows}.`,
     });
   }
 
@@ -278,29 +277,29 @@ export function evaluateHoldoutRelease(
       label: "Hit verifikasi di bawah kebutuhan",
       actual: holdout.hit,
       required: allowedHits,
-      detail: `Hit ${holdout.hit}/${holdout.total}; minimum ${allowedHits}/${holdout.total} berdasarkan baseline ${metric(holdout.baselineRate)}%.`,
+      detail: `Hit ${holdout.hit}/${holdout.total}; minimum ${allowedHits}/${holdout.total} berdasarkan baseline ${metric(holdout.baselineRate)}% dan jumlah verifikasi.`,
     });
   }
 
-  if (holdout.lift < 0 && !evidence.softAccepted) {
+  if (holdout.lift < holdoutEvidence.minimumLift && !evidence.softAccepted) {
     diagnostics.push({
       code: "NEGATIVE_HOLDOUT_LIFT",
       phase: "holdout",
-      label: "Verifikasi akhir di bawah baseline",
+      label: "Verifikasi akhir belum memberi bukti cukup",
       actual: holdout.lift,
-      required: gate.softHoldoutFloor,
-      detail: `Lift holdout ${metric(holdout.lift)}%. Bukti gabungan ${metric(evidence.combinedLift)}%; belum cukup untuk toleransi sampel pendek.`,
+      required: holdoutEvidence.minimumLift,
+      detail: `Lift holdout ${metric(holdout.lift)}%; kebutuhan ${metric(holdoutEvidence.minimumLift)}% berdasarkan baseline ${metric(holdout.baselineRate)}% dan ${holdout.total} verifikasi. Bukti gabungan ${metric(evidence.combinedLift)}%.`,
     });
   }
 
-  if (validationDrop > gate.maximumValidationDrop) {
+  if (validationDrop > maximumValidationDrop) {
     diagnostics.push({
       code: "EXCESSIVE_VALIDATION_DROP",
       phase: "holdout",
       label: "Performa turun terlalu tajam",
       actual: validationDrop,
-      required: gate.maximumValidationDrop,
-      detail: `Penurunan walk-forward ke holdout ${metric(validationDrop)} poin; maksimum mode ini ${gate.maximumValidationDrop}.`,
+      required: maximumValidationDrop,
+      detail: `Penurunan walk-forward ke holdout ${metric(validationDrop)} poin; maksimum ${metric(maximumValidationDrop)} berdasarkan ketidakpastian sampel.`,
     });
   }
 
@@ -315,7 +314,9 @@ export function evaluateHoldoutRelease(
     });
   }
 
-  const minimumFinalScore = evidence.softAccepted ? gate.minimumScore + 2 : gate.minimumScore;
+  const minimumFinalScore = evidence.softAccepted
+    ? combinedGate.minimumScore + 2
+    : combinedGate.minimumScore;
   if (finalScore < minimumFinalScore) {
     diagnostics.push({
       code: "LOW_FINAL_SCORE",
@@ -323,7 +324,7 @@ export function evaluateHoldoutRelease(
       label: "Skor akhir belum cukup",
       actual: finalScore,
       required: minimumFinalScore,
-      detail: `Skor akhir ${metric(finalScore)}; minimum release ${minimumFinalScore}.`,
+      detail: `Skor akhir ${metric(finalScore)}; minimum release ${minimumFinalScore} berdasarkan baseline gabungan ${metric(combinedBaseline)}% dan ${candidate.validation.total + holdout.total} pengujian.`,
     });
   }
 
@@ -334,8 +335,6 @@ export function buildHoldoutDiagnostics(
   candidate: DiagnosticCandidate,
   holdout: EchoPhaseAudit,
   finalScore: number,
-  scanMode: ScanMode,
-  digitCount: number,
 ): EchoDiagnostic[] {
-  return evaluateHoldoutRelease(candidate, holdout, finalScore, scanMode, digitCount).diagnostics;
+  return evaluateHoldoutRelease(candidate, holdout, finalScore).diagnostics;
 }
