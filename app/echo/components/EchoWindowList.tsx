@@ -8,11 +8,11 @@ export default function EchoWindowList({ windows }: { windows: EchoWindowAudit[]
         <article className={styles.windowRow} key={window.window}>
           <div>
             <b>L{window.window}</b>
-            <small>bobot {Math.round(window.weight * 100)}%</small>
+            <small>Bobot penilaian {Math.round(window.weight * 100)}%</small>
           </div>
-          <span>{window.hit}/{window.total}</span>
+          <span>{window.hit}/{window.total} berhasil</span>
           <strong>{window.rate}%</strong>
-          <small>Miss maksimum {window.longestMissStreak}</small>
+          <small>Gagal beruntun maksimum {window.longestMissStreak}</small>
         </article>
       ))}
     </div>
