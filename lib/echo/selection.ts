@@ -18,6 +18,7 @@ export function familyGroupOf(family: EchoFamily): EchoFamilyGroup {
   if (family === "ET") return "TRANSITION";
   if (family === "EC") return "CYCLE";
   if (family === "EP") return "PAIR";
+  if (family === "EN") return "ENSEMBLE";
   return "ANALOG";
 }
 
@@ -41,6 +42,7 @@ export function selectFamilyRepresentatives<T extends EchoSelectableCandidate>(c
   const grouped = new Map<EchoFamilyGroup, T[]>();
   for (const candidate of candidates) {
     const group = familyGroupOf(candidate.profile.family);
+    if (group === "ENSEMBLE") continue;
     const current = grouped.get(group) ?? [];
     current.push(candidate);
     grouped.set(group, current);
