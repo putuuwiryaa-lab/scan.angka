@@ -13,6 +13,8 @@ export const FAMILY_LABEL: Record<EchoFamily, string> = {
   ET: "Echo Transisi",
   EC: "Echo Siklus",
   EP: "Echo Struktur",
+  EF: "Echo Frekuensi",
+  EM: "Echo Momentum",
   EN: "Echo Ensemble",
 };
 
