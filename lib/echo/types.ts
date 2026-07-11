@@ -7,6 +7,29 @@ export type EchoRegime = "TREND_UP" | "TREND_DOWN" | "ZIGZAG" | "FLAT" | "EXPAND
 export type EchoSourceKind = "position" | "jumlah2d" | "shio";
 export type EchoVariant = "local" | "cross" | "regime" | "area";
 export type EchoAuditPhase = "discovery" | "validation" | "holdout";
+export type EchoRejectReason =
+  | "NO_QUALIFIED_PROFILE"
+  | "SCORE_BELOW_MINIMUM"
+  | "NEGATIVE_DISCOVERY_LIFT"
+  | "NEGATIVE_VALIDATION_LIFT"
+  | "LOW_CONFIDENCE"
+  | "LOW_EFFECTIVE_SAMPLE"
+  | "INSUFFICIENT_VALIDATION"
+  | "INSUFFICIENT_HOLDOUT"
+  | "HOLDOUT_HIT_BELOW_BASELINE"
+  | "NEGATIVE_HOLDOUT_LIFT"
+  | "EXCESSIVE_VALIDATION_DROP"
+  | "HOLDOUT_MISS_STREAK"
+  | "LOW_FINAL_SCORE";
+
+export interface EchoDiagnostic {
+  code: EchoRejectReason;
+  phase: "candidate" | "holdout";
+  label: string;
+  actual?: number;
+  required?: number;
+  detail: string;
+}
 
 export interface EchoProfile {
   family: EchoFamily;
@@ -150,5 +173,6 @@ export interface EchoResult {
   totalProfiles: number;
   totalQualified: number;
   message: string;
+  diagnostics: EchoDiagnostic[];
   items: EchoItem[];
 }
