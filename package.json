@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:echo": "node -e \"require('fs').rmSync('.echo-test',{recursive:true,force:true})\" && tsc scripts/echo-invariants.ts --outDir .echo-test --rootDir . --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node .echo-test/scripts/echo-invariants.js && node -e \"require('fs').rmSync('.echo-test',{recursive:true,force:true})\""
+    "test:movement": "node -e \"require('fs').rmSync('.movement-test',{recursive:true,force:true})\" && tsc scripts/movement-invariants.ts --outDir .movement-test --rootDir . --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck && node .movement-test/scripts/movement-invariants.js && node -e \"require('fs').rmSync('.movement-test',{recursive:true,force:true})\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

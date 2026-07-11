@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./bottom-nav.module.css";
 
-type IconName = "scan" | "echo" | "batch";
+type IconName = "scan" | "movement" | "batch";
 
 type NavItem = {
   href: string;
@@ -14,7 +14,7 @@ type NavItem = {
 
 const items: NavItem[] = [
   { href: "/", label: "Scan", icon: "scan" },
-  { href: "/echo", label: "Echo", icon: "echo" },
+  { href: "/movement", label: "Prediksi", icon: "movement" },
   { href: "/batch", label: "Batch", icon: "batch" },
 ];
 
@@ -29,14 +29,14 @@ function NavIcon({ name }: { name: IconName }) {
     );
   }
 
-  if (name === "echo") {
+  if (name === "movement") {
     return (
       <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="2.5" />
-        <path d="M6.7 8.4a6.2 6.2 0 0 0 0 7.2" />
-        <path d="M17.3 8.4a6.2 6.2 0 0 1 0 7.2" />
-        <path d="M4 5.8a9.5 9.5 0 0 0 0 12.4" />
-        <path d="M20 5.8a9.5 9.5 0 0 1 0 12.4" />
+        <path d="M4 17.5 9 12l3.2 3.2L20 7.5" />
+        <path d="M15.5 7.5H20V12" />
+        <circle cx="4" cy="17.5" r="1.2" />
+        <circle cx="9" cy="12" r="1.2" />
+        <circle cx="12.2" cy="15.2" r="1.2" />
       </svg>
     );
   }

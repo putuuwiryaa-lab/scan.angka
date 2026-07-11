@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import styles from "./EchoSelectSheet.module.css";
+import styles from "./MovementSelectSheet.module.css";
 
-export type EchoSheetOption = {
+export type MovementSheetOption = {
   value: string | number;
   label: string;
   secondary?: string;
@@ -12,7 +12,7 @@ export type EchoSheetOption = {
 type Props = {
   open: boolean;
   title: string;
-  options: EchoSheetOption[];
+  options: MovementSheetOption[];
   selectedValue: string | number;
   onSelect: (value: string | number) => void;
   onClose: () => void;
@@ -22,7 +22,7 @@ type Props = {
   emptyText?: string;
 };
 
-export default function EchoSelectSheet({
+export default function MovementSelectSheet({
   open,
   title,
   options,

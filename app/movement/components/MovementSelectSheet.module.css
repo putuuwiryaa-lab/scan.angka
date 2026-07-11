@@ -62,13 +62,16 @@
   line-height: 1;
 }
 
-.searchWrap {
-  padding-bottom: 10px;
-}
+.searchWrap { padding-bottom: 10px; }
 
 .searchWrap input {
+  width: 100%;
   min-height: 50px;
+  border: 1px solid rgba(110, 155, 255, 0.18);
   border-radius: 14px;
+  padding: 0 14px;
+  background: rgba(5, 10, 18, 0.72);
+  color: #edf2fb;
   font-size: 16px;
 }
 
@@ -156,11 +159,7 @@
 }
 
 @media (min-width: 700px) {
-  .backdrop {
-    align-items: center;
-    padding: 24px;
-  }
-
+  .backdrop { align-items: center; padding: 24px; }
   .sheet {
     max-height: min(78vh, 720px);
     border-bottom: 1px solid rgba(110, 155, 255, 0.24);
