@@ -69,7 +69,7 @@ export function echoEvidenceFor(
   };
 }
 
-export function echoGateFor(baselineRate: number, walkForwardRows: number): EchoGateProfile {
+function gateFromEvidence(baselineRate: number, walkForwardRows: number): EchoGateProfile {
   const evidence = echoEvidenceFor(baselineRate, walkForwardRows, 0.25);
   const minimumScore = Math.round(55 + Math.min(4, evidence.standardError * 0.22));
   const minimumConfidence = Math.round(48 + Math.min(5, evidence.standardError * 0.18));
@@ -99,11 +99,27 @@ export function echoGateFor(baselineRate: number, walkForwardRows: number): Echo
   };
 }
 
+export function echoGateFor(baselineRate: number, walkForwardRows: number): EchoGateProfile;
+export function echoGateFor(legacyMode: string, legacyDigitCount: number): EchoGateProfile;
+export function echoGateFor(baselineOrLegacyMode: number | string, rowsOrDigitCount: number): EchoGateProfile {
+  if (typeof baselineOrLegacyMode === "number") {
+    return gateFromEvidence(baselineOrLegacyMode, rowsOrDigitCount);
+  }
+
+  // Compatibility for callers that have not yet supplied an evaluated baseline.
+  // This fallback is universal: it does not distinguish mode names or digit counts.
+  return gateFromEvidence(50, 12);
+}
+
 function metric(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-export function buildCandidateDiagnostics(candidate: DiagnosticCandidate | null): EchoDiagnostic[] {
+export function buildCandidateDiagnostics(
+  candidate: DiagnosticCandidate | null,
+  _legacyMode?: unknown,
+  _legacyDigitCount?: unknown,
+): EchoDiagnostic[] {
   if (!candidate) {
     return [{
       code: "NO_QUALIFIED_PROFILE",
@@ -113,7 +129,7 @@ export function buildCandidateDiagnostics(candidate: DiagnosticCandidate | null)
     }];
   }
 
-  const gate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
+  const gate = gateFromEvidence(candidate.validation.baselineRate, candidate.validation.total);
   const discoveryEvidence = echoEvidenceFor(
     candidate.discoveryFit.baselineRate,
     candidate.discoveryFit.total,
@@ -238,15 +254,17 @@ export function evaluateHoldoutRelease(
   candidate: DiagnosticCandidate,
   holdout: EchoPhaseAudit,
   finalScore: number,
+  _legacyMode?: unknown,
+  _legacyDigitCount?: unknown,
 ): { diagnostics: EchoDiagnostic[]; evidence: EchoReleaseEvidence } {
-  const validationGate = echoGateFor(candidate.validation.baselineRate, candidate.validation.total);
-  const holdoutGate = echoGateFor(holdout.baselineRate, holdout.total);
+  const validationGate = gateFromEvidence(candidate.validation.baselineRate, candidate.validation.total);
+  const holdoutGate = gateFromEvidence(holdout.baselineRate, holdout.total);
   const holdoutEvidence = echoEvidenceFor(holdout.baselineRate, holdout.total, 0.1);
   const combinedBaseline = (
     candidate.validation.baselineRate * candidate.validation.total +
     holdout.baselineRate * holdout.total
   ) / Math.max(1, candidate.validation.total + holdout.total);
-  const combinedGate = echoGateFor(combinedBaseline, candidate.validation.total + holdout.total);
+  const combinedGate = gateFromEvidence(combinedBaseline, candidate.validation.total + holdout.total);
   const evidence = releaseEvidence(candidate, holdout, holdoutGate);
   const diagnostics: EchoDiagnostic[] = [];
   const allowedHits = evidence.softAccepted
@@ -335,6 +353,8 @@ export function buildHoldoutDiagnostics(
   candidate: DiagnosticCandidate,
   holdout: EchoPhaseAudit,
   finalScore: number,
+  _legacyMode?: unknown,
+  _legacyDigitCount?: unknown,
 ): EchoDiagnostic[] {
   return evaluateHoldoutRelease(candidate, holdout, finalScore).diagnostics;
 }
