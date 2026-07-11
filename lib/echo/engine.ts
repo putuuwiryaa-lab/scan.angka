@@ -85,18 +85,39 @@ function scoreCandidate(candidate: Pick<EchoCandidate, "discoveryFit" | "validat
   return Number(Math.max(0, score).toFixed(2));
 }
 
-function strengthOf(candidate: EchoCandidate): EchoStrength {
+function verifiedScore(candidate: EchoCandidate, holdout: EchoPhaseAudit): number {
+  const holdoutReliability =
+    0.75 * normalizedReliability(holdout.rate, holdout.baselineRate) +
+    0.25 * (holdout.rate / 100);
+  const validationDrop = Math.max(0, candidate.validation.rate - holdout.rate);
+
+  let score = candidate.score * 0.7 + holdoutReliability * 30;
+  if (holdout.lift < 0) score -= Math.min(15, Math.abs(holdout.lift) * 0.35);
+  if (validationDrop > 20) score -= Math.min(12, (validationDrop - 20) * 0.4);
+  if (holdout.longestMissStreak > 3) score -= 5;
+
+  return Number(Math.max(0, Math.min(100, score)).toFixed(2));
+}
+
+function strengthOf(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScore: number): EchoStrength {
+  const validationDrop = candidate.validation.rate - holdout.rate;
+
   if (
-    candidate.score >= 72 &&
+    finalScore >= 72 &&
     candidate.discoveryFit.lift >= 5 &&
     candidate.validation.lift >= 8 &&
+    holdout.lift >= 5 &&
+    validationDrop <= 20 &&
+    holdout.longestMissStreak <= 3 &&
     candidate.live.confidence >= 60
   ) return "KUAT";
 
   if (
-    candidate.score >= 58 &&
+    finalScore >= 58 &&
     candidate.discoveryFit.lift >= 0 &&
     candidate.validation.lift >= 0 &&
+    holdout.lift >= 0 &&
+    validationDrop <= 30 &&
     candidate.live.confidence >= 50
   ) return "CUKUP";
 
@@ -111,6 +132,20 @@ function passesMinimumSignal(candidate: EchoCandidate): boolean {
     candidate.live.confidence >= 50 &&
     candidate.live.quality.effectiveNeighbors >= 5.5 &&
     candidate.validation.total >= 6;
+}
+
+function passesFinalVerification(candidate: EchoCandidate, holdout: EchoPhaseAudit, finalScore: number): boolean {
+  const expectedHits = Math.ceil((holdout.baselineRate / 100) * holdout.total);
+  const minimumHits = Math.max(Math.ceil(holdout.total * 0.25), expectedHits);
+  const maximumMissStreak = Math.max(3, Math.floor(holdout.total / 3));
+  const validationDrop = candidate.validation.rate - holdout.rate;
+
+  return holdout.total >= 6 &&
+    holdout.hit >= minimumHits &&
+    holdout.lift >= 0 &&
+    validationDrop <= 30 &&
+    holdout.longestMissStreak <= maximumMissStreak &&
+    finalScore >= 58;
 }
 
 function overlapRatio(left: number[], right: number[]): number {
@@ -169,6 +204,32 @@ function rankCandidates(left: EchoCandidate, right: EchoCandidate): number {
     left.profile.formula.localeCompare(right.profile.formula);
 }
 
+function resultConfig(
+  targetPos: Posisi,
+  target2D: Target2D,
+  target3D: Target3D,
+  digitCount: number,
+  scanMode: ScanMode,
+  plan: ReturnType<typeof buildEchoEvaluationPlan>,
+  sourceDataSize: number,
+): EchoResult["config"] {
+  return {
+    targetPos,
+    target2D,
+    target3D,
+    digitCount,
+    scanMode,
+    discoveryWindows: plan.discoveryWindows.map((window) => window.size),
+    validationSize: plan.validationSize,
+    holdoutSize: plan.holdoutSize,
+    evaluationRows: plan.totalRows,
+    sourceDataSize,
+    nestedWalkForward: true,
+    finalHoldoutUsedForSelection: false,
+    finalHoldoutUsedAsReleaseGate: true,
+  };
+}
+
 export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   if (draws.length < ECHO_MIN_TOTAL_DATA) {
     throw new Error(`Data belum cukup. Echo Engine membutuhkan minimal ${ECHO_MIN_TOTAL_DATA} result.`);
@@ -218,27 +279,15 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
 
   const ranked = [...candidates].sort(rankCandidates);
   const top = ranked[0] ?? null;
-  const accepted = top && passesMinimumSignal(top);
+  const acceptedBeforeVerification = top && passesMinimumSignal(top);
+  const configResult = resultConfig(targetPos, target2D, target3D, digitCount, scanMode, plan, draws.length);
 
-  if (!top || !accepted) {
+  if (!top || !acceptedBeforeVerification) {
     return {
-      config: {
-        targetPos,
-        target2D,
-        target3D,
-        digitCount,
-        scanMode,
-        discoveryWindows: plan.discoveryWindows.map((window) => window.size),
-        validationSize: plan.validationSize,
-        holdoutSize: plan.holdoutSize,
-        evaluationRows: plan.totalRows,
-        sourceDataSize: draws.length,
-        nestedWalkForward: true,
-        finalHoldoutUsedForSelection: false,
-      },
+      config: configResult,
       totalProfiles: profiles.length,
       totalQualified: ranked.length,
-      message: "Tidak ada profile yang lulus discovery dan nested walk-forward validation. Engine tidak memaksakan rekomendasi.",
+      message: "Belum ada metode yang konsisten pada evaluasi awal dan uji berurutan. Rekomendasi tidak ditampilkan.",
       items: [],
     };
   }
@@ -260,6 +309,18 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     scanMode,
     "holdout",
   );
+  const finalScore = verifiedScore(top, holdout);
+
+  if (!passesFinalVerification(top, holdout, finalScore)) {
+    return {
+      config: configResult,
+      totalProfiles: profiles.length,
+      totalQualified: ranked.length,
+      message: "Metode terbaik lolos evaluasi awal, tetapi gagal pada verifikasi akhir. Rekomendasi tidak ditampilkan agar hasil yang lemah tidak dipaksakan.",
+      items: [],
+    };
+  }
+
   const audit = composeEchoAudit(top.discoveryFit, top.validation, holdout);
   const consensus = consensusFor(top, ranked);
   const activeColumns = top.productionFit.columns;
@@ -278,8 +339,8 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
     kolomHidup: activeColumns,
     kolomMati: inactive,
     activeColumns: activeColumns.join(""),
-    score: top.score,
-    strength: strengthOf(top),
+    score: finalScore,
+    strength: strengthOf(top, holdout, finalScore),
     confidence: top.live.confidence,
     confidenceLevel: top.live.confidenceLevel,
     familyAgreement: consensus.familyAgreement,
@@ -300,23 +361,10 @@ export function runEcho(draws: Draw[], config: EchoConfig): EchoResult {
   };
 
   return {
-    config: {
-      targetPos,
-      target2D,
-      target3D,
-      digitCount,
-      scanMode,
-      discoveryWindows: plan.discoveryWindows.map((window) => window.size),
-      validationSize: plan.validationSize,
-      holdoutSize: plan.holdoutSize,
-      evaluationRows: plan.totalRows,
-      sourceDataSize: draws.length,
-      nestedWalkForward: true,
-      finalHoldoutUsedForSelection: false,
-    },
+    config: configResult,
     totalProfiles: profiles.length,
     totalQualified: ranked.length,
-    message: `Profile dipilih dari ${ranked.length} kandidat menggunakan nested walk-forward validation. Final holdout hanya dilaporkan setelah pilihan dibekukan.`,
+    message: "Rekomendasi lolos evaluasi awal, uji berurutan, dan verifikasi akhir.",
     items: [item],
   };
 }
@@ -327,4 +375,5 @@ export const ECHO_INTERNAL_CONFIG = {
   minimumNeighbors: ECHO_MIN_NEIGHBORS,
   nestedWalkForward: true,
   finalHoldoutUsedForSelection: false,
+  finalHoldoutUsedAsReleaseGate: true,
 };
