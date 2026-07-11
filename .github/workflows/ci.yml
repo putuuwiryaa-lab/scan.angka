@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Typecheck, Echo invariants, and build
+    name: Typecheck, Movement invariants, and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -43,8 +43,8 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
-      - name: Check Echo invariants
-        run: npm run test:echo
+      - name: Check Movement invariants
+        run: npm run test:movement
 
       - name: Build application
         run: npm run build
