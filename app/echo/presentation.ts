@@ -11,6 +11,7 @@ export const FAMILY_LABEL: Record<EchoFamily, string> = {
   EJ: "Echo Jumlah",
   ES: "Echo Shio",
   ET: "Echo Transisi",
+  EC: "Echo Siklus",
 };
 
 const REGIME_LABEL: Record<EchoRegime, string> = {
