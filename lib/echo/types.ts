@@ -135,6 +135,22 @@ export interface EchoReleaseEvidence {
   softAccepted: boolean;
 }
 
+export interface EchoFamilySummary {
+  group: EchoFamilyGroup;
+  family: EchoFamily;
+  formula: string;
+  score: number;
+  discoveryLift: number;
+  validationRate: number;
+  validationBaselineRate: number;
+  validationLift: number;
+  confidence: number;
+  effectiveNeighbors: number;
+  eligible: boolean;
+  selected: boolean;
+  rejectionCodes: EchoRejectReason[];
+}
+
 export interface EchoItem {
   family: EchoFamily;
   familyGroup: EchoFamilyGroup;
@@ -200,5 +216,6 @@ export interface EchoResult {
   totalFamilies: number;
   message: string;
   diagnostics: EchoDiagnostic[];
+  familySummaries: EchoFamilySummary[];
   items: EchoItem[];
 }
