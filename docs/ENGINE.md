@@ -76,25 +76,24 @@ Setelah 14 pengujian selesai, engine mencatat:
 2. **Pattern Motif** — mencari urutan gerakan historis yang mirip dengan kondisi terbaru.
 3. **Cycle Analysis** — membaca jarak pengulangan dan tekanan kemunculan digit.
 4. **Cross Position** — membaca hubungan kondisi AS, COP, KPL, dan EKR.
-5. **Markov Order-1** — membaca peluang digit berikutnya dari satu digit terakhir.
-6. **Markov Order-2** — membaca peluang digit berikutnya dari dua kondisi terakhir, dengan fallback Order-1 ketika sampel tipis.
-7. **Momentum Decay** — memprioritaskan pola terbaru menggunakan pembobotan waktu menurun.
-8. **Transition Matrix** — membaca transisi arah gerak menuju arah berikutnya.
-9. **Regime Adaptive** — menyesuaikan komposisi model saat kondisi trend, zigzag, reversal, stabil, atau chaotic.
-10. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.
+5. **Momentum Decay** — memprioritaskan pola terbaru menggunakan pembobotan waktu menurun.
+6. **Transition Matrix** — membaca transisi arah gerak menuju arah berikutnya.
+7. **Regime Adaptive** — menyesuaikan komposisi model saat kondisi trend, zigzag, reversal, stabil, atau chaotic.
+8. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.
 
 ### Model khusus target 2D
 
-11. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.
-12. **Pair Markov 00–99** — membaca transisi langsung dari pasangan saat ini menuju pasangan berikutnya.
+9. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.
 
-Untuk target satu posisi, 3D, dan 4D, engine menguji 10 model umum. Untuk target 2D, dua model pasangan ikut ditambahkan.
+Metode berbasis Markov tidak digunakan di Adaptive Engine.
+
+Untuk target satu posisi, 3D, dan 4D, engine menguji 8 model umum. Untuk target 2D, Joint Pair ikut ditambahkan.
 
 Dengan 168 data:
 
 ```txt
-Posisi / 3D / 4D = 10 metode × 11 window = 110 kandidat
-Target 2D        = 12 metode × 11 window = 132 kandidat
+Posisi / 3D / 4D = 8 metode × 11 window = 88 kandidat
+Target 2D        = 9 metode × 11 window = 99 kandidat
 ```
 
 ## Ranking Kandidat
@@ -112,9 +111,9 @@ Kandidat diurutkan berdasarkan:
 Contoh stabilitas:
 
 ```txt
-Markov Order-2 W28 = 11/14
-Markov Order-2 W42 = 12/14
-Markov Order-2 W56 = 11/14
+Momentum Decay W28 = 11/14
+Momentum Decay W42 = 12/14
+Momentum Decay W56 = 11/14
 ```
 
 W42 lebih didukung dibanding nilai tinggi yang berdiri sendiri di antara window lemah.
@@ -126,7 +125,7 @@ Setelah pemenang dipilih, metode tersebut dilatih ulang memakai window terbaru.
 Contoh pemenang:
 
 ```txt
-Pair Markov W98 = 12/14
+Joint Pair W98 = 12/14
 ```
 
 Prediksi result ke-169 menggunakan:
@@ -204,7 +203,7 @@ Engine menguji seluruh kombinasi digit yang mungkin untuk jumlah digit pilihan.
 - Posisi memaksimalkan probabilitas digit posisi berada dalam output.
 - AI memaksimalkan probabilitas minimal satu posisi target tertutup.
 - BBFS memaksimalkan probabilitas semua posisi target tertutup.
-- Joint Pair dan Pair Markov menilai pasangan 00–99 secara langsung.
+- Joint Pair menilai pasangan 00–99 secara langsung.
 
 Karena ruang digit hanya 0–9, enumerasi kombinasi tetap kecil; maksimum `C(10,5) = 252` kombinasi.
 

@@ -6,6 +6,7 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 
 - Scan satu pasaran.
 - Batch Scan banyak pasaran sekaligus.
+- Batch Adaptif untuk menjalankan turnamen L14 pada beberapa pasaran.
 - Trek tersimpan lintas pasaran.
 - Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
 - Adaptive Movement Engine untuk analisa pergerakan data.
@@ -15,7 +16,8 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Walk-forward tetap pada 14 result terbaru.
 - Window training kelipatan 14.
 - Turnamen seluruh metode × window.
-- Sepuluh model umum dan dua model pasangan 00–99.
+- Delapan model umum dan satu model pasangan 00–99.
+- Tidak menggunakan metode Markov.
 - Release gate terhadap baseline.
 - Ranking probabilitas digit untuk rekomendasi yang lolos.
 - Output ringkas dan siap copy.
@@ -30,8 +32,6 @@ Model umum yang diuji:
 - Pattern Motif;
 - Cycle Analysis;
 - Cross Position;
-- Markov Order-1;
-- Markov Order-2;
 - Momentum Decay;
 - Transition Matrix;
 - Regime Adaptive;
@@ -39,8 +39,7 @@ Model umum yang diuji:
 
 Model tambahan khusus target 2D:
 
-- Joint Pair;
-- Pair Markov 00–99.
+- Joint Pair.
 
 Empat belas result terbaru selalu dijadikan data uji walk-forward. Data sebelum target menjadi training dan diambil menggunakan window kelipatan 14.
 
@@ -54,8 +53,8 @@ W98, W112, W126, W140, W154
 Jumlah konfigurasi:
 
 ```txt
-Posisi / 3D / 4D = 110 kandidat
-Target 2D        = 132 kandidat
+Posisi / 3D / 4D = 88 kandidat
+Target 2D        = 99 kandidat
 ```
 
 Setiap metode diuji pada seluruh window tersebut. Pemenang dipilih berdasarkan L14, L7, miss streak, L3, dan stabilitas window tetangga. Metode pemenang kemudian dilatih ulang memakai window terbaru untuk membentuk prediksi berikutnya.
@@ -74,7 +73,7 @@ User memilih target 2D, 3D, atau 4D. Status kena jika **minimal satu digit targe
 
 User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit target** terdapat di output BBFS.
 
-Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara langsung.
+Untuk target 2D, Joint Pair menilai pasangan 00–99 secara langsung.
 
 ## Struktur Halaman
 
@@ -82,7 +81,7 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 | --- | --- |
 | `/` | Scan utama untuk satu pasaran |
 | `/movement` | Adaptif: Posisi, AI, dan BBFS |
-| `/batch` | Batch Scan untuk banyak pasaran |
+| `/batch` | Batch Scan Rumus dan Batch Adaptif |
 | `/admin` | Pengelolaan PIN dan akses device |
 | `/manifest.webmanifest` | Manifest PWA |
 | `/sw.js` | Service worker PWA |
@@ -94,7 +93,7 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
 | `/api/movement` | POST | Menjalankan turnamen adaptif L14 dan membentuk output |
-| `/api/batch-scan` | POST | Scan banyak pasaran sekaligus |
+| `/api/batch-scan` | POST | Menjalankan Scan Rumus atau Adaptif untuk beberapa pasaran |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
 ## Cara Pakai Adaptif
@@ -108,6 +107,25 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 7. Lihat model terpilih dan riwayat validasi L14.
 8. Jika lolos baseline, salin rekomendasi yang diterbitkan.
 
-## Batch Scan
+## Batch Scan & Adaptif
 
-Batch Scan tetap menggunakan engine scan rumus. Batas aman saat ini adalah 35 pasaran per proses batch.
+Setiap kartu metode di halaman Batch dapat memakai Scan Rumus atau Adaptif. Pilihan Adaptif yang tersedia:
+
+- Adaptif Posisi;
+- Adaptif AI 2D;
+- Adaptif BBFS 2D;
+- Adaptif AI 3D;
+- Adaptif BBFS 3D;
+- Adaptif AI 4D;
+- Adaptif BBFS 4D.
+
+Metode 1 dan Metode 2 dapat digabung, termasuk kombinasi Scan Rumus + Adaptif. Output setiap pasaran tetap menggunakan format satu baris dan siap disalin.
+
+Batas proses:
+
+```txt
+Scan Rumus = maksimal 35 pasaran
+Ada Adaptif = maksimal 5 pasaran
+```
+
+Batas Adaptif lebih rendah karena setiap pasaran menjalankan 88–99 kandidat pada walk-forward L14. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.

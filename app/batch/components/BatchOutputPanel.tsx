@@ -13,7 +13,11 @@ function topText(ranks?: number[]) {
 
 export default function BatchOutputPanel({ result, copied, onCopy }: Props) {
   if (!result) return null;
-  const meta = result.secondary ? `${result.results.length} pasaran · 2 metode` : `${result.results.length} pasaran · ${topText(result.topRanks)}`;
+  const meta = result.secondary
+    ? `${result.results.length} pasaran · 2 metode`
+    : result.adaptive
+      ? `${result.results.length} pasaran · Turnamen Adaptif L14`
+      : `${result.results.length} pasaran · ${topText(result.topRanks)}`;
 
   return (
     <section className="batch-panel">

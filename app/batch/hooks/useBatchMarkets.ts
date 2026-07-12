@@ -5,7 +5,7 @@ import { MAX_BATCH_MARKETS } from "../constants";
 import { batchMarketTitle } from "../helpers";
 import type { Market } from "../../shared/types";
 
-export function useBatchMarkets() {
+export function useBatchMarkets(maxMarkets = MAX_BATCH_MARKETS) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -27,12 +27,16 @@ export function useBatchMarkets() {
       .catch(() => setMarketError("Gagal memuat pasaran."));
   }, []);
 
+  useEffect(() => {
+    setSelected((current) => current.slice(0, maxMarkets));
+  }, [maxMarkets]);
+
   function toggleMarket(id: string) {
     setMarketError("");
     setSelected((current) => {
       if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= MAX_BATCH_MARKETS) {
-        setMarketError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
+      if (current.length >= maxMarkets) {
+        setMarketError(`Maksimal ${maxMarkets} pasaran untuk konfigurasi batch ini.`);
         return current;
       }
       return [...current, id];
@@ -41,9 +45,9 @@ export function useBatchMarkets() {
 
   function selectAll() {
     setMarketError("");
-    const ids = filteredMarkets.map((market) => market.id).slice(0, MAX_BATCH_MARKETS);
+    const ids = filteredMarkets.map((market) => market.id).slice(0, maxMarkets);
     setSelected(ids);
-    if (filteredMarkets.length > MAX_BATCH_MARKETS) setMarketError(`Pilih Semua dibatasi ${MAX_BATCH_MARKETS} pasaran pertama.`);
+    if (filteredMarkets.length > maxMarkets) setMarketError(`Pilih Semua dibatasi ${maxMarkets} pasaran pertama.`);
   }
 
   function clearSelection() {

@@ -8,7 +8,6 @@ import {
 import {
   buildJointPairDistribution,
   buildMethodDistributions,
-  buildPairMarkovDistribution,
 } from "./models";
 import {
   chooseJointPairDigits,
@@ -80,7 +79,7 @@ function eligibleMethods(targetPositions: Posisi[]): MovementMethod[] {
 }
 
 function isPairMethod(method: MovementMethod): method is PairMovementMethod {
-  return method === "joint_pair" || method === "pair_markov";
+  return method === "joint_pair";
 }
 
 function predictWithMethod(
@@ -95,9 +94,7 @@ function predictWithMethod(
       throw new Error("Metode pasangan hanya tersedia untuk target dua posisi.");
     }
     const positions: [Posisi, Posisi] = [targetPositions[0], targetPositions[1]];
-    const distribution = method === "pair_markov"
-      ? buildPairMarkovDistribution(trainingDraws, positions)
-      : buildJointPairDistribution(trainingDraws, positions);
+    const distribution = buildJointPairDistribution(trainingDraws, positions);
     return {
       selection: chooseJointPairDigits(distribution, outputType, digitCount),
       probabilities: jointPairProbabilities(distribution),
