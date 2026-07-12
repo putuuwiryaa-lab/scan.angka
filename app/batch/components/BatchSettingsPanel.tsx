@@ -148,6 +148,40 @@ export default function BatchSettingsPanel({
     setOpenMenu((current) => current === menu ? null : menu);
   }
 
+  function renderModeSelector(
+    method: "m1" | "m2",
+    mode: BatchAnalysisMode | "",
+    onMode: (value: BatchAnalysisMode | "") => void,
+    allowDisabled: boolean,
+  ) {
+    const menuKey = method === "m1" ? "m1Jenis" : "m2Jenis";
+    return (
+      <div className="batch-field batch-dropdown-field">
+        <label>Jenis Analisis</label>
+        <button className="batch-select-btn" type="button" onClick={() => toggle(menuKey)}>
+          <b>{mode ? optionLabel(BATCH_ANALYSIS_OPTIONS, mode) : "Tidak dipakai"}</b>
+          <span>{openMenu === menuKey ? "⌃" : "⌄"}</span>
+        </button>
+        {openMenu === menuKey && (
+          <div className="batch-select-menu">
+            {allowDisabled && (
+              <button type="button" className={mode === "" ? "batch-select-option active" : "batch-select-option"} onClick={() => { onMode(""); setOpenMenu(null); }}>
+                <span>Tidak dipakai</span>
+                {mode === "" && <b>✓</b>}
+              </button>
+            )}
+            {BATCH_ANALYSIS_OPTIONS.map((item) => (
+              <button key={item.value} type="button" className={item.value === mode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onMode(item.value); setOpenMenu(null); }}>
+                <span>{item.label}</span>
+                {item.value === mode && <b>✓</b>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderTargetMenu(
     method: "m1" | "m2",
     mode: BatchAnalysisMode,
@@ -231,23 +265,7 @@ export default function BatchSettingsPanel({
     );
   }
 
-  function renderSeparatorCards() {
-    return (
-      <div className="batch-top-grid">
-        {SEPARATOR_OPTIONS.map((separator) => {
-          const active = selectedSeparator === separator;
-          return (
-            <button key={separator} type="button" className={active ? "batch-top-card active" : "batch-top-card"} onClick={() => onOutputSeparatorChange(separator)}>
-              <span className="batch-top-check">{active ? "✓" : ""}</span>
-              <b>{separator}</b>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function renderMethodCard(
+  function renderMethodFields(
     method: "m1" | "m2",
     mode: BatchAnalysisMode,
     methodRounds: string,
@@ -256,7 +274,6 @@ export default function BatchSettingsPanel({
     selected3D: Target3D,
     selectedDigit: number,
     selectedRanks: number[],
-    onMode: (value: BatchAnalysisMode) => void,
     onRounds: (value: string) => void,
     onPos: (value: Posisi) => void,
     on2D: (value: Target2D) => void,
@@ -265,7 +282,6 @@ export default function BatchSettingsPanel({
     onRanks: (value: number[]) => void,
   ) {
     const adaptive = isAdaptiveBatchMode(mode);
-    const jenisMenu = method === "m1" ? "m1Jenis" : "m2Jenis";
     const targetMenu = method === "m1" ? "m1Target" : "m2Target";
     const digitMenu = method === "m1" ? "m1Digit" : "m2Digit";
 
@@ -277,24 +293,6 @@ export default function BatchSettingsPanel({
             <input className="batch-input" inputMode="numeric" value={methodRounds} onChange={(event) => onRounds(cleanDigits(event.target.value, 3))} onBlur={() => onRounds(String(clampTextNumber(methodRounds, 14, 1, 100)))} />
           </div>
         )}
-
-        <div className="batch-field batch-dropdown-field">
-          <label>Jenis Analisis</label>
-          <button className="batch-select-btn" type="button" onClick={() => toggle(jenisMenu)}>
-            <b>{optionLabel(BATCH_ANALYSIS_OPTIONS, mode)}</b>
-            <span>{openMenu === jenisMenu ? "⌃" : "⌄"}</span>
-          </button>
-          {openMenu === jenisMenu && (
-            <div className="batch-select-menu">
-              {BATCH_ANALYSIS_OPTIONS.map((item, index) => (
-                <button key={item.value} type="button" className={item.value === mode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onMode(item.value); setOpenMenu(null); }}>
-                  <span>{index === ADAPTIVE_BATCH_OPTIONS.length ? "SCAN RUMUS" : ""}{index === ADAPTIVE_BATCH_OPTIONS.length ? <><br />{item.label}</> : item.label}</span>
-                  {item.value === mode && <b>✓</b>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {adaptive && (
           <div className="batch-notice">Turnamen model otomatis · Walk-forward L14 · rekomendasi hanya diterbitkan jika lolos validasi.</div>
@@ -329,12 +327,29 @@ export default function BatchSettingsPanel({
     );
   }
 
+  function renderSeparatorCards() {
+    return (
+      <div className="batch-top-grid">
+        {SEPARATOR_OPTIONS.map((separator) => {
+          const active = selectedSeparator === separator;
+          return (
+            <button key={separator} type="button" className={active ? "batch-top-card active" : "batch-top-card"} onClick={() => onOutputSeparatorChange(separator)}>
+              <span className="batch-top-check">{active ? "✓" : ""}</span>
+              <b>{separator}</b>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <section className="batch-panel">
       <div className="batch-method-grid">
         <div className="batch-method-card">
           <div className="batch-method-title">Metode 1</div>
-          {renderMethodCard(
+          {renderModeSelector("m1", scanMode, (value) => value && onScanModeChange(value), false)}
+          {renderMethodFields(
             "m1",
             scanMode,
             rounds,
@@ -343,7 +358,6 @@ export default function BatchSettingsPanel({
             target3D,
             digitCount,
             topRanks,
-            onScanModeChange,
             onRoundsChange,
             onTargetPosChange,
             onTarget2DChange,
@@ -355,29 +369,8 @@ export default function BatchSettingsPanel({
 
         <div className={secondaryActive ? "batch-method-card" : "batch-method-card inactive"}>
           <div className="batch-method-title">Metode 2</div>
-          <div className="batch-field batch-dropdown-field">
-            <label>Jenis Analisis</label>
-            <button className="batch-select-btn" type="button" onClick={() => toggle("m2Jenis")}>
-              <b>{secondaryScanMode ? optionLabel(BATCH_ANALYSIS_OPTIONS, secondaryScanMode) : "Tidak dipakai"}</b>
-              <span>{openMenu === "m2Jenis" ? "⌃" : "⌄"}</span>
-            </button>
-            {openMenu === "m2Jenis" && (
-              <div className="batch-select-menu">
-                <button type="button" className={secondaryScanMode === "" ? "batch-select-option active" : "batch-select-option"} onClick={() => { onSecondaryScanModeChange(""); setOpenMenu(null); }}>
-                  <span>Tidak dipakai</span>
-                  {secondaryScanMode === "" && <b>✓</b>}
-                </button>
-                {BATCH_ANALYSIS_OPTIONS.map((item) => (
-                  <button key={item.value} type="button" className={item.value === secondaryScanMode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onSecondaryScanModeChange(item.value); setOpenMenu(null); }}>
-                    <span>{item.label}</span>
-                    {item.value === secondaryScanMode && <b>✓</b>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {secondaryActive && secondaryScanMode && renderMethodCard(
+          {renderModeSelector("m2", secondaryScanMode, onSecondaryScanModeChange, true)}
+          {secondaryActive && secondaryScanMode && renderMethodFields(
             "m2",
             secondaryScanMode,
             secondaryRounds,
@@ -386,7 +379,6 @@ export default function BatchSettingsPanel({
             secondaryTarget3D,
             secondaryDigitCount,
             secondaryTopRanks,
-            (value) => onSecondaryScanModeChange(value),
             onSecondaryRoundsChange,
             onSecondaryTargetPosChange,
             onSecondaryTarget2DChange,
