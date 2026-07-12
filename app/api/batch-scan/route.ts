@@ -16,7 +16,11 @@ import {
 } from "@/lib/shared/batch-analysis";
 import { requireActiveAccess } from "@/lib/server/access";
 import { createAdminClient } from "@/lib/server/supabase-admin";
-import { MAX_ADAPTIVE_BATCH_MARKETS, MAX_BATCH_MARKETS } from "@/lib/shared/batch";
+import {
+  ADAPTIVE_BATCH_CHUNK_SIZE,
+  MAX_ADAPTIVE_BATCH_MARKETS,
+  MAX_BATCH_MARKETS,
+} from "@/lib/shared/batch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -246,9 +250,12 @@ export async function POST(req: Request) {
     if (typeof secondary === "string") return NextResponse.json({ error: secondary.replace("Jenis", "Metode kedua") }, { status: 400 });
 
     const adaptive = primary.kind === "adaptive" || secondary?.kind === "adaptive";
-    const maximumMarkets = adaptive ? MAX_ADAPTIVE_BATCH_MARKETS : MAX_BATCH_MARKETS;
-    if (marketIds.length > maximumMarkets) {
-      return NextResponse.json({ error: `Maksimal ${maximumMarkets} pasaran untuk konfigurasi batch ini.` }, { status: 413 });
+    const requestMaximum = adaptive ? ADAPTIVE_BATCH_CHUNK_SIZE : MAX_BATCH_MARKETS;
+    if (marketIds.length > requestMaximum) {
+      const message = adaptive
+        ? `Maksimal ${ADAPTIVE_BATCH_CHUNK_SIZE} pasaran per request Adaptif.`
+        : `Maksimal ${MAX_BATCH_MARKETS} pasaran untuk konfigurasi batch ini.`;
+      return NextResponse.json({ error: message }, { status: 413 });
     }
 
     const title = typeof body.outputTitle === "string" && body.outputTitle.trim()
@@ -308,7 +315,7 @@ export async function POST(req: Request) {
       lines,
       copyText,
       lineSeparator,
-      limit: maximumMarkets,
+      limit: adaptive ? MAX_ADAPTIVE_BATCH_MARKETS : MAX_BATCH_MARKETS,
       topRanks: primary.kind === "scan" ? primary.topRanks : undefined,
       secondary: Boolean(secondary),
       adaptive,
