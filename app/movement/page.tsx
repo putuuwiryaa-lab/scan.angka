@@ -7,10 +7,10 @@ import { useMarketPicker } from "../scan/hooks/useMarketPicker";
 import { useScanDropdowns } from "../scan/hooks/useScanDropdowns";
 import { marketTitle } from "../shared/scan-utils";
 import type { Market } from "../scan/types";
-import type {
-  MovementMethod,
-  MovementOutputType,
-  MovementTarget,
+import {
+  MOVEMENT_METHOD_LABELS,
+  type MovementOutputType,
+  type MovementTarget,
 } from "../../lib/movement/types";
 import MovementSelectSheet, {
   type MovementSheetOption,
@@ -28,14 +28,6 @@ const OUTPUT_DESCRIPTION: Record<MovementOutputType, string> = {
   position: "Fokus satu posisi",
   ai: "Minimal satu target masuk",
   bbfs: "Seluruh target tercakup",
-};
-
-const METHOD_LABEL: Record<MovementMethod, string> = {
-  delta: "Delta Movement",
-  motif: "Pattern Motif",
-  cycle: "Cycle Analysis",
-  cross: "Cross Position",
-  joint_pair: "Joint Pair",
 };
 
 const POSITION_OPTIONS: MovementSheetOption[] = [
@@ -191,7 +183,7 @@ export default function MovementPage() {
       `*${result.digits.join("")}*`,
       result.offDigits.length ? `OFF: ${result.offDigits.join("")}` : "",
       "",
-      `Model Terpilih: ${METHOD_LABEL[result.selectedMethod]} W${result.selectedWindow}`,
+      `Model Terpilih: ${MOVEMENT_METHOD_LABELS[result.selectedMethod]} W${result.selectedWindow}`,
       `Validasi L14: ${result.evaluation.l14.hit}/14`,
       `Kualitas Sinyal: ${result.strength}`,
     ].filter(Boolean).join("\n");
@@ -219,14 +211,14 @@ export default function MovementPage() {
     <main className={`wrap ${styles.page}`} aria-busy={loading}>
       <header className={styles.hero}>
         <div className={styles.heroTop}>
-          <span>ANALISIS PREDIKTIF</span>
+          <span>ANALISIS ADAPTIF</span>
           <small>{syncText}</small>
         </div>
         <h1>Pola dibaca.<br />Model diuji. Hasil diseleksi.</h1>
-        <p>Sistem mengevaluasi berbagai metode dan rentang data, lalu memilih konfigurasi dengan performa validasi paling konsisten.</p>
+        <p>Beragam model membaca transisi, momentum, siklus, pasangan, dan perubahan regime untuk menemukan konfigurasi yang paling konsisten.</p>
       </header>
 
-      <section className={styles.setupCard} aria-label="Konfigurasi analisis prediktif">
+      <section className={styles.setupCard} aria-label="Konfigurasi analisis adaptif">
         <FieldButton
           label="Pasaran Analisis"
           value={selectedMarket ? marketTitle(selectedMarket) : "Pilih pasaran"}
@@ -270,7 +262,7 @@ export default function MovementPage() {
         </div>
 
         <button className={styles.runButton} type="button" disabled={loading || !marketId} onClick={startAnalysis}>
-          {loading ? <><span className={styles.spinner} />Mengevaluasi model...</> : "Jalankan Analisis Prediktif"}
+          {loading ? <><span className={styles.spinner} />Mengevaluasi model...</> : "Jalankan Analisis Adaptif"}
         </button>
 
         {errorText && <div className={styles.error}>{errorText}</div>}
@@ -297,7 +289,7 @@ export default function MovementPage() {
               <>
                 <div className={styles.numberResult}>{result.digits.join("")}</div>
                 <div className={styles.resultMeta}>
-                  <div><span>Model Terpilih</span><b>{METHOD_LABEL[result.selectedMethod]} · W{result.selectedWindow}</b></div>
+                  <div><span>Model Terpilih</span><b>{MOVEMENT_METHOD_LABELS[result.selectedMethod]} · W{result.selectedWindow}</b></div>
                   <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
                   <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
                 </div>
@@ -332,7 +324,7 @@ export default function MovementPage() {
                     {result.tournament.slice(0, 6).map((candidate, index) => (
                       <div key={`${candidate.method}-${candidate.window}`}>
                         <span>{index + 1}</span>
-                        <div><b>{METHOD_LABEL[candidate.method]} · W{candidate.window}</b><small>Validasi L7 {candidate.l7Hit}/7</small></div>
+                        <div><b>{MOVEMENT_METHOD_LABELS[candidate.method]} · W{candidate.window}</b><small>Validasi L7 {candidate.l7Hit}/7</small></div>
                         <strong>{candidate.evaluation.hit}/14</strong>
                       </div>
                     ))}
