@@ -13,21 +13,14 @@ import {
   signedDelta,
   targetPositionsFor,
 } from "./helpers";
-import type {
-  MovementConfig,
-  MovementMethod,
-  MovementRegime,
-  MovementResult,
-  MovementStrength,
+import {
+  MOVEMENT_METHODS,
+  MOVEMENT_METHOD_LABELS,
+  type MovementConfig,
+  type MovementRegime,
+  type MovementResult,
+  type MovementStrength,
 } from "./types";
-
-const METHOD_LABEL: Record<MovementMethod, string> = {
-  delta: "Delta",
-  motif: "Motif",
-  cycle: "Cycle",
-  cross: "Cross-position",
-  joint_pair: "Joint Pair",
-};
 
 function movementSigns(draws: Draw[], position: Posisi, size: number): number[] {
   const start = Math.max(1, draws.length - size);
@@ -153,8 +146,8 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     tournament: tournament.tournament,
     rows: tournament.rows,
     message: tournament.released
-      ? `${METHOD_LABEL[tournament.selectedMethod]} W${tournament.selectedWindow} menang dengan ${tournament.evaluation.l14.hit}/14 pada walk-forward terbaru.`
-      : `Metode terbaik hanya ${tournament.evaluation.l14.hit}/14. Minimal ${tournament.minimumReleaseHits}/14 diperlukan, sehingga rekomendasi tidak diterbitkan.`,
+      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul dengan validasi ${tournament.evaluation.l14.hit}/14.`
+      : `Konfigurasi terbaik hanya mencapai ${tournament.evaluation.l14.hit}/14. Ambang minimum ${tournament.minimumReleaseHits}/14 belum terpenuhi.`,
   };
 }
 
@@ -162,7 +155,7 @@ export const MOVEMENT_INTERNAL_CONFIG = {
   minimumTotalData: 28,
   walkForwardSize: WALK_FORWARD_SIZE,
   trainingWindowStep: TRAINING_WINDOW_STEP,
-  methods: ["delta", "motif", "cycle", "cross", "joint_pair"],
+  methods: MOVEMENT_METHODS,
   aiRequiresMinimumOneTarget: true,
   bbfsRequiresAllTargets: true,
   releaseRequiresBaselineOutperformance: true,
