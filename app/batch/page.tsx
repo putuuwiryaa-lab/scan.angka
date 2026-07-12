@@ -8,18 +8,36 @@ import BatchMarketSelector from "./components/BatchMarketSelector";
 import BatchOutputPanel from "./components/BatchOutputPanel";
 import { useBatchMarkets } from "./hooks/useBatchMarkets";
 import { useBatchRunner } from "./hooks/useBatchRunner";
-import { isShioMode } from "../shared/scan-utils";
-import type { Posisi, ScanMode, Target2D, Target3D } from "../shared/types";
-
-function clampDigitForMode(mode: ScanMode, value: number): number {
-  let next = value;
-  if (!isShioMode(mode) && next > 9) next = 9;
-  if ((mode === "ai_3d" || mode === "bbfs_3d") && next < 7) next = 7;
-  if (mode === "off_3d" && next > 3) next = 3;
-  return next;
-}
+import { MAX_ADAPTIVE_BATCH_MARKETS, MAX_BATCH_MARKETS } from "./constants";
+import {
+  clampBatchDigitCount,
+  isAdaptiveBatchMode,
+  type BatchAnalysisMode,
+} from "../../lib/shared/batch-analysis";
+import type { Posisi, Target2D, Target3D } from "../shared/types";
 
 export default function BatchPage() {
+  const [rounds, setRounds] = useState("14");
+  const [scanMode, setScanMode] = useState<BatchAnalysisMode>("bbfs_2d_belakang");
+  const [targetPos, setTargetPos] = useState<Posisi>("K");
+  const [target2D, setTarget2D] = useState<Target2D>("belakang");
+  const [target3D, setTarget3D] = useState<Target3D>("belakang");
+  const [digitCount, setDigitCount] = useState(7);
+  const [topRanks, setTopRanks] = useState<number[]>([1]);
+  const [outputSeparator, setOutputSeparator] = useState("➜");
+
+  const [secondaryScanMode, setSecondaryScanMode] = useState<BatchAnalysisMode | "">("");
+  const [secondaryRounds, setSecondaryRounds] = useState("14");
+  const [secondaryTargetPos, setSecondaryTargetPos] = useState<Posisi>("K");
+  const [secondaryTarget2D, setSecondaryTarget2D] = useState<Target2D>("belakang");
+  const [secondaryTarget3D, setSecondaryTarget3D] = useState<Target3D>("belakang");
+  const [secondaryDigitCount, setSecondaryDigitCount] = useState(2);
+  const [secondaryTopRanks, setSecondaryTopRanks] = useState<number[]>([1]);
+
+  const adaptiveBatch = isAdaptiveBatchMode(scanMode) ||
+    (Boolean(secondaryScanMode) && isAdaptiveBatchMode(secondaryScanMode));
+  const maxMarkets = adaptiveBatch ? MAX_ADAPTIVE_BATCH_MARKETS : MAX_BATCH_MARKETS;
+
   const {
     selected,
     query,
@@ -29,42 +47,25 @@ export default function BatchPage() {
     toggleMarket,
     selectAll,
     clearSelection,
-  } = useBatchMarkets();
+  } = useBatchMarkets(maxMarkets);
   const { result, copied, loading, runnerError, runBatch, copyOutput } = useBatchRunner();
 
-  const [rounds, setRounds] = useState("14");
-  const [scanMode, setScanMode] = useState<ScanMode>("bbfs_2d_belakang");
-  const [targetPos, setTargetPos] = useState<Posisi>("K");
-  const [target2D, setTarget2D] = useState<Target2D>("belakang");
-  const [target3D, setTarget3D] = useState<Target3D>("belakang");
-  const [digitCount, setDigitCount] = useState(7);
-  const [topRanks, setTopRanks] = useState<number[]>([1]);
-  const [outputSeparator, setOutputSeparator] = useState("➜");
-
-  const [secondaryScanMode, setSecondaryScanMode] = useState<ScanMode | "">("");
-  const [secondaryRounds, setSecondaryRounds] = useState("14");
-  const [secondaryTargetPos, setSecondaryTargetPos] = useState<Posisi>("K");
-  const [secondaryTarget2D, setSecondaryTarget2D] = useState<Target2D>("belakang");
-  const [secondaryTarget3D, setSecondaryTarget3D] = useState<Target3D>("belakang");
-  const [secondaryDigitCount, setSecondaryDigitCount] = useState(2);
-  const [secondaryTopRanks, setSecondaryTopRanks] = useState<number[]>([1]);
-
-  function changeMode(value: ScanMode) {
+  function changeMode(value: BatchAnalysisMode) {
     setScanMode(value);
-    setDigitCount((current) => clampDigitForMode(value, current));
+    setDigitCount((current) => clampBatchDigitCount(value, current));
   }
 
-  function changeSecondaryMode(value: ScanMode | "") {
+  function changeSecondaryMode(value: BatchAnalysisMode | "") {
     setSecondaryScanMode(value);
-    if (value) setSecondaryDigitCount((current) => clampDigitForMode(value, current));
+    if (value) setSecondaryDigitCount((current) => clampBatchDigitCount(value, current));
   }
 
   return (
     <main className="batch-page">
       <header className="batch-header">
-        <div className="batch-kicker">Scan Batch Publik</div>
-        <h1 className="batch-title">Batch Scan</h1>
-        <p className="batch-subtitle">Pilih banyak pasaran, scan sekali, output langsung siap copy.</p>
+        <div className="batch-kicker">ANALISIS MULTI-PASARAN</div>
+        <h1 className="batch-title">Batch Scan & Adaptif</h1>
+        <p className="batch-subtitle">Jalankan Scan Rumus atau turnamen Adaptif untuk beberapa pasaran dalam satu proses.</p>
       </header>
 
       <AppPromoBanner />
@@ -108,6 +109,8 @@ export default function BatchPage() {
         query={query}
         loading={loading}
         error={runnerError || marketError}
+        maxMarkets={maxMarkets}
+        adaptive={adaptiveBatch}
         onQueryChange={setQuery}
         onSelectAll={selectAll}
         onClear={clearSelection}
