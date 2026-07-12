@@ -1,24 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { MAX_BATCH_MARKETS } from "../constants";
+import { MAX_ADAPTIVE_BATCH_MARKETS, MAX_BATCH_MARKETS } from "../constants";
 import { outputTitle } from "../helpers";
 import { copyTextToClipboard } from "../../shared/copy";
-import { clampTextNumber, isShioMode } from "../../shared/scan-utils";
+import { clampTextNumber } from "../../shared/scan-utils";
+import {
+  clampBatchDigitCount,
+  isAdaptiveBatchMode,
+  type BatchAnalysisMode,
+} from "../../../lib/shared/batch-analysis";
 import type { BatchResult } from "../types";
-import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
+import type { Posisi, Target2D, Target3D } from "../../shared/types";
 
 type RunBatchParams = {
   selected: string[];
   rounds: string;
-  scanMode: ScanMode;
+  scanMode: BatchAnalysisMode;
   targetPos: Posisi;
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
   topRanks: number[];
   lineSeparator: string;
-  secondaryScanMode: ScanMode | "";
+  secondaryScanMode: BatchAnalysisMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
   secondaryTarget2D: Target2D;
@@ -36,10 +41,6 @@ type RunBatchParams = {
 const TOPS = [1, 2, 3];
 const DEFAULT_LINE_SEPARATOR = "➜";
 
-function clampDigit(mode: ScanMode, value: number): number {
-  return Math.max(1, Math.min(isShioMode(mode) ? 12 : 9, value));
-}
-
 function safeRanks(value: number[]): number[] {
   const clean = TOPS.filter((item) => value.includes(item));
   return clean.length ? clean : [1];
@@ -52,6 +53,21 @@ function titleRanks(value: number[]): string {
 function safeLineSeparator(value: string): string {
   const separator = value.replace(/[\r\n\t]+/g, " ").trim().slice(0, 16);
   return separator || DEFAULT_LINE_SEPARATOR;
+}
+
+function buildMethodTitle(
+  mode: BatchAnalysisMode,
+  targetPos: Posisi,
+  target2D: Target2D,
+  target3D: Target3D,
+  digitCount: number,
+  rounds: number,
+  ranks: number[],
+): string {
+  const base = outputTitle(mode, targetPos, target2D, target3D, digitCount);
+  return isAdaptiveBatchMode(mode)
+    ? `${base} · Validasi L14`
+    : `${base} ${titleRanks(ranks)} L${rounds}`;
 }
 
 export function useBatchRunner() {
@@ -67,24 +83,43 @@ export function useBatchRunner() {
     setCopied(false);
 
     try {
-      if (params.selected.length > MAX_BATCH_MARKETS) {
-        setRunnerError(`Maksimal ${MAX_BATCH_MARKETS} pasaran per batch scan.`);
+      const adaptive = isAdaptiveBatchMode(params.scanMode) ||
+        (Boolean(params.secondaryScanMode) && isAdaptiveBatchMode(params.secondaryScanMode));
+      const maximumMarkets = adaptive ? MAX_ADAPTIVE_BATCH_MARKETS : MAX_BATCH_MARKETS;
+      if (params.selected.length > maximumMarkets) {
+        setRunnerError(`Maksimal ${maximumMarkets} pasaran untuk konfigurasi batch ini.`);
         return;
       }
 
       const safeRounds = clampTextNumber(params.rounds, 14, 1, 100);
-      const safeDigit = clampDigit(params.scanMode, params.digitCount);
-      const ranks = safeRanks(params.topRanks);
+      const safeDigit = clampBatchDigitCount(params.scanMode, params.digitCount);
+      const ranks = isAdaptiveBatchMode(params.scanMode) ? [1] : safeRanks(params.topRanks);
       const lineSeparator = safeLineSeparator(params.lineSeparator);
-      const primaryTitle = `${outputTitle(params.scanMode, params.targetPos, params.target2D, params.target3D, safeDigit)} ${titleRanks(ranks)} L${safeRounds}`;
+      const primaryTitle = buildMethodTitle(
+        params.scanMode,
+        params.targetPos,
+        params.target2D,
+        params.target3D,
+        safeDigit,
+        safeRounds,
+        ranks,
+      );
 
       let secondaryPayload: Record<string, unknown> | undefined;
       let secondaryTitle = "";
       if (params.secondaryScanMode) {
         const rounds2 = clampTextNumber(params.secondaryRounds, 14, 1, 100);
-        const digit2 = clampDigit(params.secondaryScanMode, params.secondaryDigitCount);
-        const ranks2 = safeRanks(params.secondaryTopRanks);
-        secondaryTitle = `${outputTitle(params.secondaryScanMode, params.secondaryTargetPos, params.secondaryTarget2D, params.secondaryTarget3D, digit2)} ${titleRanks(ranks2)} L${rounds2}`;
+        const digit2 = clampBatchDigitCount(params.secondaryScanMode, params.secondaryDigitCount);
+        const ranks2 = isAdaptiveBatchMode(params.secondaryScanMode) ? [1] : safeRanks(params.secondaryTopRanks);
+        secondaryTitle = buildMethodTitle(
+          params.secondaryScanMode,
+          params.secondaryTargetPos,
+          params.secondaryTarget2D,
+          params.secondaryTarget3D,
+          digit2,
+          rounds2,
+          ranks2,
+        );
         secondaryPayload = {
           scanMode: params.secondaryScanMode,
           targetPos: params.secondaryTargetPos,
@@ -94,14 +129,18 @@ export function useBatchRunner() {
           topRanks: ranks2,
           L: rounds2,
         };
-        params.onSecondaryRoundsChange(String(rounds2));
+        if (!isAdaptiveBatchMode(params.secondaryScanMode)) {
+          params.onSecondaryRoundsChange(String(rounds2));
+          params.onSecondaryTopRanksChange(ranks2);
+        }
         params.onSecondaryDigitCountChange(digit2);
-        params.onSecondaryTopRanksChange(ranks2);
       }
 
-      params.onRoundsChange(String(safeRounds));
+      if (!isAdaptiveBatchMode(params.scanMode)) {
+        params.onRoundsChange(String(safeRounds));
+        params.onTopRanksChange(ranks);
+      }
       params.onDigitCountChange(safeDigit);
-      params.onTopRanksChange(ranks);
 
       const response = await fetch("/api/batch-scan", {
         method: "POST",
@@ -121,9 +160,10 @@ export function useBatchRunner() {
         }),
       });
       const data = await response.json();
-      if (data.error) setRunnerError(data.error); else setResult(data);
+      if (!response.ok || data.error) setRunnerError(data.error || "Batch analisis gagal.");
+      else setResult(data);
     } catch {
-      setRunnerError("Batch scan gagal.");
+      setRunnerError("Batch analisis gagal. Periksa koneksi, lalu coba kembali.");
     } finally {
       setLoading(false);
     }
