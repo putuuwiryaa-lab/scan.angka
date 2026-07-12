@@ -9,7 +9,23 @@ export type MovementGroupTarget =
   | "3d_belakang"
   | "4d";
 export type MovementTarget = Posisi | MovementGroupTarget;
-export type MovementMethod = "delta" | "motif" | "cycle" | "cross" | "joint_pair";
+
+export type MovementMethod =
+  | "delta"
+  | "motif"
+  | "cycle"
+  | "cross"
+  | "joint_pair"
+  | "markov_1"
+  | "markov_2"
+  | "momentum_decay"
+  | "transition_matrix"
+  | "regime_adaptive"
+  | "pair_markov"
+  | "consensus";
+
+export type PairMovementMethod = "joint_pair" | "pair_markov";
+export type PositionMovementMethod = Exclude<MovementMethod, PairMovementMethod>;
 export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
 
@@ -95,7 +111,39 @@ export const MOVEMENT_GROUP_TARGETS: MovementGroupTarget[] = [
   "4d",
 ];
 
-export const MOVEMENT_METHODS: MovementMethod[] = ["delta", "motif", "cycle", "cross", "joint_pair"];
+export const POSITION_MOVEMENT_METHODS: PositionMovementMethod[] = [
+  "delta",
+  "motif",
+  "cycle",
+  "cross",
+  "markov_1",
+  "markov_2",
+  "momentum_decay",
+  "transition_matrix",
+  "regime_adaptive",
+  "consensus",
+];
+
+export const PAIR_MOVEMENT_METHODS: PairMovementMethod[] = ["joint_pair", "pair_markov"];
+export const MOVEMENT_METHODS: MovementMethod[] = [
+  ...POSITION_MOVEMENT_METHODS,
+  ...PAIR_MOVEMENT_METHODS,
+];
+
+export const MOVEMENT_METHOD_LABELS: Record<MovementMethod, string> = {
+  delta: "Delta Movement",
+  motif: "Pattern Motif",
+  cycle: "Cycle Analysis",
+  cross: "Cross Position",
+  joint_pair: "Joint Pair",
+  markov_1: "Markov Order-1",
+  markov_2: "Markov Order-2",
+  momentum_decay: "Momentum Decay",
+  transition_matrix: "Transition Matrix",
+  regime_adaptive: "Regime Adaptive",
+  pair_markov: "Pair Markov 00–99",
+  consensus: "Consensus Ensemble",
+};
 
 export function isMovementOutputType(value: unknown): value is MovementOutputType {
   return MOVEMENT_OUTPUT_TYPES.includes(value as MovementOutputType);

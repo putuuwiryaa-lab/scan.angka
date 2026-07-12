@@ -1,6 +1,6 @@
 # Engine Scan Angka
 
-Project memiliki dua jalur analisa: **Scan Engine** dan **Movement Engine**.
+Project memiliki dua jalur analisa: **Scan Engine** dan **Adaptive Movement Engine**.
 
 ## Scan Engine
 
@@ -23,9 +23,9 @@ tengah   = C,K
 belakang = K,E
 ```
 
-## Movement Engine
+## Adaptive Movement Engine
 
-Movement Engine tidak memilih rumus A1–E9. Engine membandingkan metode pembaca pergerakan pada **14 result terbaru** dan memilih kombinasi metode × window dengan kemenangan tertinggi.
+Engine tidak memilih rumus A1–E9. Engine membandingkan beragam model pembaca pergerakan pada **14 result terbaru** dan memilih kombinasi metode × window dengan kemenangan tertinggi.
 
 ## Struktur Data 168 Result
 
@@ -65,23 +65,36 @@ Setelah 14 pengujian selesai, engine mencatat:
 - KENA pada 3 result terbaru;
 - longest miss streak;
 - lift terhadap baseline;
-- kestabilan window tetangga.
+- kestabilan window tetangga;
+- rata-rata probabilitas output.
 
 ## Metode yang Diuji
 
-1. **Delta** — membaca perpindahan digit dan dua delta terakhir.
-2. **Motif** — mencari urutan gerakan historis yang mirip dengan kondisi terbaru.
-3. **Cycle** — membaca jarak pengulangan dan tekanan kemunculan digit.
-4. **Cross-position** — membaca hubungan kondisi AS, COP, KPL, dan EKR.
-5. **Joint Pair** — khusus target 2D; membentuk probabilitas pasangan 00–99 secara langsung.
+### Model umum
 
-Untuk target satu posisi, 3D, dan 4D, Joint Pair tidak ikut turnamen. Untuk target 2D, semua lima metode diuji.
+1. **Delta Movement** — membaca perpindahan digit dan dua delta terakhir.
+2. **Pattern Motif** — mencari urutan gerakan historis yang mirip dengan kondisi terbaru.
+3. **Cycle Analysis** — membaca jarak pengulangan dan tekanan kemunculan digit.
+4. **Cross Position** — membaca hubungan kondisi AS, COP, KPL, dan EKR.
+5. **Markov Order-1** — membaca peluang digit berikutnya dari satu digit terakhir.
+6. **Markov Order-2** — membaca peluang digit berikutnya dari dua kondisi terakhir, dengan fallback Order-1 ketika sampel tipis.
+7. **Momentum Decay** — memprioritaskan pola terbaru menggunakan pembobotan waktu menurun.
+8. **Transition Matrix** — membaca transisi arah gerak menuju arah berikutnya.
+9. **Regime Adaptive** — menyesuaikan komposisi model saat kondisi trend, zigzag, reversal, stabil, atau chaotic.
+10. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.
+
+### Model khusus target 2D
+
+11. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.
+12. **Pair Markov 00–99** — membaca transisi langsung dari pasangan saat ini menuju pasangan berikutnya.
+
+Untuk target satu posisi, 3D, dan 4D, engine menguji 10 model umum. Untuk target 2D, dua model pasangan ikut ditambahkan.
 
 Dengan 168 data:
 
 ```txt
-Posisi / 3D / 4D = 4 metode × 11 window = 44 kandidat
-Target 2D        = 5 metode × 11 window = 55 kandidat
+Posisi / 3D / 4D = 10 metode × 11 window = 110 kandidat
+Target 2D        = 12 metode × 11 window = 132 kandidat
 ```
 
 ## Ranking Kandidat
@@ -99,9 +112,9 @@ Kandidat diurutkan berdasarkan:
 Contoh stabilitas:
 
 ```txt
-Delta W28 = 11/14
-Delta W42 = 12/14
-Delta W56 = 11/14
+Markov Order-2 W28 = 11/14
+Markov Order-2 W42 = 12/14
+Markov Order-2 W56 = 11/14
 ```
 
 W42 lebih didukung dibanding nilai tinggi yang berdiri sendiri di antara window lemah.
@@ -113,7 +126,7 @@ Setelah pemenang dipilih, metode tersebut dilatih ulang memakai window terbaru.
 Contoh pemenang:
 
 ```txt
-Joint Pair W98 = 12/14
+Pair Markov W98 = 12/14
 ```
 
 Prediksi result ke-169 menggunakan:
@@ -122,7 +135,7 @@ Prediksi result ke-169 menggunakan:
 98 data terbaru dari data 71–168
 ```
 
-Saat result baru masuk, L14 bergeser satu langkah dan seluruh turnamen dijalankan ulang.
+Saat result baru masuk, L14 bergeser satu langkah dan seluruh turnamen dijalankan ulang. Metode terpilih dapat berubah mengikuti kondisi data terbaru.
 
 ## Objektif Output
 
@@ -191,6 +204,10 @@ Engine menguji seluruh kombinasi digit yang mungkin untuk jumlah digit pilihan.
 - Posisi memaksimalkan probabilitas digit posisi berada dalam output.
 - AI memaksimalkan probabilitas minimal satu posisi target tertutup.
 - BBFS memaksimalkan probabilitas semua posisi target tertutup.
-- Joint Pair menilai pasangan 00–99 langsung, bukan sekadar mengalikan ranking KPL dan EKR.
+- Joint Pair dan Pair Markov menilai pasangan 00–99 secara langsung.
 
 Karena ruang digit hanya 0–9, enumerasi kombinasi tetap kecil; maksimum `C(10,5) = 252` kombinasi.
+
+## Catatan Validasi
+
+Penambahan metode memperluas variasi pembacaan, tetapi juga memperbesar peluang satu kandidat terlihat unggul secara kebetulan. Karena itu release gate, L7, miss streak, dan stabilitas window tetangga tetap dipertahankan. Metode baru tidak otomatis dianggap lebih baik; semuanya harus menang pada walk-forward yang sama.
