@@ -9,14 +9,15 @@ import {
 } from "./helpers";
 import type {
   DigitDistribution,
-  MovementMethod,
+  MovementRegime,
   PositionDistributions,
+  PositionMovementMethod,
 } from "./types";
 
 export type JointPairDistribution = number[];
 
-function blankScores(smoothing = 0.35): number[] {
-  return DIGITS.map(() => smoothing);
+function blankScores(smoothing = 0.35, size = 10): number[] {
+  return Array.from({ length: size }, () => smoothing);
 }
 
 function circularDistance(left: number, right: number): number {
@@ -24,8 +25,38 @@ function circularDistance(left: number, right: number): number {
   return Math.min(distance, 10 - distance);
 }
 
+function wrapDigit(value: number): number {
+  return ((value % 10) + 10) % 10;
+}
+
 function positionValues(draws: Draw[], position: Posisi): number[] {
   return draws.map((draw) => digitAt(draw, position));
+}
+
+function blendDistributions(
+  entries: Array<{ distribution: number[]; weight: number }>,
+): number[] {
+  const size = Math.max(1, ...entries.map((entry) => entry.distribution.length));
+  const scores = Array.from({ length: size }, () => 0);
+
+  for (const entry of entries) {
+    const distribution = normalizeDistribution(entry.distribution);
+    const weight = Math.max(0, entry.weight);
+    for (let index = 0; index < size; index += 1) {
+      scores[index] += (distribution[index] ?? 0) * weight;
+    }
+  }
+
+  return normalizeDistribution(scores);
+}
+
+function informationWeight(distribution: number[]): number {
+  const normalized = normalizeDistribution(distribution);
+  const entropy = normalized.reduce((sum, probability) => {
+    if (probability <= 0) return sum;
+    return sum - probability * Math.log(probability);
+  }, 0) / Math.log(Math.max(2, normalized.length));
+  return 0.65 + Math.max(0, 1 - entropy) * 2.8;
 }
 
 function deltaDistribution(draws: Draw[], position: Posisi): DigitDistribution {
@@ -176,16 +207,256 @@ function crossDistribution(draws: Draw[], targetPosition: Posisi): DigitDistribu
   return normalizeDistribution(scores);
 }
 
+function markovOneDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const values = positionValues(draws, position);
+  if (values.length < 2) return normalizeDistribution(blankScores());
+
+  const scores = blankScores(0.22);
+  const liveCurrent = values[values.length - 1];
+  let exactMatches = 0;
+
+  for (let index = 0; index < values.length - 1; index += 1) {
+    const current = values[index];
+    const next = values[index + 1];
+    const age = values.length - 2 - index;
+    const recency = Math.pow(0.995, age);
+
+    scores[next] += 0.04 * recency;
+    if (current === liveCurrent) {
+      scores[next] += 1.7 * recency;
+      exactMatches += 1;
+    } else if (circularDistance(current, liveCurrent) === 1) {
+      scores[next] += 0.14 * recency;
+    }
+  }
+
+  if (!exactMatches) {
+    for (let index = Math.max(0, values.length - 18); index < values.length; index += 1) {
+      const age = values.length - 1 - index;
+      scores[values[index]] += 0.18 * Math.pow(0.94, age);
+    }
+  }
+
+  return normalizeDistribution(scores);
+}
+
+function markovTwoDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const values = positionValues(draws, position);
+  if (values.length < 4) return markovOneDistribution(draws, position);
+
+  const scores = blankScores(0.16);
+  const livePrevious = values[values.length - 2];
+  const liveCurrent = values[values.length - 1];
+  const liveDelta = signedDelta(livePrevious, liveCurrent);
+  let exactMatches = 0;
+
+  for (let index = 1; index < values.length - 1; index += 1) {
+    const previous = values[index - 1];
+    const current = values[index];
+    const next = values[index + 1];
+    const age = values.length - 2 - index;
+    const recency = Math.pow(0.995, age);
+
+    if (previous === livePrevious && current === liveCurrent) {
+      scores[next] += 3 * recency;
+      exactMatches += 1;
+    } else {
+      if (current === liveCurrent) scores[next] += 0.42 * recency;
+      if (signedDelta(previous, current) === liveDelta) scores[next] += 0.34 * recency;
+    }
+  }
+
+  return blendDistributions([
+    { distribution: scores, weight: exactMatches ? 0.76 : 0.38 },
+    { distribution: markovOneDistribution(draws, position), weight: exactMatches ? 0.24 : 0.62 },
+  ]);
+}
+
+function momentumDecayDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const values = positionValues(draws, position);
+  if (values.length < 3) return markovOneDistribution(draws, position);
+
+  const scores = blankScores(0.18);
+  const lastIndex = values.length - 1;
+  const liveCurrent = values[lastIndex];
+  const liveDelta = signedDelta(values[lastIndex - 1], liveCurrent);
+  const halfLife = Math.max(4, Math.min(18, values.length / 4));
+
+  for (let index = 0; index < values.length; index += 1) {
+    const age = lastIndex - index;
+    scores[values[index]] += 0.28 * Math.exp(-age / halfLife);
+  }
+
+  for (let index = 1; index < values.length - 1; index += 1) {
+    const current = values[index];
+    const previous = values[index - 1];
+    const next = values[index + 1];
+    const delta = signedDelta(previous, current);
+    const age = values.length - 2 - index;
+    const recency = Math.exp(-age / Math.max(3, halfLife * 0.7));
+
+    let similarity = 0.1;
+    if (current === liveCurrent) similarity += 0.85;
+    if (delta === liveDelta) similarity += 1.1;
+    if (Math.sign(delta) === Math.sign(liveDelta)) similarity += 0.34;
+    scores[next] += similarity * recency;
+  }
+
+  const recentDeltas = values.slice(-5).slice(1).map((value, index, recent) => {
+    const source = values.length - recent.length - 1 + index;
+    return signedDelta(values[source], value);
+  });
+  const weightedDelta = recentDeltas.length
+    ? recentDeltas.reduce((sum, delta, index) => sum + delta * (index + 1), 0) /
+      recentDeltas.reduce((sum, _delta, index) => sum + index + 1, 0)
+    : liveDelta;
+  scores[wrapDigit(liveCurrent + Math.round(weightedDelta))] += 1.65;
+  scores[wrapDigit(liveCurrent + liveDelta)] += 0.9;
+
+  return normalizeDistribution(scores);
+}
+
+function transitionMatrixDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const values = positionValues(draws, position);
+  if (values.length < 4) return deltaDistribution(draws, position);
+
+  const deltas = values.slice(1).map((value, index) => signedDelta(values[index], value));
+  const liveDelta = deltas[deltas.length - 1];
+  const liveCurrent = values[values.length - 1];
+  const scores = blankScores(0.16);
+  let exactTransitions = 0;
+
+  for (let index = 0; index < deltas.length - 1; index += 1) {
+    const fromDelta = deltas[index];
+    const toDelta = deltas[index + 1];
+    const age = deltas.length - 2 - index;
+    const recency = Math.pow(0.995, age);
+    const projectedDigit = wrapDigit(liveCurrent + toDelta);
+
+    scores[projectedDigit] += 0.06 * recency;
+    if (fromDelta === liveDelta) {
+      scores[projectedDigit] += 2.25 * recency;
+      exactTransitions += 1;
+    } else if (Math.sign(fromDelta) === Math.sign(liveDelta)) {
+      scores[projectedDigit] += 0.3 * recency;
+    }
+  }
+
+  if (!exactTransitions) {
+    for (const delta of deltas.slice(-8)) {
+      scores[wrapDigit(liveCurrent + delta)] += 0.24;
+    }
+  }
+
+  return normalizeDistribution(scores);
+}
+
+function detectPositionRegime(values: number[]): MovementRegime {
+  if (values.length < 5) return "CHAOTIC";
+  const deltas = values.slice(-11).slice(1).map((value, index, recent) => {
+    const source = values.length - recent.length - 1 + index;
+    return signedDelta(values[source], value);
+  });
+  const signs = deltas.map((delta) => Math.sign(delta));
+  const stableShare = signs.filter((sign) => sign === 0).length / Math.max(1, signs.length);
+  if (stableShare >= 0.3) return "STABIL";
+
+  let alternating = 0;
+  let comparable = 0;
+  for (let index = 1; index < signs.length; index += 1) {
+    if (!signs[index] || !signs[index - 1]) continue;
+    comparable += 1;
+    if (signs[index] !== signs[index - 1]) alternating += 1;
+  }
+  if (comparable && alternating / comparable >= 0.65) return "ZIGZAG";
+
+  const nonZero = signs.filter((sign) => sign !== 0);
+  if (nonZero.length >= 4) {
+    const last = nonZero[nonZero.length - 1];
+    if (nonZero.slice(-4, -1).every((sign) => sign === -last)) return "REVERSAL";
+  }
+
+  const positiveShare = signs.filter((sign) => sign > 0).length / Math.max(1, signs.length);
+  const negativeShare = signs.filter((sign) => sign < 0).length / Math.max(1, signs.length);
+  if (Math.max(positiveShare, negativeShare) >= 0.65) return "TREND";
+  return "CHAOTIC";
+}
+
+function regimeAdaptiveDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const regime = detectPositionRegime(positionValues(draws, position));
+
+  if (regime === "TREND") {
+    return blendDistributions([
+      { distribution: momentumDecayDistribution(draws, position), weight: 0.46 },
+      { distribution: deltaDistribution(draws, position), weight: 0.3 },
+      { distribution: transitionMatrixDistribution(draws, position), weight: 0.24 },
+    ]);
+  }
+  if (regime === "ZIGZAG") {
+    return blendDistributions([
+      { distribution: motifDistribution(draws, position), weight: 0.42 },
+      { distribution: transitionMatrixDistribution(draws, position), weight: 0.34 },
+      { distribution: markovTwoDistribution(draws, position), weight: 0.24 },
+    ]);
+  }
+  if (regime === "REVERSAL") {
+    return blendDistributions([
+      { distribution: transitionMatrixDistribution(draws, position), weight: 0.4 },
+      { distribution: motifDistribution(draws, position), weight: 0.34 },
+      { distribution: deltaDistribution(draws, position), weight: 0.26 },
+    ]);
+  }
+  if (regime === "STABIL") {
+    return blendDistributions([
+      { distribution: markovOneDistribution(draws, position), weight: 0.4 },
+      { distribution: cycleDistribution(draws, position), weight: 0.35 },
+      { distribution: momentumDecayDistribution(draws, position), weight: 0.25 },
+    ]);
+  }
+
+  return blendDistributions([
+    { distribution: markovTwoDistribution(draws, position), weight: 0.26 },
+    { distribution: crossDistribution(draws, position), weight: 0.26 },
+    { distribution: cycleDistribution(draws, position), weight: 0.24 },
+    { distribution: motifDistribution(draws, position), weight: 0.24 },
+  ]);
+}
+
+function consensusDistribution(draws: Draw[], position: Posisi): DigitDistribution {
+  const distributions = [
+    deltaDistribution(draws, position),
+    motifDistribution(draws, position),
+    cycleDistribution(draws, position),
+    crossDistribution(draws, position),
+    markovOneDistribution(draws, position),
+    markovTwoDistribution(draws, position),
+    momentumDecayDistribution(draws, position),
+    transitionMatrixDistribution(draws, position),
+    regimeAdaptiveDistribution(draws, position),
+  ];
+
+  return blendDistributions(distributions.map((distribution) => ({
+    distribution,
+    weight: informationWeight(distribution),
+  })));
+}
+
 export function buildMethodDistributions(
   draws: Draw[],
-  method: Exclude<MovementMethod, "joint_pair">,
+  method: PositionMovementMethod,
 ): PositionDistributions {
   const result = {} as PositionDistributions;
   for (const position of POSITIONS) {
     if (method === "delta") result[position] = deltaDistribution(draws, position);
     else if (method === "motif") result[position] = motifDistribution(draws, position);
     else if (method === "cycle") result[position] = cycleDistribution(draws, position);
-    else result[position] = crossDistribution(draws, position);
+    else if (method === "cross") result[position] = crossDistribution(draws, position);
+    else if (method === "markov_1") result[position] = markovOneDistribution(draws, position);
+    else if (method === "markov_2") result[position] = markovTwoDistribution(draws, position);
+    else if (method === "momentum_decay") result[position] = momentumDecayDistribution(draws, position);
+    else if (method === "transition_matrix") result[position] = transitionMatrixDistribution(draws, position);
+    else if (method === "regime_adaptive") result[position] = regimeAdaptiveDistribution(draws, position);
+    else result[position] = consensusDistribution(draws, position);
   }
   return result;
 }
@@ -198,7 +469,7 @@ export function buildJointPairDistribution(
   draws: Draw[],
   positions: [Posisi, Posisi],
 ): JointPairDistribution {
-  const scores = Array.from({ length: 100 }, () => 0.04);
+  const scores = blankScores(0.04, 100);
   if (draws.length < 4) return normalizeDistribution(scores);
 
   const latest = draws[draws.length - 1];
@@ -234,4 +505,55 @@ export function buildJointPairDistribution(
   }
 
   return normalizeDistribution(scores);
+}
+
+export function buildPairMarkovDistribution(
+  draws: Draw[],
+  positions: [Posisi, Posisi],
+): JointPairDistribution {
+  const scores = blankScores(0.025, 100);
+  if (draws.length < 3) return buildJointPairDistribution(draws, positions);
+
+  const latest = draws[draws.length - 1];
+  const previous = draws[draws.length - 2];
+  const liveFirst = digitAt(latest, positions[0]);
+  const liveSecond = digitAt(latest, positions[1]);
+  const liveDeltaFirst = signedDelta(digitAt(previous, positions[0]), liveFirst);
+  const liveDeltaSecond = signedDelta(digitAt(previous, positions[1]), liveSecond);
+  let exactMatches = 0;
+
+  for (let anchor = 0; anchor < draws.length - 1; anchor += 1) {
+    const current = draws[anchor];
+    const next = draws[anchor + 1];
+    const currentFirst = digitAt(current, positions[0]);
+    const currentSecond = digitAt(current, positions[1]);
+    const nextIndex = pairIndex(
+      digitAt(next, positions[0]),
+      digitAt(next, positions[1]),
+    );
+    const age = draws.length - 2 - anchor;
+    const recency = Math.pow(0.995, age);
+
+    scores[nextIndex] += 0.035 * recency;
+    if (currentFirst === liveFirst && currentSecond === liveSecond) {
+      scores[nextIndex] += 3.4 * recency;
+      exactMatches += 1;
+    } else {
+      if (currentFirst === liveFirst) scores[nextIndex] += 0.48 * recency;
+      if (currentSecond === liveSecond) scores[nextIndex] += 0.48 * recency;
+      if (anchor > 0) {
+        const before = draws[anchor - 1];
+        const deltaFirst = signedDelta(digitAt(before, positions[0]), currentFirst);
+        const deltaSecond = signedDelta(digitAt(before, positions[1]), currentSecond);
+        if (deltaFirst === liveDeltaFirst && deltaSecond === liveDeltaSecond) {
+          scores[nextIndex] += 0.72 * recency;
+        }
+      }
+    }
+  }
+
+  return blendDistributions([
+    { distribution: scores, weight: exactMatches ? 0.76 : 0.48 },
+    { distribution: buildJointPairDistribution(draws, positions), weight: exactMatches ? 0.24 : 0.52 },
+  ]);
 }
