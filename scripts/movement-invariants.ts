@@ -18,7 +18,9 @@ import {
   POSITION_MOVEMENT_METHODS,
 } from "../lib/movement/types";
 import {
+  ADAPTIVE_BATCH_CHUNK_SIZE,
   ADAPTIVE_BATCH_MODES,
+  MAX_ADAPTIVE_BATCH_MARKETS,
   adaptiveOutputType,
   adaptiveTarget,
   adaptiveTargetKind,
@@ -47,6 +49,9 @@ assert.equal(MOVEMENT_METHODS.length, 9);
 assert.ok(MOVEMENT_METHODS.every((method) => !method.includes("markov")));
 
 assert.equal(ADAPTIVE_BATCH_MODES.length, 7);
+assert.equal(MAX_ADAPTIVE_BATCH_MARKETS, 35);
+assert.equal(ADAPTIVE_BATCH_CHUNK_SIZE, 5);
+assert.equal(MAX_ADAPTIVE_BATCH_MARKETS % ADAPTIVE_BATCH_CHUNK_SIZE, 0);
 assert.equal(isAdaptiveBatchMode("adaptive_ai_2d"), true);
 assert.equal(isBatchAnalysisMode("bbfs_2d_belakang"), true);
 assert.equal(isBatchAnalysisMode("adaptive_bbfs_4d"), true);
@@ -125,4 +130,4 @@ assert.equal(bbfs.minimumReleaseHits, 7);
 assert.equal(bbfs.digits.length, bbfs.released ? 8 : 0);
 assert.equal(bbfs.offDigits.length, bbfs.released ? 2 : 0);
 
-console.log("Movement adaptive tournament invariants passed without Markov methods.");
+console.log("Movement adaptive tournament and 35-market Batch invariants passed.");

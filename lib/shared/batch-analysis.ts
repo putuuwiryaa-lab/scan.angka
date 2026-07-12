@@ -31,7 +31,8 @@ export const ADAPTIVE_BATCH_OPTIONS: { value: AdaptiveBatchMode; label: string }
   { value: "adaptive_bbfs_4d", label: "Adaptif BBFS 4D" },
 ];
 
-export const MAX_ADAPTIVE_BATCH_MARKETS = 5;
+export const MAX_ADAPTIVE_BATCH_MARKETS = 35;
+export const ADAPTIVE_BATCH_CHUNK_SIZE = 5;
 
 export function isAdaptiveBatchMode(value: unknown): value is AdaptiveBatchMode {
   return typeof value === "string" && (ADAPTIVE_BATCH_MODES as readonly string[]).includes(value);

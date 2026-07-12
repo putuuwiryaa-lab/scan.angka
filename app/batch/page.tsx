@@ -48,7 +48,7 @@ export default function BatchPage() {
     selectAll,
     clearSelection,
   } = useBatchMarkets(maxMarkets);
-  const { result, copied, loading, runnerError, runBatch, copyOutput } = useBatchRunner();
+  const { result, copied, loading, progress, runnerError, runBatch, copyOutput } = useBatchRunner();
 
   function changeMode(value: BatchAnalysisMode) {
     setScanMode(value);
@@ -108,6 +108,7 @@ export default function BatchPage() {
         selected={selected}
         query={query}
         loading={loading}
+        progress={progress}
         error={runnerError || marketError}
         maxMarkets={maxMarkets}
         adaptive={adaptiveBatch}

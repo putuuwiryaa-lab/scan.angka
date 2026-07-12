@@ -6,7 +6,7 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 
 - Scan satu pasaran.
 - Batch Scan banyak pasaran sekaligus.
-- Batch Adaptif untuk menjalankan turnamen L14 pada beberapa pasaran.
+- Batch Adaptif hingga 35 pasaran dengan pemrosesan bertahap.
 - Trek tersimpan lintas pasaran.
 - Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
 - Adaptive Movement Engine untuk analisa pergerakan data.
@@ -93,7 +93,7 @@ Untuk target 2D, Joint Pair menilai pasangan 00–99 secara langsung.
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
 | `/api/movement` | POST | Menjalankan turnamen adaptif L14 dan membentuk output |
-| `/api/batch-scan` | POST | Menjalankan Scan Rumus atau Adaptif untuk beberapa pasaran |
+| `/api/batch-scan` | POST | Menjalankan satu bagian Batch Scan atau Adaptif |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
 ## Cara Pakai Adaptif
@@ -121,11 +121,19 @@ Setiap kartu metode di halaman Batch dapat memakai Scan Rumus atau Adaptif. Pili
 
 Metode 1 dan Metode 2 dapat digabung, termasuk kombinasi Scan Rumus + Adaptif. Output setiap pasaran tetap menggunakan format satu baris dan siap disalin.
 
-Batas proses:
+Batas pilihan:
 
 ```txt
 Scan Rumus = maksimal 35 pasaran
-Ada Adaptif = maksimal 5 pasaran
+Ada Adaptif = maksimal 35 pasaran
 ```
 
-Batas Adaptif lebih rendah karena setiap pasaran menjalankan 88–99 kandidat pada walk-forward L14. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.
+Untuk menjaga kestabilan server, Batch Adaptif tidak mengirim seluruh pasaran dalam satu request. Browser membagi pilihan menjadi kelompok berisi maksimal 5 pasaran, memproses kelompok tersebut secara berurutan, lalu menggabungkan seluruh hasil menjadi satu output.
+
+Contoh 35 pasaran:
+
+```txt
+35 pasaran ÷ 5 pasaran per tahap = 7 tahap
+```
+
+Progress tahap ditampilkan pada tombol proses. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.
