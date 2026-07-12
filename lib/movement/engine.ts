@@ -120,6 +120,9 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
   );
   const liveDigits = [...tournament.liveSelection.digits].sort((left, right) => left - right);
   const selected = new Set(liveDigits);
+  const tieBreakText = tournament.selectionValidation.total > WALK_FORWARD_SIZE
+    ? ` Seri L14 dipecahkan pada L${tournament.selectionValidation.total} dengan hasil ${tournament.selectionValidation.hit}/${tournament.selectionValidation.total}.`
+    : "";
 
   return {
     config: {
@@ -143,11 +146,13 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     minimumReleaseHits: tournament.minimumReleaseHits,
     probabilities: tournament.released ? tournament.liveProbabilities : [],
     evaluation: tournament.evaluation,
+    selectionValidation: tournament.selectionValidation,
+    tieBreakRounds: tournament.tieBreakRounds,
     tournament: tournament.tournament,
     rows: tournament.rows,
     message: tournament.released
-      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul dengan validasi ${tournament.evaluation.l14.hit}/14.`
-      : `Konfigurasi terbaik hanya mencapai ${tournament.evaluation.l14.hit}/14. Ambang minimum ${tournament.minimumReleaseHits}/14 belum terpenuhi.`,
+      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul dengan validasi ${tournament.evaluation.l14.hit}/14.${tieBreakText}`
+      : `Konfigurasi terbaik hanya mencapai ${tournament.evaluation.l14.hit}/14. Ambang minimum ${tournament.minimumReleaseHits}/14 belum terpenuhi.${tieBreakText}`,
   };
 }
 
