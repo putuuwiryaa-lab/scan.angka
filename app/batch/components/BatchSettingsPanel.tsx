@@ -1,18 +1,26 @@
 import { useState } from "react";
+import {
+  ADAPTIVE_BATCH_OPTIONS,
+  adaptiveTargetKind,
+  batchModeUsesFixedTarget,
+  isAdaptiveBatchMode,
+  minimumAdaptiveDigitCount,
+  type BatchAnalysisMode,
+} from "../../../lib/shared/batch-analysis";
 import { ANALYSIS_OPTIONS, DIGIT_OPTIONS, POS_OPTIONS, TARGET_2D_OPTIONS, TARGET_3D_OPTIONS } from "../../shared/scan-options";
 import { cleanDigits, clampTextNumber, is3DMode, isOffMode, isPositionMode, isShioMode } from "../../shared/scan-utils";
 import type { Posisi, ScanMode, Target2D, Target3D } from "../../shared/types";
 
 type Props = {
   rounds: string;
-  scanMode: ScanMode;
+  scanMode: BatchAnalysisMode;
   targetPos: Posisi;
   target2D: Target2D;
   target3D: Target3D;
   digitCount: number;
   topRanks: number[];
   outputSeparator: string;
-  secondaryScanMode: ScanMode | "";
+  secondaryScanMode: BatchAnalysisMode | "";
   secondaryRounds: string;
   secondaryTargetPos: Posisi;
   secondaryTarget2D: Target2D;
@@ -20,14 +28,14 @@ type Props = {
   secondaryDigitCount: number;
   secondaryTopRanks: number[];
   onRoundsChange: (value: string) => void;
-  onScanModeChange: (value: ScanMode) => void;
+  onScanModeChange: (value: BatchAnalysisMode) => void;
   onTargetPosChange: (value: Posisi) => void;
   onTarget2DChange: (value: Target2D) => void;
   onTarget3DChange: (value: Target3D) => void;
   onDigitCountChange: (value: number) => void;
   onTopRanksChange: (value: number[]) => void;
   onOutputSeparatorChange: (value: string) => void;
-  onSecondaryScanModeChange: (value: ScanMode | "") => void;
+  onSecondaryScanModeChange: (value: BatchAnalysisMode | "") => void;
   onSecondaryRoundsChange: (value: string) => void;
   onSecondaryTargetPosChange: (value: Posisi) => void;
   onSecondaryTarget2DChange: (value: Target2D) => void;
@@ -41,21 +49,44 @@ type OpenMenu = "m1Jenis" | "m1Target" | "m1Digit" | "m2Jenis" | "m2Target" | "m
 const TOP_OPTIONS = [1, 2, 3];
 const DEFAULT_SEPARATOR = "➜";
 const SEPARATOR_OPTIONS = ["➜", "⟢", "-", ":", "•", "➡️", "✅", "🎯", "🔥"];
+const BATCH_ANALYSIS_OPTIONS: { value: BatchAnalysisMode; label: string }[] = [
+  ...ADAPTIVE_BATCH_OPTIONS,
+  ...ANALYSIS_OPTIONS,
+];
 
 function optionLabel<T extends string>(options: { value: T; label: string }[], value: T): string {
   return options.find((item) => item.value === value)?.label ?? value;
 }
 
-function targetLabel(scanMode: ScanMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D): string {
-  return isPositionMode(scanMode)
+function asLegacyMode(mode: BatchAnalysisMode): ScanMode | null {
+  return isAdaptiveBatchMode(mode) ? null : mode;
+}
+
+function targetLabel(mode: BatchAnalysisMode, targetPos: Posisi, target2D: Target2D, target3D: Target3D): string {
+  if (isAdaptiveBatchMode(mode)) {
+    const kind = adaptiveTargetKind(mode);
+    if (kind === "position") return optionLabel(POS_OPTIONS, targetPos);
+    if (kind === "3d") return optionLabel(TARGET_3D_OPTIONS, target3D);
+    if (kind === "4d") return "AS + COP + KPL + EKR";
+    return optionLabel(TARGET_2D_OPTIONS, target2D);
+  }
+
+  return isPositionMode(mode)
     ? optionLabel(POS_OPTIONS, targetPos)
-    : is3DMode(scanMode)
+    : is3DMode(mode)
       ? optionLabel(TARGET_3D_OPTIONS, target3D)
       : optionLabel(TARGET_2D_OPTIONS, target2D);
 }
 
-function digitLabel(scanMode: ScanMode, digitCount: number): string {
-  return `${digitCount} ${isShioMode(scanMode) ? "shio" : "digit"}`;
+function digitLabel(mode: BatchAnalysisMode, digitCount: number): string {
+  const legacy = asLegacyMode(mode);
+  return `${digitCount} ${legacy && isShioMode(legacy) ? "shio" : "digit"}`;
+}
+
+function digitFieldLabel(mode: BatchAnalysisMode): string {
+  if (isAdaptiveBatchMode(mode)) return "Cakupan Digit";
+  if (isOffMode(mode)) return isShioMode(mode) ? "OFF Shio" : "Jumlah OFF";
+  return isShioMode(mode) ? "Jumlah Shio" : "Jumlah Digit";
 }
 
 function normalizeRanks(ranks: number[]): number[] {
@@ -117,18 +148,33 @@ export default function BatchSettingsPanel({
     setOpenMenu((current) => current === menu ? null : menu);
   }
 
-  function renderTargetMenu(method: "m1" | "m2", mode: ScanMode, selectedPos: Posisi, selected2D: Target2D, selected3D: Target3D, onPos: (value: Posisi) => void, on2D: (value: Target2D) => void, on3D: (value: Target3D) => void) {
+  function renderTargetMenu(
+    method: "m1" | "m2",
+    mode: BatchAnalysisMode,
+    selectedPos: Posisi,
+    selected2D: Target2D,
+    selected3D: Target3D,
+    onPos: (value: Posisi) => void,
+    on2D: (value: Target2D) => void,
+    on3D: (value: Target3D) => void,
+  ) {
     const menuKey = method === "m1" ? "m1Target" : "m2Target";
-    return openMenu === menuKey && (
+    if (openMenu !== menuKey || batchModeUsesFixedTarget(mode)) return null;
+
+    const adaptiveKind = isAdaptiveBatchMode(mode) ? adaptiveTargetKind(mode) : null;
+    const usePosition = adaptiveKind === "position" || (!adaptiveKind && isPositionMode(mode as ScanMode));
+    const use3D = adaptiveKind === "3d" || (!adaptiveKind && is3DMode(mode as ScanMode));
+
+    return (
       <div className="batch-select-menu">
-        {isPositionMode(mode)
+        {usePosition
           ? POS_OPTIONS.map((item) => (
               <button key={item.value} type="button" className={item.value === selectedPos ? "batch-select-option active" : "batch-select-option"} onClick={() => { onPos(item.value); setOpenMenu(null); }}>
                 <span>{item.label}</span>
                 {item.value === selectedPos && <b>✓</b>}
               </button>
             ))
-          : is3DMode(mode)
+          : use3D
             ? TARGET_3D_OPTIONS.map((item) => (
                 <button key={item.value} type="button" className={item.value === selected3D ? "batch-select-option active" : "batch-select-option"} onClick={() => { on3D(item.value); setOpenMenu(null); }}>
                   <span>{item.label}</span>
@@ -145,12 +191,19 @@ export default function BatchSettingsPanel({
     );
   }
 
-  function renderDigitMenu(method: "m1" | "m2", mode: ScanMode, selectedDigit: number, onDigit: (value: number) => void) {
+  function renderDigitMenu(method: "m1" | "m2", mode: BatchAnalysisMode, selectedDigit: number, onDigit: (value: number) => void) {
     const menuKey = method === "m1" ? "m1Digit" : "m2Digit";
-    return openMenu === menuKey && (
+    if (openMenu !== menuKey) return null;
+
+    const adaptive = isAdaptiveBatchMode(mode);
+    const legacy = asLegacyMode(mode);
+    const minimum = adaptive ? minimumAdaptiveDigitCount(mode) : 1;
+    const maximum = legacy && isShioMode(legacy) ? 12 : 9;
+
+    return (
       <div className="batch-select-menu">
-        {DIGIT_OPTIONS.filter((value) => isShioMode(mode) || value <= 9).map((value) => {
-          const label = `${value} ${isShioMode(mode) ? "shio" : "digit"}`;
+        {DIGIT_OPTIONS.filter((value) => value >= minimum && value <= maximum).map((value) => {
+          const label = `${value} ${legacy && isShioMode(legacy) ? "shio" : "digit"}`;
           return (
             <button key={value} type="button" className={value === selectedDigit ? "batch-select-option active" : "batch-select-option"} onClick={() => { onDigit(value); setOpenMenu(null); }}>
               <span>{label}</span>
@@ -194,62 +247,118 @@ export default function BatchSettingsPanel({
     );
   }
 
+  function renderMethodCard(
+    method: "m1" | "m2",
+    mode: BatchAnalysisMode,
+    methodRounds: string,
+    selectedPos: Posisi,
+    selected2D: Target2D,
+    selected3D: Target3D,
+    selectedDigit: number,
+    selectedRanks: number[],
+    onMode: (value: BatchAnalysisMode) => void,
+    onRounds: (value: string) => void,
+    onPos: (value: Posisi) => void,
+    on2D: (value: Target2D) => void,
+    on3D: (value: Target3D) => void,
+    onDigit: (value: number) => void,
+    onRanks: (value: number[]) => void,
+  ) {
+    const adaptive = isAdaptiveBatchMode(mode);
+    const jenisMenu = method === "m1" ? "m1Jenis" : "m2Jenis";
+    const targetMenu = method === "m1" ? "m1Target" : "m2Target";
+    const digitMenu = method === "m1" ? "m1Digit" : "m2Digit";
+
+    return (
+      <>
+        {!adaptive && (
+          <div className="batch-field">
+            <label>Data Uji</label>
+            <input className="batch-input" inputMode="numeric" value={methodRounds} onChange={(event) => onRounds(cleanDigits(event.target.value, 3))} onBlur={() => onRounds(String(clampTextNumber(methodRounds, 14, 1, 100)))} />
+          </div>
+        )}
+
+        <div className="batch-field batch-dropdown-field">
+          <label>Jenis Analisis</label>
+          <button className="batch-select-btn" type="button" onClick={() => toggle(jenisMenu)}>
+            <b>{optionLabel(BATCH_ANALYSIS_OPTIONS, mode)}</b>
+            <span>{openMenu === jenisMenu ? "⌃" : "⌄"}</span>
+          </button>
+          {openMenu === jenisMenu && (
+            <div className="batch-select-menu">
+              {BATCH_ANALYSIS_OPTIONS.map((item, index) => (
+                <button key={item.value} type="button" className={item.value === mode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onMode(item.value); setOpenMenu(null); }}>
+                  <span>{index === ADAPTIVE_BATCH_OPTIONS.length ? "SCAN RUMUS" : ""}{index === ADAPTIVE_BATCH_OPTIONS.length ? <><br />{item.label}</> : item.label}</span>
+                  {item.value === mode && <b>✓</b>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {adaptive && (
+          <div className="batch-notice">Turnamen model otomatis · Walk-forward L14 · rekomendasi hanya diterbitkan jika lolos validasi.</div>
+        )}
+
+        <div className="batch-row-two">
+          <div className="batch-field batch-dropdown-field">
+            <label>Target</label>
+            <button className="batch-select-btn" type="button" disabled={batchModeUsesFixedTarget(mode)} onClick={() => toggle(targetMenu)}>
+              <b>{targetLabel(mode, selectedPos, selected2D, selected3D)}</b>
+              {!batchModeUsesFixedTarget(mode) && <span>{openMenu === targetMenu ? "⌃" : "⌄"}</span>}
+            </button>
+            {renderTargetMenu(method, mode, selectedPos, selected2D, selected3D, onPos, on2D, on3D)}
+          </div>
+          <div className="batch-field batch-dropdown-field">
+            <label>{digitFieldLabel(mode)}</label>
+            <button className="batch-select-btn" type="button" onClick={() => toggle(digitMenu)}>
+              <b>{digitLabel(mode, selectedDigit)}</b>
+              <span>{openMenu === digitMenu ? "⌃" : "⌄"}</span>
+            </button>
+            {renderDigitMenu(method, mode, selectedDigit, onDigit)}
+          </div>
+        </div>
+
+        {!adaptive && (
+          <div className="batch-field">
+            <label>Pilih Top Output</label>
+            {renderTopCards(selectedRanks, onRanks)}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <section className="batch-panel">
       <div className="batch-method-grid">
         <div className="batch-method-card">
           <div className="batch-method-title">Metode 1</div>
-          <div className="batch-field">
-            <label>Data Uji</label>
-            <input className="batch-input" inputMode="numeric" value={rounds} onChange={(event) => onRoundsChange(cleanDigits(event.target.value, 3))} onBlur={() => onRoundsChange(String(clampTextNumber(rounds, 14, 1, 100)))} />
-          </div>
-          <div className="batch-field batch-dropdown-field">
-            <label>Jenis</label>
-            <button className="batch-select-btn" type="button" onClick={() => toggle("m1Jenis")}>
-              <b>{optionLabel(ANALYSIS_OPTIONS, scanMode)}</b>
-              <span>{openMenu === "m1Jenis" ? "⌃" : "⌄"}</span>
-            </button>
-            {openMenu === "m1Jenis" && (
-              <div className="batch-select-menu">
-                {ANALYSIS_OPTIONS.map((item) => (
-                  <button key={item.value} type="button" className={item.value === scanMode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onScanModeChange(item.value); setOpenMenu(null); }}>
-                    <span>{item.label}</span>
-                    {item.value === scanMode && <b>✓</b>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="batch-row-two">
-            <div className="batch-field batch-dropdown-field">
-              <label>Target</label>
-              <button className="batch-select-btn" type="button" onClick={() => toggle("m1Target")}>
-                <b>{targetLabel(scanMode, targetPos, target2D, target3D)}</b>
-                <span>{openMenu === "m1Target" ? "⌃" : "⌄"}</span>
-              </button>
-              {renderTargetMenu("m1", scanMode, targetPos, target2D, target3D, onTargetPosChange, onTarget2DChange, onTarget3DChange)}
-            </div>
-            <div className="batch-field batch-dropdown-field">
-              <label>{isOffMode(scanMode) ? (isShioMode(scanMode) ? "OFF Shio" : "Jumlah OFF") : (isShioMode(scanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label>
-              <button className="batch-select-btn" type="button" onClick={() => toggle("m1Digit")}>
-                <b>{digitLabel(scanMode, digitCount)}</b>
-                <span>{openMenu === "m1Digit" ? "⌃" : "⌄"}</span>
-              </button>
-              {renderDigitMenu("m1", scanMode, digitCount, onDigitCountChange)}
-            </div>
-          </div>
-          <div className="batch-field">
-            <label>Pilih Top Output</label>
-            {renderTopCards(topRanks, onTopRanksChange)}
-          </div>
+          {renderMethodCard(
+            "m1",
+            scanMode,
+            rounds,
+            targetPos,
+            target2D,
+            target3D,
+            digitCount,
+            topRanks,
+            onScanModeChange,
+            onRoundsChange,
+            onTargetPosChange,
+            onTarget2DChange,
+            onTarget3DChange,
+            onDigitCountChange,
+            onTopRanksChange,
+          )}
         </div>
 
         <div className={secondaryActive ? "batch-method-card" : "batch-method-card inactive"}>
           <div className="batch-method-title">Metode 2</div>
           <div className="batch-field batch-dropdown-field">
-            <label>Jenis</label>
+            <label>Jenis Analisis</label>
             <button className="batch-select-btn" type="button" onClick={() => toggle("m2Jenis")}>
-              <b>{secondaryScanMode ? optionLabel(ANALYSIS_OPTIONS, secondaryScanMode) : "Tidak dipakai"}</b>
+              <b>{secondaryScanMode ? optionLabel(BATCH_ANALYSIS_OPTIONS, secondaryScanMode) : "Tidak dipakai"}</b>
               <span>{openMenu === "m2Jenis" ? "⌃" : "⌄"}</span>
             </button>
             {openMenu === "m2Jenis" && (
@@ -258,7 +367,7 @@ export default function BatchSettingsPanel({
                   <span>Tidak dipakai</span>
                   {secondaryScanMode === "" && <b>✓</b>}
                 </button>
-                {ANALYSIS_OPTIONS.map((item) => (
+                {BATCH_ANALYSIS_OPTIONS.map((item) => (
                   <button key={item.value} type="button" className={item.value === secondaryScanMode ? "batch-select-option active" : "batch-select-option"} onClick={() => { onSecondaryScanModeChange(item.value); setOpenMenu(null); }}>
                     <span>{item.label}</span>
                     {item.value === secondaryScanMode && <b>✓</b>}
@@ -268,35 +377,22 @@ export default function BatchSettingsPanel({
             )}
           </div>
 
-          {secondaryActive && secondaryScanMode && (
-            <>
-              <div className="batch-field">
-                <label>Data Uji</label>
-                <input className="batch-input" inputMode="numeric" value={secondaryRounds} onChange={(event) => onSecondaryRoundsChange(cleanDigits(event.target.value, 3))} onBlur={() => onSecondaryRoundsChange(String(clampTextNumber(secondaryRounds, 14, 1, 100)))} />
-              </div>
-              <div className="batch-row-two">
-                <div className="batch-field batch-dropdown-field">
-                  <label>Target</label>
-                  <button className="batch-select-btn" type="button" onClick={() => toggle("m2Target")}>
-                    <b>{targetLabel(secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D)}</b>
-                    <span>{openMenu === "m2Target" ? "⌃" : "⌄"}</span>
-                  </button>
-                  {renderTargetMenu("m2", secondaryScanMode, secondaryTargetPos, secondaryTarget2D, secondaryTarget3D, onSecondaryTargetPosChange, onSecondaryTarget2DChange, onSecondaryTarget3DChange)}
-                </div>
-                <div className="batch-field batch-dropdown-field">
-                  <label>{isOffMode(secondaryScanMode) ? (isShioMode(secondaryScanMode) ? "OFF Shio" : "Jumlah OFF") : (isShioMode(secondaryScanMode) ? "Jumlah Shio" : "Jumlah Digit")}</label>
-                  <button className="batch-select-btn" type="button" onClick={() => toggle("m2Digit")}>
-                    <b>{digitLabel(secondaryScanMode, secondaryDigitCount)}</b>
-                    <span>{openMenu === "m2Digit" ? "⌃" : "⌄"}</span>
-                  </button>
-                  {renderDigitMenu("m2", secondaryScanMode, secondaryDigitCount, onSecondaryDigitCountChange)}
-                </div>
-              </div>
-              <div className="batch-field">
-                <label>Pilih Top Output</label>
-                {renderTopCards(secondaryTopRanks, onSecondaryTopRanksChange)}
-              </div>
-            </>
+          {secondaryActive && secondaryScanMode && renderMethodCard(
+            "m2",
+            secondaryScanMode,
+            secondaryRounds,
+            secondaryTargetPos,
+            secondaryTarget2D,
+            secondaryTarget3D,
+            secondaryDigitCount,
+            secondaryTopRanks,
+            (value) => onSecondaryScanModeChange(value),
+            onSecondaryRoundsChange,
+            onSecondaryTargetPosChange,
+            onSecondaryTarget2DChange,
+            onSecondaryTarget3DChange,
+            onSecondaryDigitCountChange,
+            onSecondaryTopRanksChange,
           )}
         </div>
       </div>
