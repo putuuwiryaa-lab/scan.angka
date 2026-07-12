@@ -54,7 +54,7 @@ export default function BatchMarketSelector({
 
       <p className="batch-notice">
         {adaptive
-          ? `Mode Adaptif menjalankan turnamen L14 penuh. Maksimal ${maxMarkets} pasaran per proses.`
+          ? `Mode Adaptif menjalankan 88–99 kandidat L14 tanpa metode Markov. Maksimal ${maxMarkets} pasaran per proses.`
           : `Batas aman: maksimal ${maxMarkets} pasaran per batch scan.`}
       </p>
       <button className="batch-run" type="button" onClick={onRun} disabled={loading || selected.length === 0}>
