@@ -8,29 +8,39 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Batch Scan banyak pasaran sekaligus.
 - Trek tersimpan lintas pasaran.
 - Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
-- Movement Engine untuk analisa pergerakan data.
-- Pilihan output Movement: Posisi, AI, dan BBFS.
+- Adaptive Movement Engine untuk analisa pergerakan data.
+- Pilihan output Adaptif: Posisi, AI, dan BBFS.
 - Pilihan target posisi, 2D, 3D, atau 4D.
 - Pilihan jumlah digit.
 - Walk-forward tetap pada 14 result terbaru.
 - Window training kelipatan 14.
 - Turnamen seluruh metode × window.
-- Joint Pair 00–99 untuk target 2D.
+- Sepuluh model umum dan dua model pasangan 00–99.
 - Release gate terhadap baseline.
 - Ranking probabilitas digit untuk rekomendasi yang lolos.
 - Output ringkas dan siap copy.
 - PWA installable.
 - Data pasaran dibaca dari Supabase melalui server.
 
-## Movement Engine
+## Adaptive Movement Engine
 
-Movement Engine menguji metode berikut:
+Model umum yang diuji:
 
-- Delta;
-- Motif;
-- Cycle;
-- Cross-position;
-- Joint Pair untuk target 2D.
+- Delta Movement;
+- Pattern Motif;
+- Cycle Analysis;
+- Cross Position;
+- Markov Order-1;
+- Markov Order-2;
+- Momentum Decay;
+- Transition Matrix;
+- Regime Adaptive;
+- Consensus Ensemble.
+
+Model tambahan khusus target 2D:
+
+- Joint Pair;
+- Pair Markov 00–99.
 
 Empat belas result terbaru selalu dijadikan data uji walk-forward. Data sebelum target menjadi training dan diambil menggunakan window kelipatan 14.
 
@@ -39,6 +49,13 @@ Dengan 168 result, window yang diuji:
 ```txt
 W14, W28, W42, W56, W70, W84,
 W98, W112, W126, W140, W154
+```
+
+Jumlah konfigurasi:
+
+```txt
+Posisi / 3D / 4D = 110 kandidat
+Target 2D        = 132 kandidat
 ```
 
 Setiap metode diuji pada seluruh window tersebut. Pemenang dipilih berdasarkan L14, L7, miss streak, L3, dan stabilitas window tetangga. Metode pemenang kemudian dilatih ulang memakai window terbaru untuk membentuk prediksi berikutnya.
@@ -57,14 +74,14 @@ User memilih target 2D, 3D, atau 4D. Status kena jika **minimal satu digit targe
 
 User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit target** terdapat di output BBFS.
 
-Untuk BBFS 2D, metode Joint Pair menilai pasangan 00–99 secara langsung.
+Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara langsung.
 
 ## Struktur Halaman
 
 | Route | Fungsi |
 | --- | --- |
 | `/` | Scan utama untuk satu pasaran |
-| `/movement` | Movement Engine: Posisi, AI, dan BBFS |
+| `/movement` | Adaptif: Posisi, AI, dan BBFS |
 | `/batch` | Batch Scan untuk banyak pasaran |
 | `/admin` | Pengelolaan PIN dan akses device |
 | `/manifest.webmanifest` | Manifest PWA |
@@ -76,19 +93,19 @@ Untuk BBFS 2D, metode Joint Pair menilai pasangan 00–99 secara langsung.
 | --- | --- | --- |
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
-| `/api/movement` | POST | Menjalankan turnamen L14 dan membentuk output |
+| `/api/movement` | POST | Menjalankan turnamen adaptif L14 dan membentuk output |
 | `/api/batch-scan` | POST | Scan banyak pasaran sekaligus |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
-## Cara Pakai Movement
+## Cara Pakai Adaptif
 
-1. Buka menu **Prediksi**.
+1. Buka menu **Adaptif**.
 2. Pilih pasaran.
 3. Pilih jenis output: Posisi, AI, atau BBFS.
 4. Pilih target.
 5. Pilih jumlah digit.
-6. Tekan **Jalankan Analisa**.
-7. Lihat pemenang metode × window dan riwayat uji L14.
+6. Tekan **Jalankan Analisis Adaptif**.
+7. Lihat model terpilih dan riwayat validasi L14.
 8. Jika lolos baseline, salin rekomendasi yang diterbitkan.
 
 ## Batch Scan
