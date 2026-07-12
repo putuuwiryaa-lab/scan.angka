@@ -18,6 +18,16 @@ import {
   PAIR_MOVEMENT_METHODS,
   POSITION_MOVEMENT_METHODS,
 } from "../lib/movement/types";
+import {
+  ADAPTIVE_BATCH_MODES,
+  adaptiveOutputType,
+  adaptiveTarget,
+  adaptiveTargetKind,
+  clampBatchDigitCount,
+  isAdaptiveBatchMode,
+  isBatchAnalysisMode,
+  minimumAdaptiveDigitCount,
+} from "../lib/shared/batch-analysis";
 
 assert.equal(isCovered([0, 3, 5, 7], [2, 7], "ai"), true);
 assert.equal(isCovered([0, 1, 3, 5], [2, 7], "ai"), false);
@@ -35,6 +45,27 @@ assert.equal(minimumReleaseHits("bbfs", 8, 4), 7);
 assert.equal(POSITION_MOVEMENT_METHODS.length, 10);
 assert.equal(PAIR_MOVEMENT_METHODS.length, 2);
 assert.equal(MOVEMENT_METHODS.length, 12);
+
+assert.equal(ADAPTIVE_BATCH_MODES.length, 7);
+assert.equal(isAdaptiveBatchMode("adaptive_ai_2d"), true);
+assert.equal(isBatchAnalysisMode("bbfs_2d_belakang"), true);
+assert.equal(isBatchAnalysisMode("adaptive_bbfs_4d"), true);
+assert.equal(isBatchAnalysisMode("unknown"), false);
+assert.equal(adaptiveOutputType("adaptive_position"), "position");
+assert.equal(adaptiveOutputType("adaptive_ai_3d"), "ai");
+assert.equal(adaptiveOutputType("adaptive_bbfs_4d"), "bbfs");
+assert.equal(adaptiveTargetKind("adaptive_ai_2d"), "2d");
+assert.equal(adaptiveTargetKind("adaptive_bbfs_3d"), "3d");
+assert.equal(adaptiveTarget("adaptive_position", "K", "belakang", "belakang"), "K");
+assert.equal(adaptiveTarget("adaptive_ai_2d", "K", "tengah", "belakang"), "2d_tengah");
+assert.equal(adaptiveTarget("adaptive_bbfs_3d", "K", "belakang", "depan"), "3d_depan");
+assert.equal(adaptiveTarget("adaptive_ai_4d", "K", "belakang", "belakang"), "4d");
+assert.equal(minimumAdaptiveDigitCount("adaptive_bbfs_2d"), 2);
+assert.equal(minimumAdaptiveDigitCount("adaptive_bbfs_3d"), 3);
+assert.equal(minimumAdaptiveDigitCount("adaptive_bbfs_4d"), 4);
+assert.equal(clampBatchDigitCount("adaptive_bbfs_4d", 2), 4);
+assert.equal(clampBatchDigitCount("adaptive_ai_2d", 12), 9);
+assert.equal(clampBatchDigitCount("shio", 12), 12);
 
 const draws = Array.from({ length: 168 }, (_, index) => {
   const a = (index * 3 + Math.floor(index / 7)) % 10;
