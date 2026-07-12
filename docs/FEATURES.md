@@ -6,6 +6,7 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 
 - Scan satu pasaran.
 - Batch Scan banyak pasaran sekaligus.
+- Batch Adaptif untuk menjalankan turnamen L14 pada beberapa pasaran.
 - Trek tersimpan lintas pasaran.
 - Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
 - Adaptive Movement Engine untuk analisa pergerakan data.
@@ -82,7 +83,7 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 | --- | --- |
 | `/` | Scan utama untuk satu pasaran |
 | `/movement` | Adaptif: Posisi, AI, dan BBFS |
-| `/batch` | Batch Scan untuk banyak pasaran |
+| `/batch` | Batch Scan Rumus dan Batch Adaptif |
 | `/admin` | Pengelolaan PIN dan akses device |
 | `/manifest.webmanifest` | Manifest PWA |
 | `/sw.js` | Service worker PWA |
@@ -94,7 +95,7 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
 | `/api/movement` | POST | Menjalankan turnamen adaptif L14 dan membentuk output |
-| `/api/batch-scan` | POST | Scan banyak pasaran sekaligus |
+| `/api/batch-scan` | POST | Menjalankan Scan Rumus atau Adaptif untuk beberapa pasaran |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
 ## Cara Pakai Adaptif
@@ -108,6 +109,25 @@ Untuk target 2D, Joint Pair dan Pair Markov menilai pasangan 00–99 secara lang
 7. Lihat model terpilih dan riwayat validasi L14.
 8. Jika lolos baseline, salin rekomendasi yang diterbitkan.
 
-## Batch Scan
+## Batch Scan & Adaptif
 
-Batch Scan tetap menggunakan engine scan rumus. Batas aman saat ini adalah 35 pasaran per proses batch.
+Setiap kartu metode di halaman Batch dapat memakai Scan Rumus atau Adaptif. Pilihan Adaptif yang tersedia:
+
+- Adaptif Posisi;
+- Adaptif AI 2D;
+- Adaptif BBFS 2D;
+- Adaptif AI 3D;
+- Adaptif BBFS 3D;
+- Adaptif AI 4D;
+- Adaptif BBFS 4D.
+
+Metode 1 dan Metode 2 dapat digabung, termasuk kombinasi Scan Rumus + Adaptif. Output setiap pasaran tetap menggunakan format satu baris dan siap disalin.
+
+Batas proses:
+
+```txt
+Scan Rumus = maksimal 35 pasaran
+Ada Adaptif = maksimal 5 pasaran
+```
+
+Batas Adaptif lebih rendah karena setiap pasaran menjalankan seluruh turnamen metode × window pada walk-forward L14. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.
