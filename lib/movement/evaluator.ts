@@ -8,23 +8,25 @@ import {
 import {
   buildJointPairDistribution,
   buildMethodDistributions,
+  buildPairMarkovDistribution,
 } from "./models";
 import {
   chooseJointPairDigits,
   chooseMovementDigits,
-  jointPairObjectiveProbability,
   jointPairProbabilities,
   movementProbabilities,
-  objectiveProbability,
   type MovementSelection,
 } from "./optimizer";
-import type {
-  MovementAuditRow,
-  MovementEvaluation,
-  MovementMethod,
-  MovementOutputType,
-  MovementProbability,
-  MovementTournamentCandidate,
+import {
+  PAIR_MOVEMENT_METHODS,
+  POSITION_MOVEMENT_METHODS,
+  type MovementAuditRow,
+  type MovementEvaluation,
+  type MovementMethod,
+  type MovementOutputType,
+  type MovementProbability,
+  type MovementTournamentCandidate,
+  type PairMovementMethod,
 } from "./types";
 
 export const WALK_FORWARD_SIZE = 14 as const;
@@ -72,9 +74,13 @@ export function buildTrainingWindows(totalData: number): number[] {
 }
 
 function eligibleMethods(targetPositions: Posisi[]): MovementMethod[] {
-  const methods: MovementMethod[] = ["delta", "motif", "cycle", "cross"];
-  if (targetPositions.length === 2) methods.push("joint_pair");
-  return methods;
+  return targetPositions.length === 2
+    ? [...POSITION_MOVEMENT_METHODS, ...PAIR_MOVEMENT_METHODS]
+    : [...POSITION_MOVEMENT_METHODS];
+}
+
+function isPairMethod(method: MovementMethod): method is PairMovementMethod {
+  return method === "joint_pair" || method === "pair_markov";
 }
 
 function predictWithMethod(
@@ -84,12 +90,14 @@ function predictWithMethod(
   outputType: MovementOutputType,
   digitCount: number,
 ): PredictionResult {
-  if (method === "joint_pair") {
+  if (isPairMethod(method)) {
     if (targetPositions.length !== 2) {
-      throw new Error("Joint Pair hanya tersedia untuk target dua posisi.");
+      throw new Error("Metode pasangan hanya tersedia untuk target dua posisi.");
     }
     const positions: [Posisi, Posisi] = [targetPositions[0], targetPositions[1]];
-    const distribution = buildJointPairDistribution(trainingDraws, positions);
+    const distribution = method === "pair_markov"
+      ? buildPairMarkovDistribution(trainingDraws, positions)
+      : buildJointPairDistribution(trainingDraws, positions);
     return {
       selection: chooseJointPairDigits(distribution, outputType, digitCount),
       probabilities: jointPairProbabilities(distribution),
@@ -101,22 +109,6 @@ function predictWithMethod(
     selection: chooseMovementDigits(distributions, targetPositions, outputType, digitCount),
     probabilities: movementProbabilities(distributions, targetPositions, outputType),
   };
-}
-
-function predictionProbability(
-  trainingDraws: Draw[],
-  method: MovementMethod,
-  targetPositions: Posisi[],
-  outputType: MovementOutputType,
-  digits: number[],
-): number {
-  if (method === "joint_pair") {
-    const positions: [Posisi, Posisi] = [targetPositions[0], targetPositions[1]];
-    const distribution = buildJointPairDistribution(trainingDraws, positions);
-    return jointPairObjectiveProbability(distribution, outputType, digits);
-  }
-  const distributions = buildMethodDistributions(trainingDraws, method);
-  return objectiveProbability(distributions, targetPositions, outputType, digits);
 }
 
 function recentEvaluation(
@@ -161,16 +153,9 @@ function runCandidate(
     );
     const targetDigits = targetDigitsOf(draws[targetIndex], targetPositions);
     const covered = isCovered(prediction.selection.digits, targetDigits, outputType);
-    const probability = predictionProbability(
-      trainingDraws,
-      method,
-      targetPositions,
-      outputType,
-      prediction.selection.digits,
-    );
 
     statuses.push(covered);
-    probabilityTotal += probability;
+    probabilityTotal += prediction.selection.score;
     rows.push({
       targetIndex,
       targetDraw: draws[targetIndex],
