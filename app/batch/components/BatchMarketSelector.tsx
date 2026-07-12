@@ -6,6 +6,7 @@ type Props = {
   selected: string[];
   query: string;
   loading: boolean;
+  progress: string;
   error: string;
   maxMarkets: number;
   adaptive: boolean;
@@ -21,6 +22,7 @@ export default function BatchMarketSelector({
   selected,
   query,
   loading,
+  progress,
   error,
   maxMarkets,
   adaptive,
@@ -33,18 +35,18 @@ export default function BatchMarketSelector({
   return (
     <section className="batch-panel">
       <div className="batch-tools">
-        <button className="batch-small-btn" type="button" onClick={onSelectAll}>Pilih Semua</button>
-        <button className="batch-small-btn" type="button" onClick={onClear}>Kosongkan</button>
+        <button className="batch-small-btn" type="button" onClick={onSelectAll} disabled={loading}>Pilih Semua</button>
+        <button className="batch-small-btn" type="button" onClick={onClear} disabled={loading}>Kosongkan</button>
         <span className="batch-small-btn batch-selected-count">{selected.length}/{maxMarkets} dipilih</span>
       </div>
 
-      <input className="batch-search" value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Cari pasaran..." />
+      <input className="batch-search" value={query} disabled={loading} onChange={(event) => onQueryChange(event.target.value)} placeholder="Cari pasaran..." />
 
       <div className="batch-market-grid">
         {markets.map((market) => {
           const active = selected.includes(market.id);
           return (
-            <button key={market.id} type="button" onClick={() => onToggleMarket(market.id)} className={active ? "batch-market-chip active" : "batch-market-chip"}>
+            <button key={market.id} type="button" disabled={loading} onClick={() => onToggleMarket(market.id)} className={active ? "batch-market-chip active" : "batch-market-chip"}>
               {active && <span>✓</span>}
               {batchMarketTitle(market)}
             </button>
@@ -54,11 +56,13 @@ export default function BatchMarketSelector({
 
       <p className="batch-notice">
         {adaptive
-          ? `Mode Adaptif menjalankan 88–99 kandidat L14 tanpa metode Markov. Maksimal ${maxMarkets} pasaran per proses.`
+          ? `Maksimal ${maxMarkets} pasaran. Sistem memproses otomatis per 5 pasaran agar analisis tetap stabil.`
           : `Batas aman: maksimal ${maxMarkets} pasaran per batch scan.`}
       </p>
       <button className="batch-run" type="button" onClick={onRun} disabled={loading || selected.length === 0}>
-        {loading ? (adaptive ? "Mengevaluasi model..." : "Sedang batch scan...") : (adaptive ? "Jalankan Batch Adaptif" : "Batch Scan")}
+        {loading
+          ? (adaptive ? progress || "Menyiapkan Batch Adaptif..." : "Sedang batch scan...")
+          : (adaptive ? "Jalankan Batch Adaptif" : "Batch Scan")}
       </button>
       {error && <div className="batch-error">{error}</div>}
     </section>
