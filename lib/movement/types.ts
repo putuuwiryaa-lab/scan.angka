@@ -16,15 +16,12 @@ export type MovementMethod =
   | "cycle"
   | "cross"
   | "joint_pair"
-  | "markov_1"
-  | "markov_2"
   | "momentum_decay"
   | "transition_matrix"
   | "regime_adaptive"
-  | "pair_markov"
   | "consensus";
 
-export type PairMovementMethod = "joint_pair" | "pair_markov";
+export type PairMovementMethod = "joint_pair";
 export type PositionMovementMethod = Exclude<MovementMethod, PairMovementMethod>;
 export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
@@ -116,15 +113,13 @@ export const POSITION_MOVEMENT_METHODS: PositionMovementMethod[] = [
   "motif",
   "cycle",
   "cross",
-  "markov_1",
-  "markov_2",
   "momentum_decay",
   "transition_matrix",
   "regime_adaptive",
   "consensus",
 ];
 
-export const PAIR_MOVEMENT_METHODS: PairMovementMethod[] = ["joint_pair", "pair_markov"];
+export const PAIR_MOVEMENT_METHODS: PairMovementMethod[] = ["joint_pair"];
 export const MOVEMENT_METHODS: MovementMethod[] = [
   ...POSITION_MOVEMENT_METHODS,
   ...PAIR_MOVEMENT_METHODS,
@@ -136,12 +131,9 @@ export const MOVEMENT_METHOD_LABELS: Record<MovementMethod, string> = {
   cycle: "Cycle Analysis",
   cross: "Cross Position",
   joint_pair: "Joint Pair",
-  markov_1: "Markov Order-1",
-  markov_2: "Markov Order-2",
   momentum_decay: "Momentum Decay",
   transition_matrix: "Transition Matrix",
   regime_adaptive: "Regime Adaptive",
-  pair_markov: "Pair Markov 00–99",
   consensus: "Consensus Ensemble",
 };
 
