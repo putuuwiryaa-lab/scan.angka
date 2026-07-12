@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { MAX_ADAPTIVE_BATCH_MARKETS, MAX_BATCH_MARKETS } from "../constants";
+import {
+  ADAPTIVE_BATCH_CHUNK_SIZE,
+  MAX_ADAPTIVE_BATCH_MARKETS,
+  MAX_BATCH_MARKETS,
+} from "../constants";
 import { outputTitle } from "../helpers";
 import { copyTextToClipboard } from "../../shared/copy";
 import { clampTextNumber } from "../../shared/scan-utils";
@@ -70,14 +74,46 @@ function buildMethodTitle(
     : `${base} ${titleRanks(ranks)} L${rounds}`;
 }
 
+function splitIntoChunks<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function mergeChunkResults(
+  chunks: BatchResult[],
+  title: string,
+  lineSeparator: string,
+  maximumMarkets: number,
+): BatchResult {
+  const results = chunks.flatMap((chunk) => chunk.results);
+  const lines = results.map((row) => `${row.name} ${lineSeparator} ${row.digits}`);
+  const first = chunks[0];
+
+  return {
+    title,
+    results,
+    copyText: [title, "", ...lines].join("\n"),
+    lineSeparator,
+    topRanks: first?.topRanks,
+    secondary: first?.secondary,
+    adaptive: true,
+    limit: maximumMarkets,
+  };
+}
+
 export function useBatchRunner() {
   const [result, setResult] = useState<BatchResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState("");
   const [runnerError, setRunnerError] = useState("");
 
   async function runBatch(params: RunBatchParams) {
     setLoading(true);
+    setProgress("");
     setRunnerError("");
     setResult(null);
     setCopied(false);
@@ -142,30 +178,60 @@ export function useBatchRunner() {
       }
       params.onDigitCountChange(safeDigit);
 
-      const response = await fetch("/api/batch-scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          marketIds: params.selected,
-          L: safeRounds,
-          scanMode: params.scanMode,
-          targetPos: params.targetPos,
-          target2D: params.target2D,
-          target3D: params.target3D,
-          digitCount: safeDigit,
-          topRanks: ranks,
-          lineSeparator,
-          secondary: secondaryPayload,
-          outputTitle: secondaryPayload ? `${primaryTitle} · ${secondaryTitle}` : primaryTitle,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || data.error) setRunnerError(data.error || "Batch analisis gagal.");
-      else setResult(data);
-    } catch {
-      setRunnerError("Batch analisis gagal. Periksa koneksi, lalu coba kembali.");
+      const outputTitleText = secondaryPayload ? `${primaryTitle} · ${secondaryTitle}` : primaryTitle;
+      const requestBase = {
+        L: safeRounds,
+        scanMode: params.scanMode,
+        targetPos: params.targetPos,
+        target2D: params.target2D,
+        target3D: params.target3D,
+        digitCount: safeDigit,
+        topRanks: ranks,
+        lineSeparator,
+        secondary: secondaryPayload,
+        outputTitle: outputTitleText,
+      };
+      const marketChunks = adaptive
+        ? splitIntoChunks(params.selected, ADAPTIVE_BATCH_CHUNK_SIZE)
+        : [params.selected];
+      const chunkResults: BatchResult[] = [];
+
+      for (let index = 0; index < marketChunks.length; index += 1) {
+        const chunk = marketChunks[index];
+        if (adaptive) {
+          const completedBefore = index * ADAPTIVE_BATCH_CHUNK_SIZE;
+          setProgress(
+            `Tahap ${index + 1}/${marketChunks.length} · ${Math.min(completedBefore + chunk.length, params.selected.length)}/${params.selected.length} pasaran`,
+          );
+        }
+
+        const response = await fetch("/api/batch-scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...requestBase, marketIds: chunk }),
+        });
+        const data = await response.json() as BatchResult & { error?: string };
+        if (!response.ok || data.error) {
+          const stage = adaptive ? ` pada tahap ${index + 1}/${marketChunks.length}` : "";
+          throw new Error(`${data.error || "Batch analisis gagal"}${stage}.`);
+        }
+        chunkResults.push(data);
+      }
+
+      if (adaptive) {
+        setResult(mergeChunkResults(chunkResults, outputTitleText, lineSeparator, maximumMarkets));
+      } else {
+        setResult(chunkResults[0] ?? null);
+      }
+    } catch (error) {
+      setRunnerError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Batch analisis gagal. Periksa koneksi, lalu coba kembali.",
+      );
     } finally {
       setLoading(false);
+      setProgress("");
     }
   }
 
@@ -181,5 +247,5 @@ export function useBatchRunner() {
     window.setTimeout(() => setCopied(false), 1200);
   }
 
-  return { result, copied, loading, runnerError, runBatch, copyOutput };
+  return { result, copied, loading, progress, runnerError, runBatch, copyOutput };
 }
