@@ -370,7 +370,7 @@ export function evaluateMovementTournament(
     tieBreakInitialCandidateCount: tieResolution.initialCandidateCount,
     tieBreakRounds: tieResolution.rounds,
     tournament: ranked.slice(0, 12).map(({ statuses: _statuses, rows: _rows, ...candidate }) => candidate),
-    rows: winner.rows,
+    rows: selectionCandidate.rows,
     liveSelection: live.selection,
     liveProbabilities: live.probabilities,
   };
