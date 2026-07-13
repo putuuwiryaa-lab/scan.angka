@@ -24,12 +24,14 @@ import {
   type MovementMethod,
   type MovementOutputType,
   type MovementProbability,
+  type MovementTieBreakRound,
   type MovementTournamentCandidate,
   type PairMovementMethod,
 } from "./types";
 
 export const WALK_FORWARD_SIZE = 14 as const;
 export const TRAINING_WINDOW_STEP = 14 as const;
+export const TIE_BREAK_STEP = 7 as const;
 
 interface PredictionResult {
   selection: MovementSelection;
@@ -39,6 +41,12 @@ interface PredictionResult {
 interface CandidateRun extends MovementTournamentCandidate {
   statuses: boolean[];
   rows: MovementAuditRow[];
+}
+
+interface TieResolution {
+  finalists: CandidateRun[];
+  selectedSize: number;
+  rounds: MovementTieBreakRound[];
 }
 
 export interface MovementTournamentResult {
@@ -53,6 +61,8 @@ export interface MovementTournamentResult {
     l7: MovementEvaluation;
     l3: MovementEvaluation;
   };
+  selectionValidation: MovementEvaluation;
+  tieBreakRounds: MovementTieBreakRound[];
   tournament: MovementTournamentCandidate[];
   rows: MovementAuditRow[];
   liveSelection: MovementSelection;
@@ -80,6 +90,10 @@ function eligibleMethods(targetPositions: Posisi[]): MovementMethod[] {
 
 function isPairMethod(method: MovementMethod): method is PairMovementMethod {
   return method === "joint_pair";
+}
+
+function candidateKey(candidate: Pick<MovementTournamentCandidate, "method" | "window">): string {
+  return `${candidate.method}:${candidate.window}`;
 }
 
 function predictWithMethod(
@@ -130,8 +144,9 @@ function runCandidate(
   targetPositions: Posisi[],
   outputType: MovementOutputType,
   digitCount: number,
+  walkForwardSize: number = WALK_FORWARD_SIZE,
 ): CandidateRun {
-  const firstTargetIndex = draws.length - WALK_FORWARD_SIZE;
+  const firstTargetIndex = draws.length - walkForwardSize;
   const statuses: boolean[] = [];
   const rows: MovementAuditRow[] = [];
   let probabilityTotal = 0;
@@ -171,14 +186,14 @@ function runCandidate(
     l7Hit: statuses.slice(-7).filter(Boolean).length,
     l3Hit: statuses.slice(-3).filter(Boolean).length,
     neighborAverageHit: 0,
-    meanProbability: Number(((probabilityTotal / WALK_FORWARD_SIZE) * 100).toFixed(2)),
+    meanProbability: Number(((probabilityTotal / walkForwardSize) * 100).toFixed(2)),
     statuses,
     rows,
   };
 }
 
 function withNeighborStability(candidates: CandidateRun[]): CandidateRun[] {
-  const byKey = new Map(candidates.map((candidate) => [`${candidate.method}:${candidate.window}`, candidate]));
+  const byKey = new Map(candidates.map((candidate) => [candidateKey(candidate), candidate]));
   return candidates.map((candidate) => {
     const neighbors = [
       byKey.get(`${candidate.method}:${candidate.window - TRAINING_WINDOW_STEP}`),
@@ -202,6 +217,55 @@ function rankCandidates(candidates: CandidateRun[]): CandidateRun[] {
     right.window - left.window ||
     left.method.localeCompare(right.method),
   );
+}
+
+function highestHitCandidates(candidates: CandidateRun[]): CandidateRun[] {
+  const highestHit = Math.max(...candidates.map((candidate) => candidate.evaluation.hit));
+  return candidates.filter((candidate) => candidate.evaluation.hit === highestHit);
+}
+
+function canEvaluateSize(totalData: number, candidate: CandidateRun, walkForwardSize: number): boolean {
+  return candidate.window + walkForwardSize <= totalData;
+}
+
+function resolveHitTie(
+  draws: Draw[],
+  candidates: CandidateRun[],
+  targetPositions: Posisi[],
+  outputType: MovementOutputType,
+  digitCount: number,
+): TieResolution {
+  let finalists = highestHitCandidates(candidates);
+  let selectedSize: number = WALK_FORWARD_SIZE;
+  const rounds: MovementTieBreakRound[] = [];
+
+  while (finalists.length > 1) {
+    const nextSize = selectedSize + TIE_BREAK_STEP;
+    if (!finalists.every((candidate) => canEvaluateSize(draws.length, candidate, nextSize))) break;
+
+    const extended = finalists.map((candidate) => runCandidate(
+      draws,
+      candidate.method,
+      candidate.window,
+      targetPositions,
+      outputType,
+      digitCount,
+      nextSize,
+    ));
+    const nextFinalists = highestHitCandidates(extended);
+    const bestHit = nextFinalists[0]?.evaluation.hit ?? 0;
+
+    rounds.push({
+      size: nextSize,
+      candidateCount: extended.length,
+      bestHit,
+      remainingCandidateCount: nextFinalists.length,
+    });
+    finalists = nextFinalists;
+    selectedSize = nextSize;
+  }
+
+  return { finalists, selectedSize, rounds };
 }
 
 export function minimumReleaseHits(
@@ -232,10 +296,22 @@ export function evaluateMovementTournament(
       digitCount,
     )),
   );
-  const ranked = rankCandidates(withNeighborStability(rawCandidates));
-  const winner = ranked[0];
+  const baseRanked = rankCandidates(withNeighborStability(rawCandidates));
+  const tieResolution = resolveHitTie(
+    draws,
+    baseRanked,
+    targetPositions,
+    outputType,
+    digitCount,
+  );
+  const finalistKeys = new Set(tieResolution.finalists.map(candidateKey));
+  const winner = baseRanked.find((candidate) => finalistKeys.has(candidateKey(candidate)));
   if (!winner) throw new Error("Tidak ada metode dan window yang dapat diuji.");
 
+  const selectionCandidate = tieResolution.finalists.find(
+    (candidate) => candidateKey(candidate) === candidateKey(winner),
+  ) ?? winner;
+  const ranked = [winner, ...baseRanked.filter((candidate) => candidateKey(candidate) !== candidateKey(winner))];
   const requiredHits = minimumReleaseHits(outputType, digitCount, targetPositions.length);
   const released = winner.evaluation.hit >= requiredHits;
   const liveTraining = draws.slice(-winner.window);
@@ -259,6 +335,8 @@ export function evaluateMovementTournament(
       l7: recentEvaluation(winner.statuses, 7, outputType, digitCount, targetPositions.length),
       l3: recentEvaluation(winner.statuses, 3, outputType, digitCount, targetPositions.length),
     },
+    selectionValidation: selectionCandidate.evaluation,
+    tieBreakRounds: tieResolution.rounds,
     tournament: ranked.slice(0, 12).map(({ statuses: _statuses, rows: _rows, ...candidate }) => candidate),
     rows: winner.rows,
     liveSelection: live.selection,

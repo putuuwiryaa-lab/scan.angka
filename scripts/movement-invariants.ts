@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { runMovementEngine } from "../lib/movement/engine";
 import {
+  TIE_BREAK_STEP,
   buildTrainingWindows,
   minimumReleaseHits,
 } from "../lib/movement/evaluator";
@@ -40,6 +41,7 @@ assert.equal(theoreticalBaseline("position", 7, 1), 70);
 assert.equal(theoreticalBaseline("ai", 4, 2), 64);
 assert.equal(theoreticalBaseline("bbfs", 8, 4), 41);
 assert.deepEqual(buildTrainingWindows(168), [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154]);
+assert.equal(TIE_BREAK_STEP, 7);
 assert.equal(minimumReleaseHits("position", 7, 1), 11);
 assert.equal(minimumReleaseHits("ai", 4, 2), 10);
 assert.equal(minimumReleaseHits("bbfs", 8, 4), 7);
@@ -130,4 +132,15 @@ assert.equal(bbfs.minimumReleaseHits, 7);
 assert.equal(bbfs.digits.length, bbfs.released ? 8 : 0);
 assert.equal(bbfs.offDigits.length, bbfs.released ? 2 : 0);
 
-console.log("Movement adaptive tournament and 35-market Batch invariants passed.");
+for (const result of [position, ai, bbfs]) {
+  assert.ok(result.selectionValidation.total >= 14);
+  assert.equal((result.selectionValidation.total - 14) % TIE_BREAK_STEP, 0);
+  assert.equal(result.tieBreakRounds.length, (result.selectionValidation.total - 14) / TIE_BREAK_STEP);
+  assert.ok(result.tieBreakRounds.every((round, index) =>
+    round.size === 14 + (index + 1) * TIE_BREAK_STEP &&
+    round.candidateCount >= round.remainingCandidateCount &&
+    round.remainingCandidateCount >= 1,
+  ));
+}
+
+console.log("Movement adaptive tournament, progressive L14 tie-break, and 35-market Batch invariants passed.");

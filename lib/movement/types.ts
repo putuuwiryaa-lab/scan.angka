@@ -68,6 +68,13 @@ export interface MovementTournamentCandidate {
   meanProbability: number;
 }
 
+export interface MovementTieBreakRound {
+  size: number;
+  candidateCount: number;
+  bestHit: number;
+  remainingCandidateCount: number;
+}
+
 export interface MovementResult {
   config: MovementConfig & {
     targetPositions: Posisi[];
@@ -93,6 +100,8 @@ export interface MovementResult {
     l7: MovementEvaluation;
     l3: MovementEvaluation;
   };
+  selectionValidation: MovementEvaluation;
+  tieBreakRounds: MovementTieBreakRound[];
   tournament: MovementTournamentCandidate[];
   rows: MovementAuditRow[];
   message: string;
