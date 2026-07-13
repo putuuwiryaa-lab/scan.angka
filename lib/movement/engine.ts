@@ -120,9 +120,16 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
   );
   const liveDigits = [...tournament.liveSelection.digits].sort((left, right) => left - right);
   const selected = new Set(liveDigits);
-  const tieBreakText = tournament.selectionValidation.total > WALK_FORWARD_SIZE
-    ? ` Seri L14 dipecahkan pada L${tournament.selectionValidation.total} dengan hasil ${tournament.selectionValidation.hit}/${tournament.selectionValidation.total}.`
-    : "";
+
+  let tieBreakText = "";
+  if (tournament.tieBreakStatus === "resolved") {
+    tieBreakText = ` Seri L14 dipecahkan pada L${tournament.selectionValidation.total} dengan hasil ${tournament.selectionValidation.hit}/${tournament.selectionValidation.total}.`;
+  } else if (tournament.tieBreakStatus === "history_limit") {
+    const reached = tournament.selectionValidation.total;
+    tieBreakText = reached > WALK_FORWARD_SIZE
+      ? ` Seri masih bertahan sampai L${reached}; riwayat tidak cukup untuk naik ke L${reached + 7}, sehingga ranking sekunder digunakan.`
+      : " Seri L14 tidak dapat diperpanjang karena riwayat training kandidat belum cukup; ranking sekunder digunakan.";
+  }
 
   return {
     config: {
@@ -147,6 +154,8 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     probabilities: tournament.released ? tournament.liveProbabilities : [],
     evaluation: tournament.evaluation,
     selectionValidation: tournament.selectionValidation,
+    tieBreakStatus: tournament.tieBreakStatus,
+    tieBreakInitialCandidateCount: tournament.tieBreakInitialCandidateCount,
     tieBreakRounds: tournament.tieBreakRounds,
     tournament: tournament.tournament,
     rows: tournament.rows,
