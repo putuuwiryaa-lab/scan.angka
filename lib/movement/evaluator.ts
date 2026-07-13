@@ -25,6 +25,7 @@ import {
   type MovementOutputType,
   type MovementProbability,
   type MovementTieBreakRound,
+  type MovementTieBreakStatus,
   type MovementTournamentCandidate,
   type PairMovementMethod,
 } from "./types";
@@ -46,6 +47,8 @@ interface CandidateRun extends MovementTournamentCandidate {
 interface TieResolution {
   finalists: CandidateRun[];
   selectedSize: number;
+  initialCandidateCount: number;
+  status: MovementTieBreakStatus;
   rounds: MovementTieBreakRound[];
 }
 
@@ -62,6 +65,8 @@ export interface MovementTournamentResult {
     l3: MovementEvaluation;
   };
   selectionValidation: MovementEvaluation;
+  tieBreakStatus: MovementTieBreakStatus;
+  tieBreakInitialCandidateCount: number;
   tieBreakRounds: MovementTieBreakRound[];
   tournament: MovementTournamentCandidate[];
   rows: MovementAuditRow[];
@@ -236,6 +241,7 @@ function resolveHitTie(
   digitCount: number,
 ): TieResolution {
   let finalists = highestHitCandidates(candidates);
+  const initialCandidateCount = finalists.length;
   let selectedSize: number = WALK_FORWARD_SIZE;
   const rounds: MovementTieBreakRound[] = [];
 
@@ -254,18 +260,42 @@ function resolveHitTie(
     ));
     const nextFinalists = highestHitCandidates(extended);
     const bestHit = nextFinalists[0]?.evaluation.hit ?? 0;
+    const roundCandidates = extended
+      .map((candidate) => ({
+        method: candidate.method,
+        window: candidate.window,
+        evaluation: candidate.evaluation,
+      }))
+      .sort((left, right) =>
+        right.evaluation.hit - left.evaluation.hit ||
+        right.window - left.window ||
+        left.method.localeCompare(right.method),
+      );
 
     rounds.push({
       size: nextSize,
       candidateCount: extended.length,
       bestHit,
       remainingCandidateCount: nextFinalists.length,
+      candidates: roundCandidates,
     });
     finalists = nextFinalists;
     selectedSize = nextSize;
   }
 
-  return { finalists, selectedSize, rounds };
+  const status: MovementTieBreakStatus = initialCandidateCount <= 1
+    ? "not_needed"
+    : finalists.length === 1
+      ? "resolved"
+      : "history_limit";
+
+  return {
+    finalists,
+    selectedSize,
+    initialCandidateCount,
+    status,
+    rounds,
+  };
 }
 
 export function minimumReleaseHits(
@@ -336,6 +366,8 @@ export function evaluateMovementTournament(
       l3: recentEvaluation(winner.statuses, 3, outputType, digitCount, targetPositions.length),
     },
     selectionValidation: selectionCandidate.evaluation,
+    tieBreakStatus: tieResolution.status,
+    tieBreakInitialCandidateCount: tieResolution.initialCandidateCount,
     tieBreakRounds: tieResolution.rounds,
     tournament: ranked.slice(0, 12).map(({ statuses: _statuses, rows: _rows, ...candidate }) => candidate),
     rows: winner.rows,

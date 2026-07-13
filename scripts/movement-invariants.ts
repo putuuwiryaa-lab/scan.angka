@@ -136,11 +136,37 @@ for (const result of [position, ai, bbfs]) {
   assert.ok(result.selectionValidation.total >= 14);
   assert.equal((result.selectionValidation.total - 14) % TIE_BREAK_STEP, 0);
   assert.equal(result.tieBreakRounds.length, (result.selectionValidation.total - 14) / TIE_BREAK_STEP);
-  assert.ok(result.tieBreakRounds.every((round, index) =>
-    round.size === 14 + (index + 1) * TIE_BREAK_STEP &&
-    round.candidateCount >= round.remainingCandidateCount &&
-    round.remainingCandidateCount >= 1,
-  ));
+  assert.ok(result.tieBreakRounds.every((round, index) => {
+    const roundBestHit = Math.max(...round.candidates.map((candidate) => candidate.evaluation.hit));
+    const remaining = round.candidates.filter((candidate) => candidate.evaluation.hit === roundBestHit).length;
+    return round.size === 14 + (index + 1) * TIE_BREAK_STEP &&
+      round.candidateCount === round.candidates.length &&
+      round.candidateCount >= round.remainingCandidateCount &&
+      round.remainingCandidateCount === remaining &&
+      round.bestHit === roundBestHit &&
+      round.candidates.every((candidate) => candidate.evaluation.total === round.size);
+  }));
 }
 
-console.log("Movement adaptive tournament, progressive L14 tie-break, and 35-market Batch invariants passed.");
+const fullyTiedDraws = Array.from({ length: 175 }, () => "0000");
+const fullyTied = runMovementEngine(fullyTiedDraws, {
+  outputType: "position",
+  target: "K",
+  digitCount: 7,
+});
+assert.equal(fullyTied.tieBreakInitialCandidateCount, 88);
+assert.equal(fullyTied.tieBreakStatus, "history_limit");
+assert.equal(fullyTied.tieBreakRounds.length, 1);
+assert.equal(fullyTied.selectionValidation.total, 21);
+assert.equal(fullyTied.selectionValidation.hit, 21);
+const forcedL21 = fullyTied.tieBreakRounds[0];
+assert.equal(forcedL21.size, 21);
+assert.equal(forcedL21.candidateCount, 88);
+assert.equal(forcedL21.remainingCandidateCount, 88);
+assert.equal(forcedL21.bestHit, 21);
+assert.equal(forcedL21.candidates.length, 88);
+assert.ok(forcedL21.candidates.every((candidate) =>
+  candidate.evaluation.total === 21 && candidate.evaluation.hit === 21,
+));
+
+console.log("Movement adaptive tournament, candidate-level progressive tie-break, and 35-market Batch invariants passed.");

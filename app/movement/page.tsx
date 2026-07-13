@@ -10,7 +10,9 @@ import type { Market } from "../scan/types";
 import {
   MOVEMENT_METHOD_LABELS,
   type MovementOutputType,
+  type MovementResult,
   type MovementTarget,
+  type MovementTournamentCandidate,
 } from "../../lib/movement/types";
 import MovementSelectSheet, {
   type MovementSheetOption,
@@ -93,6 +95,34 @@ function FieldButton({
 
 function signed(value: number): string {
   return `${value >= 0 ? "+" : ""}${value}%`;
+}
+
+function sameCandidate(
+  left: Pick<MovementTournamentCandidate, "method" | "window">,
+  right: Pick<MovementTournamentCandidate, "method" | "window">,
+): boolean {
+  return left.method === right.method && left.window === right.window;
+}
+
+function candidateEvaluations(result: MovementResult, candidate: MovementTournamentCandidate) {
+  return [
+    candidate.evaluation,
+    ...result.tieBreakRounds.flatMap((round) => {
+      const match = round.candidates.find((item) => sameCandidate(item, candidate));
+      return match ? [match.evaluation] : [];
+    }),
+  ];
+}
+
+function candidateValidationTrail(result: MovementResult, candidate: MovementTournamentCandidate): string {
+  return candidateEvaluations(result, candidate)
+    .map((evaluation) => `L${evaluation.total} ${evaluation.hit}/${evaluation.total}`)
+    .join(" → ");
+}
+
+function latestCandidateEvaluation(result: MovementResult, candidate: MovementTournamentCandidate) {
+  const evaluations = candidateEvaluations(result, candidate);
+  return evaluations[evaluations.length - 1];
 }
 
 export default function MovementPage() {
@@ -184,7 +214,11 @@ export default function MovementPage() {
       result.offDigits.length ? `OFF: ${result.offDigits.join("")}` : "",
       "",
       `Model Terpilih: ${MOVEMENT_METHOD_LABELS[result.selectedMethod]} W${result.selectedWindow}`,
-      `Validasi L14: ${result.evaluation.l14.hit}/14`,
+      `Validasi Awal L14: ${result.evaluation.l14.hit}/14`,
+      result.selectionValidation.total > 14
+        ? `Pemecah Seri L${result.selectionValidation.total}: ${result.selectionValidation.hit}/${result.selectionValidation.total}`
+        : "",
+      result.tieBreakStatus === "history_limit" ? "Status Seri: berhenti pada batas riwayat" : "",
       `Kualitas Sinyal: ${result.strength}`,
     ].filter(Boolean).join("\n");
 
@@ -280,8 +314,8 @@ export default function MovementPage() {
                 <p>{OUTPUT_LABEL[result.config.outputType]} {TARGET_LABEL[result.config.target]} · cakupan {result.config.digitCount} digit</p>
               </div>
               <div className={styles.scoreBadge}>
-                <b>{result.evaluation.l14.hit}<small>/14</small></b>
-                <span>Validasi L14</span>
+                <b>{result.selectionValidation.hit}<small>/{result.selectionValidation.total}</small></b>
+                <span>{result.selectionValidation.total > 14 ? `Pemecah Seri L${result.selectionValidation.total}` : "Validasi L14"}</span>
               </div>
             </div>
 
@@ -312,8 +346,10 @@ export default function MovementPage() {
 
               <div className={styles.detailBody}>
                 <div className={styles.quickStats}>
-                  <div><b>{result.evaluation.l7.hit}/7</b><span>Validasi L7</span></div>
-                  <div><b>{signed(result.evaluation.l14.lift)}</b><span>Lift vs Baseline</span></div>
+                  <div><b>{result.evaluation.l14.hit}/14</b><span>Validasi Awal L14</span></div>
+                  {result.selectionValidation.total > 14
+                    ? <div><b>{result.selectionValidation.hit}/{result.selectionValidation.total}</b><span>Pemecah Seri L{result.selectionValidation.total}</span></div>
+                    : <div><b>{result.evaluation.l7.hit}/7</b><span>Validasi L7</span></div>}
                   <div><b>{result.evaluation.l14.longestMissStreak}</b><span>Streak Miss</span></div>
                   <div><b>{result.confidence}%</b><span>Confidence Score</span></div>
                 </div>
@@ -321,15 +357,51 @@ export default function MovementPage() {
                 <section className={styles.detailSection}>
                   <header><h3>Peringkat Model</h3><span>{result.config.candidateCount} konfigurasi dievaluasi</span></header>
                   <div className={styles.rankingList}>
-                    {result.tournament.slice(0, 6).map((candidate, index) => (
-                      <div key={`${candidate.method}-${candidate.window}`}>
-                        <span>{index + 1}</span>
-                        <div><b>{MOVEMENT_METHOD_LABELS[candidate.method]} · W{candidate.window}</b><small>Validasi L7 {candidate.l7Hit}/7</small></div>
-                        <strong>{candidate.evaluation.hit}/14</strong>
-                      </div>
-                    ))}
+                    {result.tournament.slice(0, 6).map((candidate, index) => {
+                      const latestEvaluation = latestCandidateEvaluation(result, candidate);
+                      return (
+                        <div key={`${candidate.method}-${candidate.window}`}>
+                          <span>{index + 1}</span>
+                          <div>
+                            <b>{MOVEMENT_METHOD_LABELS[candidate.method]} · W{candidate.window}</b>
+                            <small>{candidateValidationTrail(result, candidate)}</small>
+                          </div>
+                          <strong>{latestEvaluation.hit}/{latestEvaluation.total}</strong>
+                        </div>
+                      );
+                    })}
                   </div>
                 </section>
+
+                {result.tieBreakInitialCandidateCount > 1 && (
+                  <section className={styles.detailSection}>
+                    <header>
+                      <h3>Pemecah Seri Walk-Forward</h3>
+                      <span>{result.tieBreakStatus === "resolved" ? "Seri berhasil dipecahkan" : "Berhenti pada batas riwayat"}</span>
+                    </header>
+                    <div className={styles.rankingList}>
+                      {result.tieBreakRounds.length > 0 ? result.tieBreakRounds.map((round, index) => (
+                        <div key={round.size}>
+                          <span>{index + 1}</span>
+                          <div>
+                            <b>Walk-Forward L{round.size}</b>
+                            <small>{round.candidateCount} kandidat diuji · {round.remainingCandidateCount} kandidat masih tertinggi</small>
+                          </div>
+                          <strong>{round.bestHit}/{round.size}</strong>
+                        </div>
+                      )) : (
+                        <div>
+                          <span>!</span>
+                          <div>
+                            <b>Seri L14 belum dapat diperpanjang</b>
+                            <small>Window kandidat membutuhkan riwayat training yang lebih panjang.</small>
+                          </div>
+                          <strong>—</strong>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
 
                 <section className={styles.detailSection}>
                   <header><h3>Audit Walk-Forward L14</h3><span>Target tidak pernah masuk ke data training</span></header>
