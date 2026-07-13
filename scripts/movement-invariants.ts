@@ -103,7 +103,7 @@ const position = runMovementEngine(draws, {
 });
 assert.equal(position.config.walkForwardSize, 14);
 assert.equal(position.config.candidateCount, 88);
-assert.equal(position.rows.length, 14);
+assert.equal(position.rows.length, position.selectionValidation.total);
 assert.equal(position.selectedWindow % 14, 0);
 assert.equal(position.minimumReleaseHits, 11);
 assert.equal(position.digits.length, position.released ? 7 : 0);
@@ -134,6 +134,8 @@ assert.equal(bbfs.offDigits.length, bbfs.released ? 2 : 0);
 
 for (const result of [position, ai, bbfs]) {
   assert.ok(result.selectionValidation.total >= 14);
+  assert.equal(result.rows.length, result.selectionValidation.total);
+  assert.equal(result.rows.filter((row) => row.covered).length, result.selectionValidation.hit);
   assert.equal((result.selectionValidation.total - 14) % TIE_BREAK_STEP, 0);
   assert.equal(result.tieBreakRounds.length, (result.selectionValidation.total - 14) / TIE_BREAK_STEP);
   assert.ok(result.tieBreakRounds.every((round, index) => {
@@ -159,6 +161,8 @@ assert.equal(fullyTied.tieBreakStatus, "history_limit");
 assert.equal(fullyTied.tieBreakRounds.length, 1);
 assert.equal(fullyTied.selectionValidation.total, 21);
 assert.equal(fullyTied.selectionValidation.hit, 21);
+assert.equal(fullyTied.rows.length, 21);
+assert.equal(fullyTied.rows.filter((row) => row.covered).length, 21);
 const forcedL21 = fullyTied.tieBreakRounds[0];
 assert.equal(forcedL21.size, 21);
 assert.equal(forcedL21.candidateCount, 88);
@@ -169,4 +173,4 @@ assert.ok(forcedL21.candidates.every((candidate) =>
   candidate.evaluation.total === 21 && candidate.evaluation.hit === 21,
 ));
 
-console.log("Movement adaptive tournament, candidate-level progressive tie-break, and 35-market Batch invariants passed.");
+console.log("Movement adaptive tournament, deciding-round audit, and 35-market Batch invariants passed.");
