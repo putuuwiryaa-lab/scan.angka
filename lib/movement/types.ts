@@ -25,6 +25,7 @@ export type PairMovementMethod = "joint_pair";
 export type PositionMovementMethod = Exclude<MovementMethod, PairMovementMethod>;
 export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
+export type MovementTieBreakStatus = "not_needed" | "resolved" | "history_limit";
 
 export interface MovementConfig {
   outputType: MovementOutputType;
@@ -68,11 +69,18 @@ export interface MovementTournamentCandidate {
   meanProbability: number;
 }
 
+export interface MovementTieBreakCandidate {
+  method: MovementMethod;
+  window: number;
+  evaluation: MovementEvaluation;
+}
+
 export interface MovementTieBreakRound {
   size: number;
   candidateCount: number;
   bestHit: number;
   remainingCandidateCount: number;
+  candidates: MovementTieBreakCandidate[];
 }
 
 export interface MovementResult {
@@ -101,6 +109,8 @@ export interface MovementResult {
     l3: MovementEvaluation;
   };
   selectionValidation: MovementEvaluation;
+  tieBreakStatus: MovementTieBreakStatus;
+  tieBreakInitialCandidateCount: number;
   tieBreakRounds: MovementTieBreakRound[];
   tournament: MovementTournamentCandidate[];
   rows: MovementAuditRow[];
