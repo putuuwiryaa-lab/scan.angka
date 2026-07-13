@@ -404,7 +404,10 @@ export default function MovementPage() {
                 )}
 
                 <section className={styles.detailSection}>
-                  <header><h3>Audit Walk-Forward L14</h3><span>Target tidak pernah masuk ke data training</span></header>
+                  <header>
+                    <h3>Audit Walk-Forward L{result.selectionValidation.total}</h3>
+                    <span>{result.rows.length} target · target tidak pernah masuk ke data training</span>
+                  </header>
                   <div className={styles.auditList}>
                     {result.rows.map((row) => (
                       <div key={`${row.targetIndex}-${row.phase}`}>
