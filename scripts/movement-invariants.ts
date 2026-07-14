@@ -14,7 +14,9 @@ import {
   buildMethodDistributions,
 } from "../lib/movement/models";
 import {
+  BASE_POSITION_MOVEMENT_METHODS,
   MOVEMENT_METHODS,
+  MOVEMENT_METHOD_LABELS,
   PAIR_MOVEMENT_METHODS,
   POSITION_MOVEMENT_METHODS,
 } from "../lib/movement/types";
@@ -45,9 +47,12 @@ assert.equal(TIE_BREAK_STEP, 7);
 assert.equal(minimumReleaseHits("position", 7, 1), 11);
 assert.equal(minimumReleaseHits("ai", 4, 2), 10);
 assert.equal(minimumReleaseHits("bbfs", 8, 4), 7);
-assert.equal(POSITION_MOVEMENT_METHODS.length, 8);
+assert.equal(BASE_POSITION_MOVEMENT_METHODS.length, 8);
+assert.equal(POSITION_MOVEMENT_METHODS.length, 9);
 assert.equal(PAIR_MOVEMENT_METHODS.length, 1);
-assert.equal(MOVEMENT_METHODS.length, 9);
+assert.equal(MOVEMENT_METHODS.length, 10);
+assert.equal(MOVEMENT_METHODS.includes("walk_forward_weighted"), true);
+assert.equal(MOVEMENT_METHOD_LABELS.walk_forward_weighted, "Walk-Forward Weighted Ensemble");
 assert.ok(MOVEMENT_METHODS.every((method) => !method.includes("markov")));
 
 assert.equal(ADAPTIVE_BATCH_MODES.length, 7);
@@ -82,7 +87,7 @@ const draws = Array.from({ length: 168 }, (_, index) => {
   return `${a}${c}${k}${e}`;
 });
 
-for (const method of POSITION_MOVEMENT_METHODS) {
+for (const method of BASE_POSITION_MOVEMENT_METHODS) {
   const distributions = buildMethodDistributions(draws.slice(0, 70), method);
   for (const distribution of Object.values(distributions)) {
     assert.equal(distribution.length, 10);
@@ -102,7 +107,7 @@ const position = runMovementEngine(draws, {
   digitCount: 7,
 });
 assert.equal(position.config.walkForwardSize, 14);
-assert.equal(position.config.candidateCount, 88);
+assert.equal(position.config.candidateCount, 99);
 assert.equal(position.rows.length, position.selectionValidation.total);
 assert.equal(position.selectedWindow % 14, 0);
 assert.equal(position.minimumReleaseHits, 11);
@@ -114,7 +119,7 @@ const ai = runMovementEngine(draws, {
   target: "2d_belakang",
   digitCount: 4,
 });
-assert.equal(ai.config.candidateCount, 99);
+assert.equal(ai.config.candidateCount, 110);
 assert.equal(ai.evaluation.l14.baseline, 64);
 assert.equal(ai.evaluation.l14.total, 14);
 assert.equal(ai.minimumReleaseHits, 10);
@@ -125,7 +130,7 @@ const bbfs = runMovementEngine(draws, {
   target: "4d",
   digitCount: 8,
 });
-assert.equal(bbfs.config.candidateCount, 88);
+assert.equal(bbfs.config.candidateCount, 99);
 assert.equal(bbfs.evaluation.l14.baseline, 41);
 assert.equal(bbfs.config.targetPositions.join(""), "ACKE");
 assert.equal(bbfs.minimumReleaseHits, 7);
@@ -156,8 +161,8 @@ const resetTrainingTie = runMovementEngine(resetTrainingDraws, {
   target: "K",
   digitCount: 7,
 });
-assert.equal(resetTrainingTie.config.candidateCount, 16);
-assert.equal(resetTrainingTie.tieBreakInitialCandidateCount, 16);
+assert.equal(resetTrainingTie.config.candidateCount, 18);
+assert.equal(resetTrainingTie.tieBreakInitialCandidateCount, 18);
 assert.equal(resetTrainingTie.tieBreakStatus, "history_limit");
 assert.equal(resetTrainingTie.tieBreakRounds.length, 2);
 assert.equal(resetTrainingTie.selectionValidation.total, 28);
@@ -167,23 +172,25 @@ assert.equal(resetTrainingTie.rows.filter((row) => row.covered).length, 28);
 
 const forcedL21 = resetTrainingTie.tieBreakRounds[0];
 assert.equal(forcedL21.size, 21);
-assert.equal(forcedL21.candidateCount, 16);
-assert.equal(forcedL21.remainingCandidateCount, 16);
+assert.equal(forcedL21.candidateCount, 18);
+assert.equal(forcedL21.remainingCandidateCount, 18);
 assert.equal(forcedL21.bestHit, 21);
-assert.equal(forcedL21.candidates.length, 16);
+assert.equal(forcedL21.candidates.length, 18);
 assert.ok(forcedL21.candidates.some((candidate) => candidate.window === 28));
+assert.ok(forcedL21.candidates.some((candidate) => candidate.method === "walk_forward_weighted"));
 assert.ok(forcedL21.candidates.every((candidate) =>
   candidate.evaluation.total === 21 && candidate.evaluation.hit === 21,
 ));
 
 const forcedL28 = resetTrainingTie.tieBreakRounds[1];
 assert.equal(forcedL28.size, 28);
-assert.equal(forcedL28.candidateCount, 16);
-assert.equal(forcedL28.remainingCandidateCount, 16);
+assert.equal(forcedL28.candidateCount, 18);
+assert.equal(forcedL28.remainingCandidateCount, 18);
 assert.equal(forcedL28.bestHit, 28);
 assert.ok(forcedL28.candidates.some((candidate) => candidate.window === 28));
+assert.ok(forcedL28.candidates.some((candidate) => candidate.method === "walk_forward_weighted"));
 assert.ok(forcedL28.candidates.every((candidate) =>
   candidate.evaluation.total === 28 && candidate.evaluation.hit === 28,
 ));
 
-console.log("Movement adaptive tournament, reset training tie-break, and 35-market Batch invariants passed.");
+console.log("Movement adaptive tournament, walk-forward weighted ensemble, reset training tie-break, and 35-market Batch invariants passed.");
