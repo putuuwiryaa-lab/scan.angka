@@ -42,6 +42,13 @@ interface PredictionResult {
 interface CandidateRun extends MovementTournamentCandidate {
   statuses: boolean[];
   rows: MovementAuditRow[];
+  probabilityTotal: number;
+}
+
+interface CandidateRangeResult {
+  statuses: boolean[];
+  rows: MovementAuditRow[];
+  probabilityTotal: number;
 }
 
 interface TieResolution {
@@ -142,25 +149,21 @@ function recentEvaluation(
   );
 }
 
-function runCandidate(
+function evaluateCandidateRange(
   draws: Draw[],
   method: MovementMethod,
   window: number,
   targetPositions: Posisi[],
   outputType: MovementOutputType,
   digitCount: number,
-  walkForwardSize: number = WALK_FORWARD_SIZE,
-): CandidateRun {
-  const firstTargetIndex = draws.length - walkForwardSize;
-  if (firstTargetIndex < TRAINING_WINDOW_STEP) {
-    throw new Error(`Walk-forward L${walkForwardSize} menyisakan data training kurang dari ${TRAINING_WINDOW_STEP} result.`);
-  }
-
+  firstTargetIndex: number,
+  endTargetIndex: number,
+): CandidateRangeResult {
   const statuses: boolean[] = [];
   const rows: MovementAuditRow[] = [];
   let probabilityTotal = 0;
 
-  for (let targetIndex = firstTargetIndex; targetIndex < draws.length; targetIndex += 1) {
+  for (let targetIndex = firstTargetIndex; targetIndex < endTargetIndex; targetIndex += 1) {
     const trainingStart = Math.max(0, targetIndex - window);
     const trainingDraws = draws.slice(trainingStart, targetIndex);
     const prediction = predictWithMethod(
@@ -185,7 +188,20 @@ function runCandidate(
     });
   }
 
-  const evaluation = evaluationOf(statuses, outputType, digitCount, targetPositions.length);
+  return { statuses, rows, probabilityTotal };
+}
+
+function candidateFromAudit(
+  method: MovementMethod,
+  window: number,
+  statuses: boolean[],
+  rows: MovementAuditRow[],
+  probabilityTotal: number,
+  outputType: MovementOutputType,
+  digitCount: number,
+  targetPositionCount: number,
+): CandidateRun {
+  const evaluation = evaluationOf(statuses, outputType, digitCount, targetPositionCount);
   return {
     method,
     window,
@@ -193,10 +209,85 @@ function runCandidate(
     l7Hit: statuses.slice(-7).filter(Boolean).length,
     l3Hit: statuses.slice(-3).filter(Boolean).length,
     neighborAverageHit: 0,
-    meanProbability: Number(((probabilityTotal / walkForwardSize) * 100).toFixed(2)),
+    meanProbability: Number(((probabilityTotal / statuses.length) * 100).toFixed(2)),
     statuses,
     rows,
+    probabilityTotal,
   };
+}
+
+function runCandidate(
+  draws: Draw[],
+  method: MovementMethod,
+  window: number,
+  targetPositions: Posisi[],
+  outputType: MovementOutputType,
+  digitCount: number,
+  walkForwardSize: number = WALK_FORWARD_SIZE,
+): CandidateRun {
+  const firstTargetIndex = draws.length - walkForwardSize;
+  if (firstTargetIndex < TRAINING_WINDOW_STEP) {
+    throw new Error(`Walk-forward L${walkForwardSize} menyisakan data training kurang dari ${TRAINING_WINDOW_STEP} result.`);
+  }
+
+  const audit = evaluateCandidateRange(
+    draws,
+    method,
+    window,
+    targetPositions,
+    outputType,
+    digitCount,
+    firstTargetIndex,
+    draws.length,
+  );
+  return candidateFromAudit(
+    method,
+    window,
+    audit.statuses,
+    audit.rows,
+    audit.probabilityTotal,
+    outputType,
+    digitCount,
+    targetPositions.length,
+  );
+}
+
+function extendCandidate(
+  draws: Draw[],
+  candidate: CandidateRun,
+  nextSize: number,
+  targetPositions: Posisi[],
+  outputType: MovementOutputType,
+  digitCount: number,
+): CandidateRun {
+  const currentSize = candidate.statuses.length;
+  if (nextSize <= currentSize) return candidate;
+
+  const firstTargetIndex = draws.length - nextSize;
+  if (firstTargetIndex < TRAINING_WINDOW_STEP) {
+    throw new Error(`Walk-forward L${nextSize} menyisakan data training kurang dari ${TRAINING_WINDOW_STEP} result.`);
+  }
+
+  const addedAudit = evaluateCandidateRange(
+    draws,
+    candidate.method,
+    candidate.window,
+    targetPositions,
+    outputType,
+    digitCount,
+    firstTargetIndex,
+    draws.length - currentSize,
+  );
+  return candidateFromAudit(
+    candidate.method,
+    candidate.window,
+    [...addedAudit.statuses, ...candidate.statuses],
+    [...addedAudit.rows, ...candidate.rows],
+    addedAudit.probabilityTotal + candidate.probabilityTotal,
+    outputType,
+    digitCount,
+    targetPositions.length,
+  );
 }
 
 function withNeighborStability(candidates: CandidateRun[]): CandidateRun[] {
@@ -251,14 +342,13 @@ function resolveHitTie(
     const nextSize = selectedSize + TIE_BREAK_STEP;
     if (!canEvaluateSize(draws.length, nextSize)) break;
 
-    const extended = finalists.map((candidate) => runCandidate(
+    const extended = finalists.map((candidate) => extendCandidate(
       draws,
-      candidate.method,
-      candidate.window,
+      candidate,
+      nextSize,
       targetPositions,
       outputType,
       digitCount,
-      nextSize,
     ));
     const nextFinalists = highestHitCandidates(extended);
     const bestHit = nextFinalists[0]?.evaluation.hit ?? 0;
@@ -371,7 +461,12 @@ export function evaluateMovementTournament(
     tieBreakStatus: tieResolution.status,
     tieBreakInitialCandidateCount: tieResolution.initialCandidateCount,
     tieBreakRounds: tieResolution.rounds,
-    tournament: ranked.slice(0, 12).map(({ statuses: _statuses, rows: _rows, ...candidate }) => candidate),
+    tournament: ranked.slice(0, 12).map(({
+      statuses: _statuses,
+      rows: _rows,
+      probabilityTotal: _probabilityTotal,
+      ...candidate
+    }) => candidate),
     rows: selectionCandidate.rows,
     liveSelection: live.selection,
     liveProbabilities: live.probabilities,
