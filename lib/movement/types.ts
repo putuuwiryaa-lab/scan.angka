@@ -19,10 +19,12 @@ export type MovementMethod =
   | "momentum_decay"
   | "transition_matrix"
   | "regime_adaptive"
-  | "consensus";
+  | "consensus"
+  | "walk_forward_weighted";
 
 export type PairMovementMethod = "joint_pair";
 export type PositionMovementMethod = Exclude<MovementMethod, PairMovementMethod>;
+export type BasePositionMovementMethod = Exclude<PositionMovementMethod, "walk_forward_weighted">;
 export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
 export type MovementTieBreakStatus = "not_needed" | "resolved" | "history_limit";
@@ -127,7 +129,7 @@ export const MOVEMENT_GROUP_TARGETS: MovementGroupTarget[] = [
   "4d",
 ];
 
-export const POSITION_MOVEMENT_METHODS: PositionMovementMethod[] = [
+export const BASE_POSITION_MOVEMENT_METHODS: BasePositionMovementMethod[] = [
   "delta",
   "motif",
   "cycle",
@@ -136,6 +138,11 @@ export const POSITION_MOVEMENT_METHODS: PositionMovementMethod[] = [
   "transition_matrix",
   "regime_adaptive",
   "consensus",
+];
+
+export const POSITION_MOVEMENT_METHODS: PositionMovementMethod[] = [
+  ...BASE_POSITION_MOVEMENT_METHODS,
+  "walk_forward_weighted",
 ];
 
 export const PAIR_MOVEMENT_METHODS: PairMovementMethod[] = ["joint_pair"];
@@ -154,6 +161,7 @@ export const MOVEMENT_METHOD_LABELS: Record<MovementMethod, string> = {
   transition_matrix: "Transition Matrix",
   regime_adaptive: "Regime Adaptive",
   consensus: "Consensus Ensemble",
+  walk_forward_weighted: "Walk-Forward Weighted Ensemble",
 };
 
 export function isMovementOutputType(value: unknown): value is MovementOutputType {
