@@ -150,27 +150,40 @@ for (const result of [position, ai, bbfs]) {
   }));
 }
 
-const fullyTiedDraws = Array.from({ length: 175 }, () => "0000");
-const fullyTied = runMovementEngine(fullyTiedDraws, {
+const resetTrainingDraws = Array.from({ length: 42 }, () => "0000");
+const resetTrainingTie = runMovementEngine(resetTrainingDraws, {
   outputType: "position",
   target: "K",
   digitCount: 7,
 });
-assert.equal(fullyTied.tieBreakInitialCandidateCount, 88);
-assert.equal(fullyTied.tieBreakStatus, "history_limit");
-assert.equal(fullyTied.tieBreakRounds.length, 1);
-assert.equal(fullyTied.selectionValidation.total, 21);
-assert.equal(fullyTied.selectionValidation.hit, 21);
-assert.equal(fullyTied.rows.length, 21);
-assert.equal(fullyTied.rows.filter((row) => row.covered).length, 21);
-const forcedL21 = fullyTied.tieBreakRounds[0];
+assert.equal(resetTrainingTie.config.candidateCount, 16);
+assert.equal(resetTrainingTie.tieBreakInitialCandidateCount, 16);
+assert.equal(resetTrainingTie.tieBreakStatus, "history_limit");
+assert.equal(resetTrainingTie.tieBreakRounds.length, 2);
+assert.equal(resetTrainingTie.selectionValidation.total, 28);
+assert.equal(resetTrainingTie.selectionValidation.hit, 28);
+assert.equal(resetTrainingTie.rows.length, 28);
+assert.equal(resetTrainingTie.rows.filter((row) => row.covered).length, 28);
+
+const forcedL21 = resetTrainingTie.tieBreakRounds[0];
 assert.equal(forcedL21.size, 21);
-assert.equal(forcedL21.candidateCount, 88);
-assert.equal(forcedL21.remainingCandidateCount, 88);
+assert.equal(forcedL21.candidateCount, 16);
+assert.equal(forcedL21.remainingCandidateCount, 16);
 assert.equal(forcedL21.bestHit, 21);
-assert.equal(forcedL21.candidates.length, 88);
+assert.equal(forcedL21.candidates.length, 16);
+assert.ok(forcedL21.candidates.some((candidate) => candidate.window === 28));
 assert.ok(forcedL21.candidates.every((candidate) =>
   candidate.evaluation.total === 21 && candidate.evaluation.hit === 21,
 ));
 
-console.log("Movement adaptive tournament, deciding-round audit, and 35-market Batch invariants passed.");
+const forcedL28 = resetTrainingTie.tieBreakRounds[1];
+assert.equal(forcedL28.size, 28);
+assert.equal(forcedL28.candidateCount, 16);
+assert.equal(forcedL28.remainingCandidateCount, 16);
+assert.equal(forcedL28.bestHit, 28);
+assert.ok(forcedL28.candidates.some((candidate) => candidate.window === 28));
+assert.ok(forcedL28.candidates.every((candidate) =>
+  candidate.evaluation.total === 28 && candidate.evaluation.hit === 28,
+));
+
+console.log("Movement adaptive tournament, reset training tie-break, and 35-market Batch invariants passed.");
