@@ -69,6 +69,7 @@ interface CandidateInternals {
 
 interface TieResolution {
   finalists: CandidateRun[];
+  rankedCandidates: CandidateRun[];
   selectedSize: number;
   initialCandidateCount: number;
   status: MovementTieBreakStatus;
@@ -523,7 +524,8 @@ function resolveHitTie(
   outputType: MovementOutputType,
   digitCount: number,
 ): TieResolution {
-  let finalists = highestHitCandidates(candidates);
+  let rankedCandidates = rankCandidates(candidates);
+  let finalists = highestHitCandidates(rankedCandidates);
   const initialCandidateCount = finalists.length;
   let selectedSize: number = WALK_FORWARD_SIZE;
   const rounds: MovementTieBreakRound[] = [];
@@ -532,7 +534,7 @@ function resolveHitTie(
     const nextSize = selectedSize + TIE_BREAK_STEP;
     if (!canEvaluateSize(draws.length, nextSize)) break;
 
-    const extended = finalists.map((candidate) => extendCandidate(
+    const extended = rankedCandidates.map((candidate) => extendCandidate(
       draws,
       candidate,
       nextSize,
@@ -540,23 +542,18 @@ function resolveHitTie(
       outputType,
       digitCount,
     ));
-    const nextFinalists = highestHitCandidates(extended);
+    rankedCandidates = rankCandidates(withNeighborStability(extended));
+    const nextFinalists = highestHitCandidates(rankedCandidates);
     const bestHit = nextFinalists[0]?.evaluation.hit ?? 0;
-    const roundCandidates = extended
-      .map((candidate) => ({
-        method: candidate.method,
-        window: candidate.window,
-        evaluation: candidate.evaluation,
-      }))
-      .sort((left, right) =>
-        right.evaluation.hit - left.evaluation.hit ||
-        right.window - left.window ||
-        left.method.localeCompare(right.method),
-      );
+    const roundCandidates = rankedCandidates.map((candidate) => ({
+      method: candidate.method,
+      window: candidate.window,
+      evaluation: candidate.evaluation,
+    }));
 
     rounds.push({
       size: nextSize,
-      candidateCount: extended.length,
+      candidateCount: rankedCandidates.length,
       bestHit,
       remainingCandidateCount: nextFinalists.length,
       candidates: roundCandidates,
@@ -573,6 +570,7 @@ function resolveHitTie(
 
   return {
     finalists,
+    rankedCandidates,
     selectedSize,
     initialCandidateCount,
     status,
@@ -652,38 +650,37 @@ export function evaluateMovementTournament(
     outputType,
     digitCount,
   );
-  const finalistKeys = new Set(tieResolution.finalists.map(candidateKey));
-  const winner = baseRanked.find((candidate) => finalistKeys.has(candidateKey(candidate)));
-  if (!winner) throw new Error("Tidak ada metode dan window yang dapat diuji.");
+  const decisionRanked = tieResolution.rankedCandidates;
+  const selectionCandidate = decisionRanked[0];
+  if (!selectionCandidate) throw new Error("Tidak ada metode dan window yang dapat diuji.");
 
-  const selectionCandidate = tieResolution.finalists.find(
-    (candidate) => candidateKey(candidate) === candidateKey(winner),
-  ) ?? winner;
-  const ranked = [winner, ...baseRanked.filter((candidate) => candidateKey(candidate) !== candidateKey(winner))];
+  const baseByKey = new Map(baseRanked.map((candidate) => [candidateKey(candidate), candidate]));
+  const baseWinner = baseByKey.get(candidateKey(selectionCandidate)) ?? selectionCandidate;
+  const displayRanked = decisionRanked.map((candidate) => baseByKey.get(candidateKey(candidate)) ?? candidate);
   const requiredHits = minimumReleaseHits(outputType, digitCount, targetPositions.length);
-  const released = winner.evaluation.hit >= requiredHits;
-  const liveTraining = draws.slice(-winner.window);
-  const live = winner.method === "walk_forward_weighted"
+  const released = baseWinner.evaluation.hit >= requiredHits;
+  const liveTraining = draws.slice(-selectionCandidate.window);
+  const live = selectionCandidate.method === "walk_forward_weighted"
     ? weightedLivePrediction(liveTraining, selectionCandidate, targetPositions, outputType, digitCount)
-    : predictWithMethod(liveTraining, winner.method, targetPositions, outputType, digitCount);
+    : predictWithMethod(liveTraining, selectionCandidate.method, targetPositions, outputType, digitCount);
 
   return {
     windows,
-    candidateCount: ranked.length,
-    selectedMethod: winner.method,
-    selectedWindow: winner.window,
+    candidateCount: displayRanked.length,
+    selectedMethod: selectionCandidate.method,
+    selectedWindow: selectionCandidate.window,
     minimumReleaseHits: requiredHits,
     released,
     evaluation: {
-      l14: winner.evaluation,
-      l7: recentEvaluation(winner.statuses, 7, outputType, digitCount, targetPositions.length),
-      l3: recentEvaluation(winner.statuses, 3, outputType, digitCount, targetPositions.length),
+      l14: baseWinner.evaluation,
+      l7: recentEvaluation(baseWinner.statuses, 7, outputType, digitCount, targetPositions.length),
+      l3: recentEvaluation(baseWinner.statuses, 3, outputType, digitCount, targetPositions.length),
     },
     selectionValidation: selectionCandidate.evaluation,
     tieBreakStatus: tieResolution.status,
     tieBreakInitialCandidateCount: tieResolution.initialCandidateCount,
     tieBreakRounds: tieResolution.rounds,
-    tournament: ranked.slice(0, 12).map(({
+    tournament: displayRanked.slice(0, 12).map(({
       statuses: _statuses,
       rows: _rows,
       probabilityTotal: _probabilityTotal,
