@@ -123,13 +123,16 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
 
   let tieBreakText = "";
   if (tournament.tieBreakStatus === "resolved") {
-    tieBreakText = ` Seri L14 dipecahkan pada L${tournament.selectionValidation.total} dengan hasil ${tournament.selectionValidation.hit}/${tournament.selectionValidation.total}.`;
+    tieBreakText = ` Seri L14 membuat seluruh ${tournament.candidateCount} konfigurasi diuji ulang sampai L${tournament.selectionValidation.total}.`;
   } else if (tournament.tieBreakStatus === "history_limit") {
     const reached = tournament.selectionValidation.total;
     tieBreakText = reached > WALK_FORWARD_SIZE
-      ? ` Seri masih bertahan sampai L${reached}; riwayat tidak cukup untuk naik ke L${reached + 7}, sehingga ranking sekunder digunakan.`
-      : " Seri L14 tidak dapat diperpanjang karena riwayat training kandidat belum cukup; ranking sekunder digunakan.";
+      ? ` Seluruh ${tournament.candidateCount} konfigurasi telah diuji ulang sampai L${reached}; seri masih bertahan dan riwayat tidak cukup untuk naik ke L${reached + 7}, sehingga ranking sekunder digunakan.`
+      : " Seri L14 belum dapat diuji ulang karena riwayat training belum cukup; ranking sekunder digunakan.";
   }
+
+  const decidingTotal = tournament.selectionValidation.total;
+  const decidingScore = `${tournament.selectionValidation.hit}/${decidingTotal}`;
 
   return {
     config: {
@@ -160,8 +163,8 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     tournament: tournament.tournament,
     rows: tournament.rows,
     message: tournament.released
-      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul dengan validasi ${tournament.evaluation.l14.hit}/14.${tieBreakText}`
-      : `Konfigurasi terbaik hanya mencapai ${tournament.evaluation.l14.hit}/14. Ambang minimum ${tournament.minimumReleaseHits}/14 belum terpenuhi.${tieBreakText}`,
+      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul pada L${decidingTotal} dengan hasil ${decidingScore}.${tieBreakText}`
+      : `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} terpilih pada L${decidingTotal} dengan hasil ${decidingScore}, tetapi validasi awalnya hanya ${tournament.evaluation.l14.hit}/14. Ambang minimum penerbitan ${tournament.minimumReleaseHits}/14 belum terpenuhi.${tieBreakText}`,
   };
 }
 
