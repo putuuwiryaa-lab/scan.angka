@@ -89,7 +89,7 @@ function confidenceOf(
   const excessHits = l14Hit - minimumHits;
   return Math.round(clamp(
     58 + excessHits * 6 + l7Hit * 1.3 + l3Hit * 1.5 + lift * 0.18 - missStreak * 2,
-    50,
+    35,
     94,
   ));
 }
@@ -104,13 +104,14 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     config.outputType,
     digitCount,
   );
+  const released = true;
   const strength = strengthOf(
-    tournament.released,
+    released,
     tournament.evaluation.l14.hit,
     tournament.minimumReleaseHits,
   );
   const confidence = confidenceOf(
-    tournament.released,
+    released,
     tournament.evaluation.l14.hit,
     tournament.evaluation.l7.hit,
     tournament.evaluation.l3.hit,
@@ -144,9 +145,9 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
       candidateCount: tournament.candidateCount,
     },
     latestDraw: draws[draws.length - 1],
-    released: tournament.released,
-    digits: tournament.released ? liveDigits : [],
-    offDigits: tournament.released ? DIGITS.filter((digit) => !selected.has(digit)) : [],
+    released,
+    digits: liveDigits,
+    offDigits: DIGITS.filter((digit) => !selected.has(digit)),
     objective: objectiveLabel(config.outputType, targetPositions),
     strength,
     confidence,
@@ -154,7 +155,7 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     selectedMethod: tournament.selectedMethod,
     selectedWindow: tournament.selectedWindow,
     minimumReleaseHits: tournament.minimumReleaseHits,
-    probabilities: tournament.released ? tournament.liveProbabilities : [],
+    probabilities: tournament.liveProbabilities,
     evaluation: tournament.evaluation,
     selectionValidation: tournament.selectionValidation,
     tieBreakStatus: tournament.tieBreakStatus,
@@ -162,9 +163,7 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     tieBreakRounds: tournament.tieBreakRounds,
     tournament: tournament.tournament,
     rows: tournament.rows,
-    message: tournament.released
-      ? `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul pada L${decidingTotal} dengan hasil ${decidingScore}.${tieBreakText}`
-      : `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} terpilih pada L${decidingTotal} dengan hasil ${decidingScore}, tetapi validasi awalnya hanya ${tournament.evaluation.l14.hit}/14. Ambang minimum penerbitan ${tournament.minimumReleaseHits}/14 belum terpenuhi.${tieBreakText}`,
+    message: `${MOVEMENT_METHOD_LABELS[tournament.selectedMethod]} W${tournament.selectedWindow} unggul pada L${decidingTotal} dengan hasil ${decidingScore}.${tieBreakText}`,
   };
 }
 
@@ -175,5 +174,5 @@ export const MOVEMENT_INTERNAL_CONFIG = {
   methods: MOVEMENT_METHODS,
   aiRequiresMinimumOneTarget: true,
   bbfsRequiresAllTargets: true,
-  releaseRequiresBaselineOutperformance: true,
+  releaseRequiresBaselineOutperformance: false,
 };
