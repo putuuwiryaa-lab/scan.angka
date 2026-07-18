@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import AccessGuard from "./access-guard";
 import PwaRegister from "./pwa-register";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="id">
       <body>
         <PwaRegister />
+        <AccessGuard />
         {children}
         <Analytics />
       </body>
