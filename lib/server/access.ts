@@ -17,6 +17,10 @@ type AccessSessionRow = {
   revoked_at: string | null;
 };
 
+type AccessCheckOptions = {
+  touch?: boolean;
+};
+
 export type AccessResult =
   | { ok: true; sessionId: string; deviceId: string | null }
   | { ok: false; status: number; error: string };
@@ -139,7 +143,10 @@ export function clearAdminCookie(response: NextResponse) {
   response.cookies.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
 }
 
-export async function requireActiveAccess(headers: Headers): Promise<AccessResult> {
+export async function requireActiveAccess(
+  headers: Headers,
+  options: AccessCheckOptions = {},
+): Promise<AccessResult> {
   const token = parseCookie(headers, ACCESS_COOKIE);
   const deviceId = parseCookie(headers, DEVICE_COOKIE);
 
@@ -172,10 +179,12 @@ export async function requireActiveAccess(headers: Headers): Promise<AccessResul
     return { ok: false, status: 401, error: "Session tidak cocok dengan device ini." };
   }
 
-  await supabase
-    .from("access_sessions")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", data.id);
+  if (options.touch !== false) {
+    await supabase
+      .from("access_sessions")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", data.id);
+  }
 
   return { ok: true, sessionId: data.id, deviceId: data.device_id };
 }
