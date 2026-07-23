@@ -48,7 +48,9 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/") || Response.error()));
+    event.respondWith(
+      fetch(request).catch(async () => (await caches.match("/")) || Response.error()),
+    );
     return;
   }
 
@@ -57,12 +59,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => cacheResponse(request, response))
-        .catch(() => undefined);
-      return cached || network || Response.error();
-    }),
-  );
+  event.respondWith((async () => {
+    const cached = await caches.match(request);
+    if (cached) {
+      event.waitUntil(
+        fetch(request)
+          .then((response) => cacheResponse(request, response))
+          .then(() => undefined)
+          .catch(() => undefined),
+      );
+      return cached;
+    }
+
+    try {
+      const response = await fetch(request);
+      return await cacheResponse(request, response);
+    } catch {
+      return Response.error();
+    }
+  })());
 });
