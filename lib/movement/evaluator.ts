@@ -4,7 +4,6 @@ import {
   evaluationOf,
   isCovered,
   targetDigitsOf,
-  theoreticalBaseline,
 } from "./helpers";
 import {
   buildJointPairDistribution,
@@ -81,8 +80,6 @@ export interface MovementTournamentResult {
   candidateCount: number;
   selectedMethod: MovementMethod;
   selectedWindow: number;
-  minimumReleaseHits: number;
-  released: boolean;
   evaluation: {
     l14: MovementEvaluation;
     l7: MovementEvaluation;
@@ -200,19 +197,8 @@ function predictWithMethod(
   };
 }
 
-function recentEvaluation(
-  statuses: boolean[],
-  size: number,
-  outputType: MovementOutputType,
-  digitCount: number,
-  targetPositionCount: number,
-): MovementEvaluation {
-  return evaluationOf(
-    statuses.slice(-Math.min(size, statuses.length)),
-    outputType,
-    digitCount,
-    targetPositionCount,
-  );
+function recentEvaluation(statuses: boolean[], size: number): MovementEvaluation {
+  return evaluationOf(statuses.slice(-Math.min(size, statuses.length)));
 }
 
 function evaluateCandidateRange(
@@ -265,12 +251,9 @@ function candidateFromAudit(
   statuses: boolean[],
   rows: MovementAuditRow[],
   probabilityTotal: number,
-  outputType: MovementOutputType,
-  digitCount: number,
-  targetPositionCount: number,
   internals: CandidateInternals,
 ): CandidateRun {
-  const evaluation = evaluationOf(statuses, outputType, digitCount, targetPositionCount);
+  const evaluation = evaluationOf(statuses);
   return {
     method,
     window,
@@ -318,9 +301,6 @@ function runCandidate(
     audit.statuses,
     audit.rows,
     audit.probabilityTotal,
-    outputType,
-    digitCount,
-    targetPositions.length,
     { predictionScores: audit.predictionScores },
   );
 }
@@ -414,9 +394,6 @@ function buildWeightedCandidate(
     statuses,
     rows,
     probabilityTotal,
-    outputType,
-    digitCount,
-    targetPositions.length,
     {
       predictionScores,
       ensembleSources: orderedSources,
@@ -472,9 +449,6 @@ function extendCandidate(
     [...addedAudit.statuses, ...candidate.statuses],
     [...addedAudit.rows, ...candidate.rows],
     addedAudit.probabilityTotal + candidate.probabilityTotal,
-    outputType,
-    digitCount,
-    targetPositions.length,
     {
       predictionScores: [...addedAudit.predictionScores, ...candidate.predictionScores],
     },
@@ -607,16 +581,6 @@ function weightedLivePrediction(
   };
 }
 
-export function minimumReleaseHits(
-  outputType: MovementOutputType,
-  digitCount: number,
-  targetPositionCount: number,
-): number {
-  const baseline = theoreticalBaseline(outputType, digitCount, targetPositionCount);
-  const expectedHits = baseline / 100 * WALK_FORWARD_SIZE;
-  return Math.min(WALK_FORWARD_SIZE, Math.ceil(expectedHits) + 1);
-}
-
 export function evaluateMovementTournament(
   draws: Draw[],
   targetPositions: Posisi[],
@@ -657,8 +621,6 @@ export function evaluateMovementTournament(
   const baseByKey = new Map(baseRanked.map((candidate) => [candidateKey(candidate), candidate]));
   const baseWinner = baseByKey.get(candidateKey(selectionCandidate)) ?? selectionCandidate;
   const displayRanked = decisionRanked.map((candidate) => baseByKey.get(candidateKey(candidate)) ?? candidate);
-  const requiredHits = minimumReleaseHits(outputType, digitCount, targetPositions.length);
-  const released = baseWinner.evaluation.hit >= requiredHits;
   const liveTraining = draws.slice(-selectionCandidate.window);
   const live = selectionCandidate.method === "walk_forward_weighted"
     ? weightedLivePrediction(liveTraining, selectionCandidate, targetPositions, outputType, digitCount)
@@ -669,12 +631,10 @@ export function evaluateMovementTournament(
     candidateCount: displayRanked.length,
     selectedMethod: selectionCandidate.method,
     selectedWindow: selectionCandidate.window,
-    minimumReleaseHits: requiredHits,
-    released,
     evaluation: {
       l14: baseWinner.evaluation,
-      l7: recentEvaluation(baseWinner.statuses, 7, outputType, digitCount, targetPositions.length),
-      l3: recentEvaluation(baseWinner.statuses, 3, outputType, digitCount, targetPositions.length),
+      l7: recentEvaluation(baseWinner.statuses, 7),
+      l3: recentEvaluation(baseWinner.statuses, 3),
     },
     selectionValidation: selectionCandidate.evaluation,
     tieBreakStatus: tieResolution.status,
