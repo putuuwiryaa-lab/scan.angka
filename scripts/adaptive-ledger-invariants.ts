@@ -16,7 +16,7 @@ const result = {
     digitCount: 7,
     sourceDataSize: 42,
   },
-} as MovementResult;
+} as unknown as MovementResult;
 
 const key = adaptivePredictionKey("market-a", result);
 assert.equal(key, adaptivePredictionKey("market-a", result));
