@@ -10,6 +10,7 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Trek tersimpan lintas pasaran.
 - Mode scan Posisi, AI, BBFS, Jumlah, Shio, dan OFF.
 - Adaptive Movement Engine untuk analisa pergerakan data.
+- Prediction Ledger untuk mengukur performa live hasil Adaptif.
 - Pilihan output Adaptif: Posisi, AI, dan BBFS.
 - Pilihan target posisi, 2D, 3D, atau 4D.
 - Pilihan jumlah digit.
@@ -76,6 +77,18 @@ User memilih target 2D, 3D, atau 4D. Status kena hanya jika **seluruh digit targ
 
 Untuk target 2D, Joint Pair menilai pasangan 00–99 secara langsung.
 
+## Prediction Ledger
+
+Hasil Adaptif dari halaman `/movement` dan Batch Adaptif dicatat sebagai prediksi live `pending`. Request berulang dengan pasaran, histori, konfigurasi, metode, dan window yang sama tidak membuat duplikasi.
+
+Ketika pasaran diproses lagi setelah result baru tersedia, prediksi dinilai terhadap result pertama setelah histori sumber. Status akhirnya:
+
+- `settled` untuk prediksi yang berhasil dinilai sebagai hit atau miss;
+- `invalidated` bila histori sumber berubah dan tidak lagi cocok;
+- `pending` selama result berikutnya belum tersedia.
+
+Rekap live tersedia dari endpoint `/api/adaptive-ledger`, termasuk hit rate, miss streak, performa per pasaran, serta performa per metode × window. Ledger belum memengaruhi pemilihan model pada tahap observasi pertama.
+
 ## Struktur Halaman
 
 | Route | Fungsi |
@@ -93,8 +106,9 @@ Untuk target 2D, Joint Pair menilai pasangan 00–99 secara langsung.
 | --- | --- | --- |
 | `/api/markets` | GET | Mengambil daftar pasaran |
 | `/api/scan` | POST | Scan satu pasaran |
-| `/api/movement` | POST | Menjalankan turnamen adaptif L14 dan membentuk output |
-| `/api/batch-scan` | POST | Menjalankan satu bagian Batch Scan atau Adaptif |
+| `/api/movement` | POST | Menjalankan turnamen adaptif L14, mencatat ledger, dan membentuk output |
+| `/api/batch-scan` | POST | Menjalankan satu bagian Batch Scan atau Adaptif dan mencatat hasil Adaptif |
+| `/api/adaptive-ledger` | GET | Rekap performa live prediksi Adaptif |
 | `/api/saved-trek` | POST | Refresh trek tersimpan |
 
 ## Cara Pakai Adaptif
