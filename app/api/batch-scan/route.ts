@@ -5,11 +5,16 @@ import { isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import type { Draw, Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { runMovementEngine } from "@/lib/movement/engine";
 import {
+  applyPersistentLiveWeights,
+  type AdaptiveLiveModelWeight,
+} from "@/lib/movement/persistent-live";
+import {
   buildMovementShadowPredictions,
   type MovementShadowPrediction,
 } from "@/lib/movement/shadow";
 import {
   MOVEMENT_METHOD_LABELS,
+  type MovementConfig,
   type MovementResult,
 } from "@/lib/movement/types";
 import {
@@ -26,6 +31,7 @@ import {
   recordAdaptivePredictionSafely,
   settleAdaptivePredictionsSafely,
 } from "@/lib/server/adaptive-ledger";
+import { loadAdaptiveLiveWeightsSafely } from "@/lib/server/adaptive-live-weights";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 import {
   ADAPTIVE_BATCH_CHUNK_SIZE,
@@ -210,18 +216,29 @@ function selectedScanDigits(draws: Draw[], request: LegacyScanRequest): string {
   return digits.length ? digits.join(" | ") : "-";
 }
 
-function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): AnalysisResult {
+function adaptiveConfig(request: AdaptiveRequest): MovementConfig {
+  return {
+    outputType: adaptiveOutputType(request.scanMode),
+    target: adaptiveTarget(
+      request.scanMode,
+      request.targetPos,
+      request.target2D,
+      request.target3D,
+    ),
+    digitCount: request.digitCount,
+  };
+}
+
+function selectedAdaptiveResult(
+  draws: Draw[],
+  request: AdaptiveRequest,
+  liveWeights: AdaptiveLiveModelWeight[],
+): AnalysisResult {
   try {
-    const result = runMovementEngine(draws, {
-      outputType: adaptiveOutputType(request.scanMode),
-      target: adaptiveTarget(
-        request.scanMode,
-        request.targetPos,
-        request.target2D,
-        request.target3D,
-      ),
-      digitCount: request.digitCount,
-    });
+    const config = adaptiveConfig(request);
+    const baseResult = runMovementEngine(draws, config);
+    const shadows = buildMovementShadowPredictions(draws, baseResult.config);
+    const result = applyPersistentLiveWeights(baseResult, shadows, liveWeights);
     return {
       line: {
         digits: result.digits.join(""),
@@ -230,7 +247,7 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Analys
         validation: `${result.evaluation.l14.hit}/14`,
       },
       adaptiveResult: result,
-      adaptiveShadows: buildMovementShadowPredictions(draws, result.config),
+      adaptiveShadows: shadows,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -241,8 +258,12 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Analys
   }
 }
 
-function selectedAnalysisResult(draws: Draw[], request: AnalysisRequest): AnalysisResult {
-  if (request.kind === "adaptive") return selectedAdaptiveResult(draws, request);
+function selectedAnalysisResult(
+  draws: Draw[],
+  request: AnalysisRequest,
+  liveWeights: AdaptiveLiveModelWeight[] = [],
+): AnalysisResult {
+  if (request.kind === "adaptive") return selectedAdaptiveResult(draws, request, liveWeights);
   return { line: { digits: selectedScanDigits(draws, request) } };
 }
 
@@ -309,8 +330,16 @@ export async function POST(req: Request) {
         const draws = parseStrictHistory(market.history_data);
         await settleAdaptivePredictionsSafely(supabase, id, draws);
 
-        const primaryResult = selectedAnalysisResult(draws, primary);
-        const secondaryResult = secondary ? selectedAnalysisResult(draws, secondary) : null;
+        const primaryWeights = primary.kind === "adaptive"
+          ? await loadAdaptiveLiveWeightsSafely(supabase, id, adaptiveConfig(primary))
+          : [];
+        const secondaryWeights = secondary?.kind === "adaptive"
+          ? await loadAdaptiveLiveWeightsSafely(supabase, id, adaptiveConfig(secondary))
+          : [];
+        const primaryResult = selectedAnalysisResult(draws, primary, primaryWeights);
+        const secondaryResult = secondary
+          ? selectedAnalysisResult(draws, secondary, secondaryWeights)
+          : null;
 
         if (primaryResult.adaptiveResult) {
           await recordAdaptivePredictionSafely(

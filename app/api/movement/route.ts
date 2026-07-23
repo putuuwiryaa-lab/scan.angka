@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { runMovementEngine } from "@/lib/movement/engine";
+import { applyPersistentLiveWeights } from "@/lib/movement/persistent-live";
 import { buildMovementShadowPredictions } from "@/lib/movement/shadow";
 import {
   isMovementOutputType,
@@ -12,6 +13,7 @@ import {
   recordAdaptivePredictionSafely,
   settleAdaptivePredictionsSafely,
 } from "@/lib/server/adaptive-ledger";
+import { loadAdaptiveLiveWeightsSafely } from "@/lib/server/adaptive-live-weights";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 
 export const runtime = "nodejs";
@@ -62,8 +64,10 @@ export async function POST(req: Request) {
     const draws = parseStrictHistory(data.history_data);
     await settleAdaptivePredictionsSafely(supabase, marketId, draws);
 
-    const result = runMovementEngine(draws, config);
-    const shadows = buildMovementShadowPredictions(draws, result.config);
+    const liveWeights = await loadAdaptiveLiveWeightsSafely(supabase, marketId, config);
+    const baseResult = runMovementEngine(draws, config);
+    const shadows = buildMovementShadowPredictions(draws, baseResult.config);
+    const result = applyPersistentLiveWeights(baseResult, shadows, liveWeights);
     await recordAdaptivePredictionSafely(supabase, marketId, result, "movement", shadows);
 
     return NextResponse.json({ market: data.name, result });
