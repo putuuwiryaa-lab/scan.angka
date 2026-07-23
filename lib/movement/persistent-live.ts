@@ -33,7 +33,7 @@ export interface PersistentLiveWeighting {
   changedDigits: boolean;
   strength: number;
   eligibleSources: number;
-  totalObservations: number;
+  averageObservationDepth: number;
   selectedWindow: number;
   sourceWeights: PersistentLiveSourceWeight[];
 }
@@ -122,6 +122,9 @@ export function applyPersistentLiveWeights(
   const averageReliability = eligible.length
     ? eligible.reduce((sum, state) => sum + state.reliability, 0) / eligible.length
     : 0;
+  const averageObservationDepth = eligible.length
+    ? Math.round(eligible.reduce((sum, state) => sum + state.observations, 0) / eligible.length)
+    : 0;
   const strength = Number((PERSISTENT_LIVE_MAX_BLEND * averageReliability).toFixed(6));
   const rawTotal = sourceStates.reduce((sum, state) => sum + state.rawWeight, 0);
   const sourceWeights: PersistentLiveSourceWeight[] = sourceStates.map((state) => ({
@@ -141,7 +144,7 @@ export function applyPersistentLiveWeights(
     changedDigits: false,
     strength,
     eligibleSources: eligible.length,
-    totalObservations: eligible.reduce((sum, state) => sum + state.observations, 0),
+    averageObservationDepth,
     selectedWindow: result.selectedWindow,
     sourceWeights,
   };
@@ -174,7 +177,7 @@ export function applyPersistentLiveWeights(
     digits,
     offDigits: DIGITS.filter((digit) => !selected.has(digit)),
     probabilities: probabilitiesFromVector(combined),
-    message: `${result.message} Overlay bobot live persisten aktif ${percent}% dari ${eligible.length} metode dengan ${metadata.totalObservations} observasi.`,
+    message: `${result.message} Overlay bobot live persisten aktif ${percent}% dari ${eligible.length} metode dengan kedalaman rata-rata ${averageObservationDepth} observasi.`,
     liveWeighting: {
       ...metadata,
       changedDigits,
