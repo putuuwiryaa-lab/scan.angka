@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history";
 import { runMovementEngine } from "@/lib/movement/engine";
+import { buildMovementShadowPredictions } from "@/lib/movement/shadow";
 import {
   isMovementOutputType,
   isMovementTarget,
@@ -62,7 +63,8 @@ export async function POST(req: Request) {
     await settleAdaptivePredictionsSafely(supabase, marketId, draws);
 
     const result = runMovementEngine(draws, config);
-    await recordAdaptivePredictionSafely(supabase, marketId, result, "movement");
+    const shadows = buildMovementShadowPredictions(draws, result.config);
+    await recordAdaptivePredictionSafely(supabase, marketId, result, "movement", shadows);
 
     return NextResponse.json({ market: data.name, result });
   } catch (error) {
