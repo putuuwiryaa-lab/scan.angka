@@ -25,7 +25,7 @@ export type MovementMethod =
 export type PairMovementMethod = "joint_pair";
 export type PositionMovementMethod = Exclude<MovementMethod, PairMovementMethod>;
 export type BasePositionMovementMethod = Exclude<PositionMovementMethod, "walk_forward_weighted">;
-export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";
+export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU";
 export type MovementRegime = "TREND" | "ZIGZAG" | "REVERSAL" | "STABIL" | "CHAOTIC";
 export type MovementTieBreakStatus = "not_needed" | "resolved" | "history_limit";
 
@@ -42,8 +42,6 @@ export interface MovementEvaluation {
   hit: number;
   total: number;
   rate: number;
-  baseline: number;
-  lift: number;
   longestMissStreak: number;
 }
 
@@ -94,7 +92,6 @@ export interface MovementResult {
     candidateCount: number;
   };
   latestDraw: Draw;
-  released: boolean;
   digits: number[];
   offDigits: number[];
   objective: string;
@@ -103,7 +100,6 @@ export interface MovementResult {
   regime: MovementRegime;
   selectedMethod: MovementMethod;
   selectedWindow: number;
-  minimumReleaseHits: number;
   probabilities: MovementProbability[];
   evaluation: {
     l14: MovementEvaluation;
