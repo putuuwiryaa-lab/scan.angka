@@ -12,7 +12,6 @@ export type BatchResult = {
     id: string;
     name: string;
     digits: string;
-    released?: boolean;
     method?: string;
     window?: number;
     validation?: string;
