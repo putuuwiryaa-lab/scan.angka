@@ -49,7 +49,7 @@ const baseResult = {
   tournament: [],
   rows: [],
   message: "Delta Movement W14 unggul.",
-} as MovementResult;
+} as unknown as MovementResult;
 
 const shadows: MovementShadowPrediction[] = [
   {
@@ -116,7 +116,7 @@ const matureWeights: AdaptiveLiveModelWeight[] = [
 const active = applyPersistentLiveWeights(baseResult, shadows, matureWeights);
 assert.equal(active.liveWeighting.applied, true);
 assert.equal(active.liveWeighting.eligibleSources, 2);
-assert.equal(active.liveWeighting.totalObservations, 84);
+assert.equal(active.liveWeighting.averageObservationDepth, 42);
 assert.ok(active.liveWeighting.strength > 0);
 assert.ok(active.liveWeighting.strength <= PERSISTENT_LIVE_MAX_BLEND);
 assert.notDeepEqual(active.probabilities, baseResult.probabilities);
