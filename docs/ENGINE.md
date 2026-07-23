@@ -146,6 +146,39 @@ Saat result baru masuk, L14 bergeser satu langkah dan seluruh turnamen dijalanka
 
 Output selalu diterbitkan selama tersedia minimal 28 result. Validasi, confidence, kualitas sinyal, dan audit berfungsi sebagai informasi evaluasi, bukan gerbang penerbitan.
 
+## Prediction Ledger Live
+
+Setiap hasil yang benar-benar diterbitkan melalui halaman Adaptif atau Batch Adaptif disimpan ke tabel `adaptive_predictions` sebagai prediksi `pending`.
+
+Ledger mencatat:
+
+- pasaran dan result sumber;
+- ukuran histori saat prediksi dibuat;
+- jenis output, target, dan jumlah digit;
+- digit hasil, metode, dan window terpilih;
+- validasi L14 dan validasi pemilihan;
+- confidence, kualitas sinyal, regime, dan probabilitas digit.
+
+`prediction_key` bersifat unik. Menjalankan konfigurasi yang sama berulang kali pada histori yang sama tidak menambah baris prediksi baru.
+
+Saat pasaran tersebut diproses lagi setelah result baru masuk, seluruh prediksi pending dinilai hanya terhadap **result pertama setelah histori sumber**:
+
+```txt
+source_history_size = 168
+actual_result       = data ke-169
+```
+
+Jika histori lama berubah sehingga result sumber tidak lagi cocok, prediksi ditandai `invalidated` dan tidak dihitung sebagai hit atau miss. Hal ini mencegah revisi histori menghasilkan evaluasi live yang salah.
+
+Rekap observasi tersedia melalui:
+
+```txt
+GET /api/adaptive-ledger
+GET /api/adaptive-ledger?marketId=<id>
+```
+
+Endpoint menampilkan pending, invalidated, total settled, hit, miss, hit rate, current miss streak, performa per pasaran, serta performa per metode × window. Ledger hanya mengukur performa live; pada tahap ini nilainya belum mengubah pemilihan model.
+
 ## Objektif Output
 
 ### Posisi
