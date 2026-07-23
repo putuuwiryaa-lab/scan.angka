@@ -4,7 +4,10 @@ import { HistoryDataFormatError, parseStrictHistory } from "@/lib/engine/history
 import { isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import type { Draw, Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { runMovementEngine } from "@/lib/movement/engine";
-import { MOVEMENT_METHOD_LABELS } from "@/lib/movement/types";
+import {
+  MOVEMENT_METHOD_LABELS,
+  type MovementResult,
+} from "@/lib/movement/types";
 import {
   adaptiveOutputType,
   adaptiveTarget,
@@ -15,6 +18,10 @@ import {
   type BatchAnalysisMode,
 } from "@/lib/shared/batch-analysis";
 import { requireActiveAccess } from "@/lib/server/access";
+import {
+  recordAdaptivePredictionSafely,
+  settleAdaptivePredictionsSafely,
+} from "@/lib/server/adaptive-ledger";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 import {
   ADAPTIVE_BATCH_CHUNK_SIZE,
@@ -76,6 +83,10 @@ type AdaptiveRequest = CommonRequest & {
 };
 
 type AnalysisRequest = LegacyScanRequest | AdaptiveRequest;
+type AnalysisResult = {
+  line: Omit<BatchLine, "id" | "name">;
+  adaptiveResult?: MovementResult;
+};
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
@@ -194,7 +205,7 @@ function selectedScanDigits(draws: Draw[], request: LegacyScanRequest): string {
   return digits.length ? digits.join(" | ") : "-";
 }
 
-function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Omit<BatchLine, "id" | "name"> {
+function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): AnalysisResult {
   try {
     const result = runMovementEngine(draws, {
       outputType: adaptiveOutputType(request.scanMode),
@@ -207,23 +218,26 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Omit<B
       digitCount: request.digitCount,
     });
     return {
-      digits: result.digits.join(""),
-      method: MOVEMENT_METHOD_LABELS[result.selectedMethod],
-      window: result.selectedWindow,
-      validation: `${result.evaluation.l14.hit}/14`,
+      line: {
+        digits: result.digits.join(""),
+        method: MOVEMENT_METHOD_LABELS[result.selectedMethod],
+        window: result.selectedWindow,
+        validation: `${result.evaluation.l14.hit}/14`,
+      },
+      adaptiveResult: result,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (message.includes("minimal 28") || message.includes("data belum cukup")) {
-      return { digits: "DATA BELUM CUKUP" };
+      return { line: { digits: "DATA BELUM CUKUP" } };
     }
     throw error;
   }
 }
 
-function selectedAnalysisResult(draws: Draw[], request: AnalysisRequest): Omit<BatchLine, "id" | "name"> {
+function selectedAnalysisResult(draws: Draw[], request: AnalysisRequest): AnalysisResult {
   if (request.kind === "adaptive") return selectedAdaptiveResult(draws, request);
-  return { digits: selectedScanDigits(draws, request) };
+  return { line: { digits: selectedScanDigits(draws, request) } };
 }
 
 export async function POST(req: Request) {
@@ -262,7 +276,8 @@ export async function POST(req: Request) {
         ? `Adaptif ${primary.digitCount}D · Validasi L14`
         : `Output ${primary.digitCount}D`;
 
-    const { data, error } = await createAdminClient()
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
       .from("markets")
       .select("id, name, history_data")
       .in("id", marketIds);
@@ -286,15 +301,27 @@ export async function POST(req: Request) {
 
       try {
         const draws = parseStrictHistory(market.history_data);
+        await settleAdaptivePredictionsSafely(supabase, id, draws);
+
         const primaryResult = selectedAnalysisResult(draws, primary);
         const secondaryResult = secondary ? selectedAnalysisResult(draws, secondary) : null;
+
+        if (primaryResult.adaptiveResult) {
+          await recordAdaptivePredictionSafely(supabase, id, primaryResult.adaptiveResult, "batch_primary");
+        }
+        if (secondaryResult?.adaptiveResult) {
+          await recordAdaptivePredictionSafely(supabase, id, secondaryResult.adaptiveResult, "batch_secondary");
+        }
+
         results.push({
           id,
           name,
-          digits: secondaryResult ? `${primaryResult.digits} · ${secondaryResult.digits}` : primaryResult.digits,
-          method: primaryResult.method,
-          window: primaryResult.window,
-          validation: primaryResult.validation,
+          digits: secondaryResult
+            ? `${primaryResult.line.digits} · ${secondaryResult.line.digits}`
+            : primaryResult.line.digits,
+          method: primaryResult.line.method,
+          window: primaryResult.line.window,
+          validation: primaryResult.line.validation,
         });
       } catch (error) {
         if (error instanceof HistoryDataFormatError) {
