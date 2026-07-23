@@ -34,7 +34,6 @@ type BatchLine = {
   id: string;
   name: string;
   digits: string;
-  released?: boolean;
   method?: string;
   window?: number;
   validation?: string;
@@ -208,8 +207,7 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Omit<B
       digitCount: request.digitCount,
     });
     return {
-      digits: result.released ? result.digits.join("") : "BELUM LAYAK",
-      released: result.released,
+      digits: result.digits.join(""),
       method: MOVEMENT_METHOD_LABELS[result.selectedMethod],
       window: result.selectedWindow,
       validation: `${result.evaluation.l14.hit}/14`,
@@ -217,7 +215,7 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Omit<B
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (message.includes("minimal 28") || message.includes("data belum cukup")) {
-      return { digits: "DATA BELUM CUKUP", released: false };
+      return { digits: "DATA BELUM CUKUP" };
     }
     throw error;
   }
@@ -282,7 +280,7 @@ export async function POST(req: Request) {
       const market = byId.get(id);
       const name = titleCase(market?.name ?? id);
       if (!market?.history_data) {
-        results.push({ id, name, digits: "DATA BELUM TERSEDIA", released: false });
+        results.push({ id, name, digits: "DATA BELUM TERSEDIA" });
         continue;
       }
 
@@ -294,7 +292,6 @@ export async function POST(req: Request) {
           id,
           name,
           digits: secondaryResult ? `${primaryResult.digits} · ${secondaryResult.digits}` : primaryResult.digits,
-          released: secondaryResult ? Boolean(primaryResult.released || secondaryResult.released) : primaryResult.released,
           method: primaryResult.method,
           window: primaryResult.window,
           validation: primaryResult.validation,

@@ -77,21 +77,6 @@ export function isCovered(
   return targetDigits.length > 0 && selected.has(targetDigits[0]);
 }
 
-export function theoreticalBaseline(
-  outputType: MovementOutputType,
-  digitCount: number,
-  targetPositionCount: number,
-): number {
-  const selectedProbability = digitCount / 10;
-  if (outputType === "ai") {
-    return Number(((1 - Math.pow(1 - selectedProbability, targetPositionCount)) * 100).toFixed(1));
-  }
-  if (outputType === "bbfs") {
-    return Number((Math.pow(selectedProbability, targetPositionCount) * 100).toFixed(1));
-  }
-  return Number((selectedProbability * 100).toFixed(1));
-}
-
 export function longestMissStreak(statuses: boolean[]): number {
   let longest = 0;
   let current = 0;
@@ -105,22 +90,14 @@ export function longestMissStreak(statuses: boolean[]): number {
   return longest;
 }
 
-export function evaluationOf(
-  statuses: boolean[],
-  outputType: MovementOutputType,
-  digitCount: number,
-  targetPositionCount: number,
-): MovementEvaluation {
+export function evaluationOf(statuses: boolean[]): MovementEvaluation {
   const total = statuses.length;
   const hit = statuses.filter(Boolean).length;
   const rate = total ? Number(((hit / total) * 100).toFixed(1)) : 0;
-  const baseline = theoreticalBaseline(outputType, digitCount, targetPositionCount);
   return {
     hit,
     total,
     rate,
-    baseline,
-    lift: Number((rate - baseline).toFixed(1)),
     longestMissStreak: longestMissStreak(statuses),
   };
 }

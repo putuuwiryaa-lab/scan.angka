@@ -16,10 +16,10 @@ Dokumen ini merangkum fitur aplikasi, struktur halaman/API, dan cara pakai dasar
 - Walk-forward tetap pada 14 result terbaru.
 - Window training kelipatan 14.
 - Turnamen seluruh metode × window.
-- Delapan model umum dan satu model pasangan 00–99.
+- Sembilan model umum dan satu model pasangan 00–99.
 - Tidak menggunakan metode Markov.
-- Release gate terhadap baseline.
-- Ranking probabilitas digit untuk rekomendasi yang lolos.
+- Semua hasil adaptif diterbitkan selama data minimum tersedia.
+- Ranking probabilitas digit untuk rekomendasi berikutnya.
 - Output ringkas dan siap copy.
 - PWA installable.
 - Data pasaran dibaca dari Supabase melalui server.
@@ -35,7 +35,8 @@ Model umum yang diuji:
 - Momentum Decay;
 - Transition Matrix;
 - Regime Adaptive;
-- Consensus Ensemble.
+- Consensus Ensemble;
+- Walk-Forward Weighted Ensemble.
 
 Model tambahan khusus target 2D:
 
@@ -53,13 +54,13 @@ W98, W112, W126, W140, W154
 Jumlah konfigurasi:
 
 ```txt
-Posisi / 3D / 4D = 88 kandidat
-Target 2D        = 99 kandidat
+Posisi / 3D / 4D = 99 kandidat
+Target 2D        = 110 kandidat
 ```
 
 Setiap metode diuji pada seluruh window tersebut. Pemenang dipilih berdasarkan L14, L7, miss streak, L3, dan stabilitas window tetangga. Metode pemenang kemudian dilatih ulang memakai window terbaru untuk membentuk prediksi berikutnya.
 
-Rekomendasi tidak diterbitkan jika kemenangan pemenang belum melewati batas baseline.
+Konfigurasi dengan ranking tertinggi selalu diterbitkan selama data minimum tersedia. Nilai validasi, confidence, kualitas sinyal, dan audit tetap ditampilkan sebagai informasi evaluasi.
 
 ### Posisi
 
@@ -105,7 +106,7 @@ Untuk target 2D, Joint Pair menilai pasangan 00–99 secara langsung.
 5. Pilih jumlah digit.
 6. Tekan **Jalankan Analisis Adaptif**.
 7. Lihat model terpilih dan riwayat validasi L14.
-8. Jika lolos baseline, salin rekomendasi yang diterbitkan.
+8. Salin hasil adaptif yang diterbitkan.
 
 ## Batch Scan & Adaptif
 
@@ -136,4 +137,4 @@ Contoh 35 pasaran:
 35 pasaran ÷ 5 pasaran per tahap = 7 tahap
 ```
 
-Progress tahap ditampilkan pada tombol proses. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.
+Progress tahap ditampilkan pada tombol proses. Semua hasil dengan riwayat yang cukup diterbitkan; riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.

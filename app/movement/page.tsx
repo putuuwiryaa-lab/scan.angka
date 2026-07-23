@@ -93,10 +93,6 @@ function FieldButton({
   );
 }
 
-function signed(value: number): string {
-  return `${value >= 0 ? "+" : ""}${value}%`;
-}
-
 function sameCandidate(
   left: Pick<MovementTournamentCandidate, "method" | "window">,
   right: Pick<MovementTournamentCandidate, "method" | "window">,
@@ -204,7 +200,7 @@ export default function MovementPage() {
   }
 
   async function copyResult() {
-    if (!result?.released) return;
+    if (!result) return;
     const resolvedMarket = marketName || selectedMarket?.name || selectedMarket?.id || "Pasaran";
     const text = [
       `*${String(resolvedMarket).toUpperCase()}*`,
@@ -307,9 +303,7 @@ export default function MovementPage() {
           <section className={styles.resultCard}>
             <div className={styles.resultHeader}>
               <div>
-                <span className={result.released ? styles.statusGood : styles.statusOff}>
-                  {result.released ? "REKOMENDASI TERVERIFIKASI" : "VALIDASI BELUM MEMADAI"}
-                </span>
+                <span className={styles.statusGood}>HASIL ADAPTIF</span>
                 <h2>{resolvedMarketName}</h2>
                 <p>{OUTPUT_LABEL[result.config.outputType]} {TARGET_LABEL[result.config.target]} · cakupan {result.config.digitCount} digit</p>
               </div>
@@ -319,24 +313,15 @@ export default function MovementPage() {
               </div>
             </div>
 
-            {result.released ? (
-              <>
-                <div className={styles.numberResult}>{result.digits.join("")}</div>
-                <div className={styles.resultMeta}>
-                  <div><span>Model Terpilih</span><b>{MOVEMENT_METHOD_LABELS[result.selectedMethod]} · W{result.selectedWindow}</b></div>
-                  <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
-                  <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
-                </div>
-                <button className={styles.copyButton} type="button" onClick={copyResult}>
-                  {copied ? "✓ Rekomendasi disalin" : "Salin Rekomendasi"}
-                </button>
-              </>
-            ) : (
-              <div className={styles.noRelease}>
-                <b>Sinyal prediktif belum stabil.</b>
-                <span>Konfigurasi terbaik mencatat validasi {result.evaluation.l14.hit}/14. Ambang minimum penerbitan adalah {result.minimumReleaseHits}/14.</span>
-              </div>
-            )}
+            <div className={styles.numberResult}>{result.digits.join("")}</div>
+            <div className={styles.resultMeta}>
+              <div><span>Model Terpilih</span><b>{MOVEMENT_METHOD_LABELS[result.selectedMethod]} · W{result.selectedWindow}</b></div>
+              <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
+              <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
+            </div>
+            <button className={styles.copyButton} type="button" onClick={copyResult}>
+              {copied ? "✓ Hasil disalin" : "Salin Hasil"}
+            </button>
 
             <details className={styles.details}>
               <summary>

@@ -3,11 +3,9 @@ import { runMovementEngine } from "../lib/movement/engine";
 import {
   TIE_BREAK_STEP,
   buildTrainingWindows,
-  minimumReleaseHits,
 } from "../lib/movement/evaluator";
 import {
   isCovered,
-  theoreticalBaseline,
 } from "../lib/movement/helpers";
 import {
   buildJointPairDistribution,
@@ -39,14 +37,8 @@ assert.equal(isCovered([0, 1, 2, 3, 4, 5, 7, 8], [5, 8, 2, 7], "bbfs"), true);
 assert.equal(isCovered([0, 1, 2, 3, 4, 5, 7, 9], [5, 8, 2, 7], "bbfs"), false);
 assert.equal(isCovered([0, 1, 2, 3, 4, 5, 7, 8], [5, 8, 8, 7], "bbfs"), true);
 
-assert.equal(theoreticalBaseline("position", 7, 1), 70);
-assert.equal(theoreticalBaseline("ai", 4, 2), 64);
-assert.equal(theoreticalBaseline("bbfs", 8, 4), 41);
 assert.deepEqual(buildTrainingWindows(168), [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154]);
 assert.equal(TIE_BREAK_STEP, 7);
-assert.equal(minimumReleaseHits("position", 7, 1), 11);
-assert.equal(minimumReleaseHits("ai", 4, 2), 10);
-assert.equal(minimumReleaseHits("bbfs", 8, 4), 7);
 assert.equal(BASE_POSITION_MOVEMENT_METHODS.length, 8);
 assert.equal(POSITION_MOVEMENT_METHODS.length, 9);
 assert.equal(PAIR_MOVEMENT_METHODS.length, 1);
@@ -110,9 +102,8 @@ assert.equal(position.config.walkForwardSize, 14);
 assert.equal(position.config.candidateCount, 99);
 assert.equal(position.rows.length, position.selectionValidation.total);
 assert.equal(position.selectedWindow % 14, 0);
-assert.equal(position.minimumReleaseHits, 11);
-assert.equal(position.digits.length, position.released ? 7 : 0);
-assert.equal(position.offDigits.length, position.released ? 3 : 0);
+assert.equal(position.digits.length, 7);
+assert.equal(position.offDigits.length, 3);
 
 const ai = runMovementEngine(draws, {
   outputType: "ai",
@@ -120,10 +111,8 @@ const ai = runMovementEngine(draws, {
   digitCount: 4,
 });
 assert.equal(ai.config.candidateCount, 110);
-assert.equal(ai.evaluation.l14.baseline, 64);
 assert.equal(ai.evaluation.l14.total, 14);
-assert.equal(ai.minimumReleaseHits, 10);
-assert.equal(ai.digits.length, ai.released ? 4 : 0);
+assert.equal(ai.digits.length, 4);
 
 const bbfs = runMovementEngine(draws, {
   outputType: "bbfs",
@@ -131,11 +120,9 @@ const bbfs = runMovementEngine(draws, {
   digitCount: 8,
 });
 assert.equal(bbfs.config.candidateCount, 99);
-assert.equal(bbfs.evaluation.l14.baseline, 41);
 assert.equal(bbfs.config.targetPositions.join(""), "ACKE");
-assert.equal(bbfs.minimumReleaseHits, 7);
-assert.equal(bbfs.digits.length, bbfs.released ? 8 : 0);
-assert.equal(bbfs.offDigits.length, bbfs.released ? 2 : 0);
+assert.equal(bbfs.digits.length, 8);
+assert.equal(bbfs.offDigits.length, 2);
 
 for (const result of [position, ai, bbfs]) {
   assert.ok(result.selectionValidation.total >= 14);
@@ -169,6 +156,7 @@ assert.equal(resetTrainingTie.selectionValidation.total, 28);
 assert.equal(resetTrainingTie.selectionValidation.hit, 28);
 assert.equal(resetTrainingTie.rows.length, 28);
 assert.equal(resetTrainingTie.rows.filter((row) => row.covered).length, 28);
+assert.equal(resetTrainingTie.digits.length, 7);
 
 const forcedL21 = resetTrainingTie.tieBreakRounds[0];
 assert.equal(forcedL21.size, 21);
@@ -193,4 +181,4 @@ assert.ok(forcedL28.candidates.every((candidate) =>
   candidate.evaluation.total === 28 && candidate.evaluation.hit === 28,
 ));
 
-console.log("Movement adaptive tournament, walk-forward weighted ensemble, reset training tie-break, and 35-market Batch invariants passed.");
+console.log("Movement adaptive tournament, always-publish output, walk-forward weighted ensemble, reset training tie-break, and 35-market Batch invariants passed.");

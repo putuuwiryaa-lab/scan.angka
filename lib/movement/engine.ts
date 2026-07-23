@@ -67,29 +67,22 @@ function regimeOf(draws: Draw[], positions: Posisi[]): MovementRegime {
   return "CHAOTIC";
 }
 
-function strengthOf(released: boolean, hit: number, minimumHits: number): MovementStrength {
-  if (!released) return "TIDAK_LAYAK";
-  if (hit >= minimumHits + 2 || hit >= 13) return "KUAT";
-  if (hit >= minimumHits + 1) return "CUKUP";
+function strengthOf(hit: number, total: number): MovementStrength {
+  const rate = total > 0 ? hit / total : 0;
+  if (rate >= 0.8) return "KUAT";
+  if (rate >= 0.6) return "CUKUP";
   return "PANTAU";
 }
 
 function confidenceOf(
-  released: boolean,
   l14Hit: number,
   l7Hit: number,
   l3Hit: number,
-  minimumHits: number,
-  lift: number,
   missStreak: number,
 ): number {
-  if (!released) {
-    return Math.round(clamp(28 + l14Hit * 2 - missStreak * 2, 20, 49));
-  }
-  const excessHits = l14Hit - minimumHits;
   return Math.round(clamp(
-    58 + excessHits * 6 + l7Hit * 1.3 + l3Hit * 1.5 + lift * 0.18 - missStreak * 2,
-    35,
+    32 + l14Hit * 2.4 + l7Hit * 1.4 + l3Hit * 1.8 - missStreak * 2,
+    20,
     94,
   ));
 }
@@ -104,19 +97,14 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     config.outputType,
     digitCount,
   );
-  const released = true;
   const strength = strengthOf(
-    released,
     tournament.evaluation.l14.hit,
-    tournament.minimumReleaseHits,
+    tournament.evaluation.l14.total,
   );
   const confidence = confidenceOf(
-    released,
     tournament.evaluation.l14.hit,
     tournament.evaluation.l7.hit,
     tournament.evaluation.l3.hit,
-    tournament.minimumReleaseHits,
-    tournament.evaluation.l14.lift,
     tournament.evaluation.l14.longestMissStreak,
   );
   const liveDigits = [...tournament.liveSelection.digits].sort((left, right) => left - right);
@@ -145,7 +133,6 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
       candidateCount: tournament.candidateCount,
     },
     latestDraw: draws[draws.length - 1],
-    released,
     digits: liveDigits,
     offDigits: DIGITS.filter((digit) => !selected.has(digit)),
     objective: objectiveLabel(config.outputType, targetPositions),
@@ -154,7 +141,6 @@ export function runMovementEngine(draws: Draw[], input: MovementConfig): Movemen
     regime: regimeOf(draws, targetPositions),
     selectedMethod: tournament.selectedMethod,
     selectedWindow: tournament.selectedWindow,
-    minimumReleaseHits: tournament.minimumReleaseHits,
     probabilities: tournament.liveProbabilities,
     evaluation: tournament.evaluation,
     selectionValidation: tournament.selectionValidation,
@@ -174,5 +160,5 @@ export const MOVEMENT_INTERNAL_CONFIG = {
   methods: MOVEMENT_METHODS,
   aiRequiresMinimumOneTarget: true,
   bbfsRequiresAllTargets: true,
-  releaseRequiresBaselineOutperformance: false,
+  alwaysPublishesResults: true,
 };
