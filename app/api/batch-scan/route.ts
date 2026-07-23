@@ -5,6 +5,10 @@ import { isShioMode, isTarget2D, isTarget3D } from "@/lib/engine/helpers";
 import type { Draw, Posisi, ScanMode, Target2D, Target3D } from "@/lib/engine/types";
 import { runMovementEngine } from "@/lib/movement/engine";
 import {
+  buildMovementShadowPredictions,
+  type MovementShadowPrediction,
+} from "@/lib/movement/shadow";
+import {
   MOVEMENT_METHOD_LABELS,
   type MovementResult,
 } from "@/lib/movement/types";
@@ -86,6 +90,7 @@ type AnalysisRequest = LegacyScanRequest | AdaptiveRequest;
 type AnalysisResult = {
   line: Omit<BatchLine, "id" | "name">;
   adaptiveResult?: MovementResult;
+  adaptiveShadows?: MovementShadowPrediction[];
 };
 
 function titleCase(value: string): string {
@@ -225,6 +230,7 @@ function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Analys
         validation: `${result.evaluation.l14.hit}/14`,
       },
       adaptiveResult: result,
+      adaptiveShadows: buildMovementShadowPredictions(draws, result.config),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -307,10 +313,22 @@ export async function POST(req: Request) {
         const secondaryResult = secondary ? selectedAnalysisResult(draws, secondary) : null;
 
         if (primaryResult.adaptiveResult) {
-          await recordAdaptivePredictionSafely(supabase, id, primaryResult.adaptiveResult, "batch_primary");
+          await recordAdaptivePredictionSafely(
+            supabase,
+            id,
+            primaryResult.adaptiveResult,
+            "batch_primary",
+            primaryResult.adaptiveShadows,
+          );
         }
         if (secondaryResult?.adaptiveResult) {
-          await recordAdaptivePredictionSafely(supabase, id, secondaryResult.adaptiveResult, "batch_secondary");
+          await recordAdaptivePredictionSafely(
+            supabase,
+            id,
+            secondaryResult.adaptiveResult,
+            "batch_secondary",
+            secondaryResult.adaptiveShadows,
+          );
         }
 
         results.push({
