@@ -27,6 +27,8 @@ belakang = K,E
 
 Engine tidak memilih rumus A1–E9. Engine membandingkan beragam model pembaca pergerakan pada **14 result terbaru** dan memilih kombinasi metode × window dengan kemenangan tertinggi.
 
+Setiap konfigurasi yang memiliki data minimum ikut dalam turnamen. Konfigurasi dengan ranking tertinggi selalu dipakai untuk membentuk output berikutnya.
+
 ## Struktur Data 168 Result
 
 Jika tersedia 168 result:
@@ -64,7 +66,6 @@ Setelah 14 pengujian selesai, engine mencatat:
 - KENA pada 7 result terbaru;
 - KENA pada 3 result terbaru;
 - longest miss streak;
-- lift terhadap baseline;
 - kestabilan window tetangga;
 - rata-rata probabilitas output.
 
@@ -80,20 +81,21 @@ Setelah 14 pengujian selesai, engine mencatat:
 6. **Transition Matrix** — membaca transisi arah gerak menuju arah berikutnya.
 7. **Regime Adaptive** — menyesuaikan komposisi model saat kondisi trend, zigzag, reversal, stabil, atau chaotic.
 8. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.
+9. **Walk-Forward Weighted Ensemble** — memperbarui bobot model dasar dari hasil walk-forward sebelumnya tanpa melihat target yang sedang diuji.
 
 ### Model khusus target 2D
 
-9. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.
+10. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.
 
 Metode berbasis Markov tidak digunakan di Adaptive Engine.
 
-Untuk target satu posisi, 3D, dan 4D, engine menguji 8 model umum. Untuk target 2D, Joint Pair ikut ditambahkan.
+Untuk target satu posisi, 3D, dan 4D, engine menguji 9 model umum. Untuk target 2D, Joint Pair ikut ditambahkan.
 
 Dengan 168 data:
 
 ```txt
-Posisi / 3D / 4D = 8 metode × 11 window = 88 kandidat
-Target 2D        = 9 metode × 11 window = 99 kandidat
+Posisi / 3D / 4D = 9 metode × 11 window = 99 kandidat
+Target 2D        = 10 metode × 11 window = 110 kandidat
 ```
 
 ## Ranking Kandidat
@@ -118,6 +120,12 @@ Momentum Decay W56 = 11/14
 
 W42 lebih didukung dibanding nilai tinggi yang berdiri sendiri di antara window lemah.
 
+## Pemecah Seri
+
+Turnamen awal memakai L14. Bila beberapa konfigurasi memiliki jumlah KENA tertinggi yang sama, seluruh kandidat diuji ulang secara progresif pada L21, L28, L35, dan seterusnya selama riwayat masih mencukupi.
+
+Jika satu kandidat menjadi pemimpin tunggal, kandidat tersebut dipilih. Jika seri bertahan sampai batas riwayat, ranking sekunder digunakan sebagai pemutus akhir.
+
 ## Prediksi Berikutnya
 
 Setelah pemenang dipilih, metode tersebut dilatih ulang memakai window terbaru.
@@ -135,6 +143,8 @@ Prediksi result ke-169 menggunakan:
 ```
 
 Saat result baru masuk, L14 bergeser satu langkah dan seluruh turnamen dijalankan ulang. Metode terpilih dapat berubah mengikuti kondisi data terbaru.
+
+Output selalu diterbitkan selama tersedia minimal 28 result. Validasi, confidence, kualitas sinyal, dan audit berfungsi sebagai informasi evaluasi, bukan gerbang penerbitan.
 
 ## Objektif Output
 
@@ -162,40 +172,6 @@ covered = uniqueTargetDigits.every((digit) => outputDigits.includes(digit))
 
 Digit kembar tidak perlu tersedia dua kali karena output adalah kumpulan digit.
 
-## Baseline Teoretis
-
-Untuk `k` digit output dan `m` posisi target:
-
-```txt
-Posisi = k / 10
-AI     = 1 - (1 - k/10)^m
-BBFS   = (k/10)^m
-```
-
-Contoh:
-
-```txt
-KPL 7 digit       = 70%
-AI 2D 4 digit     = 64%
-BBFS 2D 8 digit   = 64%
-BBFS 4D 8 digit   = 40,96% ≈ 41%
-```
-
-## Batas Penerbitan
-
-Pemenang tidak otomatis diterbitkan. Minimal KENA dihitung satu tingkat di atas ekspektasi baseline L14.
-
-Contoh:
-
-```txt
-KPL 7 digit       → minimal 11/14
-AI 2D 4 digit     → minimal 10/14
-BBFS 2D 8 digit   → minimal 10/14
-BBFS 4D 8 digit   → minimal 7/14
-```
-
-Jika seluruh metode berada di bawah batas tersebut, engine tetap menampilkan hasil turnamen tetapi **tidak menerbitkan angka rekomendasi**.
-
 ## Pembentukan Output
 
 Engine menguji seluruh kombinasi digit yang mungkin untuk jumlah digit pilihan.
@@ -209,4 +185,4 @@ Karena ruang digit hanya 0–9, enumerasi kombinasi tetap kecil; maksimum `C(10,
 
 ## Catatan Validasi
 
-Penambahan metode memperluas variasi pembacaan, tetapi juga memperbesar peluang satu kandidat terlihat unggul secara kebetulan. Karena itu release gate, L7, miss streak, dan stabilitas window tetangga tetap dipertahankan. Metode baru tidak otomatis dianggap lebih baik; semuanya harus menang pada walk-forward yang sama.
+Penambahan metode memperluas variasi pembacaan, tetapi juga memperbesar peluang satu kandidat terlihat unggul secara kebetulan. Karena itu L7, miss streak, stabilitas window tetangga, dan pemecah seri tetap dipertahankan. Metode baru tidak otomatis dianggap lebih baik; semuanya harus menang pada walk-forward yang sama.
