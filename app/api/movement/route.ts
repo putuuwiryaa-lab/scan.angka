@@ -7,6 +7,10 @@ import {
   type MovementConfig,
 } from "@/lib/movement/types";
 import { requireActiveAccess } from "@/lib/server/access";
+import {
+  recordAdaptivePredictionSafely,
+  settleAdaptivePredictionsSafely,
+} from "@/lib/server/adaptive-ledger";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 
 export const runtime = "nodejs";
@@ -55,7 +59,11 @@ export async function POST(req: Request) {
     }
 
     const draws = parseStrictHistory(data.history_data);
+    await settleAdaptivePredictionsSafely(supabase, marketId, draws);
+
     const result = runMovementEngine(draws, config);
+    await recordAdaptivePredictionSafely(supabase, marketId, result, "movement");
+
     return NextResponse.json({ market: data.name, result });
   } catch (error) {
     if (error instanceof HistoryDataFormatError) {
