@@ -1,0 +1,393 @@
+name: Remove adaptive baseline
+
+on:
+  push:
+    branches:
+      - agent/remove-baseline-always-release
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Remove baseline and release gating
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text, encoding="utf-8")
+
+          def replace_exact(path: str, old: str, new: str, expected: int = 1) -> None:
+              text = read(path)
+              count = text.count(old)
+              if count != expected:
+                  raise RuntimeError(f"{path}: expected {expected} matches, found {count}: {old[:80]!r}")
+              write(path, text.replace(old, new))
+
+          def replace_regex(path: str, pattern: str, replacement: str, expected: int = 1) -> None:
+              text = read(path)
+              updated, count = re.subn(pattern, replacement, text, flags=re.S)
+              if count != expected:
+                  raise RuntimeError(f"{path}: expected {expected} regex matches, found {count}: {pattern[:100]!r}")
+              write(path, updated)
+
+          # Public result types: every valid analysis returns digits. No baseline or release gate.
+          replace_exact(
+              "lib/movement/types.ts",
+              'export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU" | "TIDAK_LAYAK";',
+              'export type MovementStrength = "KUAT" | "CUKUP" | "PANTAU";',
+          )
+          replace_exact("lib/movement/types.ts", "  baseline: number;\n  lift: number;\n", "")
+          replace_exact("lib/movement/types.ts", "  released: boolean;\n", "")
+          replace_exact("lib/movement/types.ts", "  minimumReleaseHits: number;\n", "")
+
+          # Evaluation only measures observed walk-forward performance.
+          replace_regex(
+              "lib/movement/helpers.ts",
+              r'export function theoreticalBaseline\(.*?\n\}\n\n(?=export function longestMissStreak)',
+              "",
+          )
+          replace_regex(
+              "lib/movement/helpers.ts",
+              r'export function evaluationOf\(.*?\n\}\n\n(?=export function normalizeDistribution)',
+              '''export function evaluationOf(statuses: boolean[]): MovementEvaluation {
+            const total = statuses.length;
+            const hit = statuses.filter(Boolean).length;
+            const rate = total ? Number(((hit / total) * 100).toFixed(1)) : 0;
+            return {
+              hit,
+              total,
+              rate,
+              longestMissStreak: longestMissStreak(statuses),
+            };
+          }
+
+          ''',
+          )
+
+          # Tournament selection keeps walk-forward ranking and tie-breaks, without publication thresholds.
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "  targetDigitsOf,\n  theoreticalBaseline,\n} from \"./helpers\";",
+              "  targetDigitsOf,\n} from \"./helpers\";",
+          )
+          replace_exact("lib/movement/evaluator.ts", "  minimumReleaseHits: number;\n  released: boolean;\n", "")
+          replace_regex(
+              "lib/movement/evaluator.ts",
+              r'function recentEvaluation\(.*?\n\}\n\n(?=function evaluateCandidateRange)',
+              '''function recentEvaluation(statuses: boolean[], size: number): MovementEvaluation {
+            return evaluationOf(statuses.slice(-Math.min(size, statuses.length)));
+          }
+
+          ''',
+          )
+          replace_regex(
+              "lib/movement/evaluator.ts",
+              r'function candidateFromAudit\(.*?\n\}\n\n(?=function runCandidate)',
+              '''function candidateFromAudit(
+            method: MovementMethod,
+            window: number,
+            statuses: boolean[],
+            rows: MovementAuditRow[],
+            probabilityTotal: number,
+            internals: CandidateInternals,
+          ): CandidateRun {
+            const evaluation = evaluationOf(statuses);
+            return {
+              method,
+              window,
+              evaluation,
+              l7Hit: statuses.slice(-7).filter(Boolean).length,
+              l3Hit: statuses.slice(-3).filter(Boolean).length,
+              neighborAverageHit: 0,
+              meanProbability: Number(((probabilityTotal / statuses.length) * 100).toFixed(2)),
+              statuses,
+              rows,
+              probabilityTotal,
+              predictionScores: internals.predictionScores,
+              ensembleSources: internals.ensembleSources,
+              ensembleWeights: internals.ensembleWeights,
+            };
+          }
+
+          ''',
+          )
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "    outputType,\n    digitCount,\n    targetPositions.length,\n",
+              "",
+              expected=3,
+          )
+          replace_regex(
+              "lib/movement/evaluator.ts",
+              r'export function minimumReleaseHits\(.*?\n\}\n\n(?=export function evaluateMovementTournament)',
+              "",
+          )
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "  const requiredHits = minimumReleaseHits(outputType, digitCount, targetPositions.length);\n  const released = baseWinner.evaluation.hit >= requiredHits;\n",
+              "",
+          )
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "    minimumReleaseHits: requiredHits,\n    released,\n",
+              "",
+          )
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "recentEvaluation(baseWinner.statuses, 7, outputType, digitCount, targetPositions.length)",
+              "recentEvaluation(baseWinner.statuses, 7)",
+          )
+          replace_exact(
+              "lib/movement/evaluator.ts",
+              "recentEvaluation(baseWinner.statuses, 3, outputType, digitCount, targetPositions.length)",
+              "recentEvaluation(baseWinner.statuses, 3)",
+          )
+
+          # Final engine always emits digits. Strength and confidence use observed hits only.
+          replace_regex(
+              "lib/movement/engine.ts",
+              r'function strengthOf\(.*?\n\}\n\n(?=function confidenceOf)',
+              '''function strengthOf(hit: number, total: number): MovementStrength {
+            const rate = total > 0 ? hit / total : 0;
+            if (rate >= 0.8) return "KUAT";
+            if (rate >= 0.65) return "CUKUP";
+            return "PANTAU";
+          }
+
+          ''',
+          )
+          replace_regex(
+              "lib/movement/engine.ts",
+              r'function confidenceOf\(.*?\n\}\n\n(?=export function runMovementEngine)',
+              '''function confidenceOf(
+            l14Hit: number,
+            l7Hit: number,
+            l3Hit: number,
+            missStreak: number,
+          ): number {
+            return Math.round(clamp(
+              30 + l14Hit * 2.5 + l7Hit * 1.4 + l3Hit * 1.8 - missStreak * 2,
+              20,
+              94,
+            ));
+          }
+
+          ''',
+          )
+          replace_exact("lib/movement/engine.ts", "  const released = true;\n", "")
+          replace_regex(
+              "lib/movement/engine.ts",
+              r'  const strength = strengthOf\(.*?\n  \);',
+              '''  const strength = strengthOf(
+            tournament.evaluation.l14.hit,
+            tournament.evaluation.l14.total,
+          );''',
+          )
+          replace_regex(
+              "lib/movement/engine.ts",
+              r'  const confidence = confidenceOf\(.*?\n  \);',
+              '''  const confidence = confidenceOf(
+            tournament.evaluation.l14.hit,
+            tournament.evaluation.l7.hit,
+            tournament.evaluation.l3.hit,
+            tournament.evaluation.l14.longestMissStreak,
+          );''',
+          )
+          replace_exact("lib/movement/engine.ts", "    released,\n", "")
+          replace_exact("lib/movement/engine.ts", "    minimumReleaseHits: tournament.minimumReleaseHits,\n", "")
+          replace_exact(
+              "lib/movement/engine.ts",
+              "  releaseRequiresBaselineOutperformance: false,\n",
+              "  alwaysPublishesResults: true,\n",
+          )
+
+          # API output no longer carries a release state or BELUM LAYAK branch.
+          replace_exact("app/api/batch-scan/route.ts", "  released?: boolean;\n", "")
+          replace_regex(
+              "app/api/batch-scan/route.ts",
+              r'function selectedAdaptiveResult\(.*?\n\}\n\n(?=function selectedAnalysisResult)',
+              '''function selectedAdaptiveResult(draws: Draw[], request: AdaptiveRequest): Omit<BatchLine, "id" | "name"> {
+            try {
+              const result = runMovementEngine(draws, {
+                outputType: adaptiveOutputType(request.scanMode),
+                target: adaptiveTarget(
+                  request.scanMode,
+                  request.targetPos,
+                  request.target2D,
+                  request.target3D,
+                ),
+                digitCount: request.digitCount,
+              });
+              return {
+                digits: result.digits.join(""),
+                method: MOVEMENT_METHOD_LABELS[result.selectedMethod],
+                window: result.selectedWindow,
+                validation: `${result.evaluation.l14.hit}/14`,
+              };
+            } catch (error) {
+              const message = error instanceof Error ? error.message.toLowerCase() : "";
+              if (message.includes("minimal 28") || message.includes("data belum cukup")) {
+                return { digits: "DATA BELUM CUKUP" };
+              }
+              throw error;
+            }
+          }
+
+          ''',
+          )
+          replace_exact(
+              "app/api/batch-scan/route.ts",
+              '        results.push({ id, name, digits: "DATA BELUM TERSEDIA", released: false });',
+              '        results.push({ id, name, digits: "DATA BELUM TERSEDIA" });',
+          )
+          replace_regex(
+              "app/api/batch-scan/route.ts",
+              r'\n          released: secondaryResult \? Boolean\(primaryResult\.released \|\| secondaryResult\.released\) : primaryResult\.released,',
+              "",
+          )
+
+          # Adaptive UI always displays the selected digits.
+          replace_exact("app/movement/page.tsx", "    if (!result?.released) return;", "    if (!result) return;")
+          replace_exact(
+              "app/movement/page.tsx",
+              '''                <span className={result.released ? styles.statusGood : styles.statusOff}>
+                  {result.released ? "REKOMENDASI TERVERIFIKASI" : "VALIDASI BELUM MEMADAI"}
+                </span>''',
+              '''                <span className={styles.statusGood}>HASIL ADAPTIF</span>''',
+          )
+          replace_exact(
+              "app/movement/page.tsx",
+              '''            {result.released ? (
+              <>
+                <div className={styles.numberResult}>{result.digits.join("")}</div>
+                <div className={styles.resultMeta}>
+                  <div><span>Model Terpilih</span><b>{MOVEMENT_METHOD_LABELS[result.selectedMethod]} · W{result.selectedWindow}</b></div>
+                  <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
+                  <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
+                </div>
+                <button className={styles.copyButton} type="button" onClick={copyResult}>
+                  {copied ? "✓ Rekomendasi disalin" : "Salin Rekomendasi"}
+                </button>
+              </>
+            ) : (
+              <div className={styles.noRelease}>
+                <b>Sinyal prediktif belum stabil.</b>
+                <span>Konfigurasi terbaik mencatat validasi {result.evaluation.l14.hit}/14. Ambang minimum penerbitan adalah {result.minimumReleaseHits}/14.</span>
+              </div>
+            )}''',
+              '''            <div className={styles.numberResult}>{result.digits.join("")}</div>
+            <div className={styles.resultMeta}>
+              <div><span>Model Terpilih</span><b>{MOVEMENT_METHOD_LABELS[result.selectedMethod]} · W{result.selectedWindow}</b></div>
+              <div><span>Digit Eliminasi</span><b>{result.offDigits.join("") || "—"}</b></div>
+              <div><span>Kualitas Sinyal</span><b>{result.strength}</b></div>
+            </div>
+            <button className={styles.copyButton} type="button" onClick={copyResult}>
+              {copied ? "✓ Rekomendasi disalin" : "Salin Rekomendasi"}
+            </button>''',
+          )
+
+          # Invariants follow the always-publish contract.
+          replace_exact("scripts/movement-invariants.ts", "  minimumReleaseHits,\n", "")
+          replace_exact("scripts/movement-invariants.ts", "  theoreticalBaseline,\n", "")
+          replace_regex(
+              "scripts/movement-invariants.ts",
+              r'assert\.equal\(theoreticalBaseline.*?assert\.equal\(minimumReleaseHits\("bbfs", 8, 4\), 7\);\n',
+              "",
+          )
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(position.minimumReleaseHits, 11);\n", "")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(position.digits.length, position.released ? 7 : 0);", "assert.equal(position.digits.length, 7);")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(position.offDigits.length, position.released ? 3 : 0);", "assert.equal(position.offDigits.length, 3);")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(ai.evaluation.l14.baseline, 64);\n", "")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(ai.minimumReleaseHits, 10);\n", "")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(ai.digits.length, ai.released ? 4 : 0);", "assert.equal(ai.digits.length, 4);")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(bbfs.evaluation.l14.baseline, 41);\n", "")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(bbfs.minimumReleaseHits, 7);\n", "")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(bbfs.digits.length, bbfs.released ? 8 : 0);", "assert.equal(bbfs.digits.length, 8);")
+          replace_exact("scripts/movement-invariants.ts", "assert.equal(bbfs.offDigits.length, bbfs.released ? 2 : 0);", "assert.equal(bbfs.offDigits.length, 2);")
+
+          # Documentation reflects the current engine contract and method count.
+          replace_exact("docs/FEATURES.md", "- Delapan model umum dan satu model pasangan 00–99.\n", "- Sembilan model umum dan satu model pasangan 00–99.\n")
+          replace_exact("docs/FEATURES.md", "- Release gate terhadap baseline.\n", "")
+          replace_exact("docs/FEATURES.md", "- Ranking probabilitas digit untuk rekomendasi yang lolos.\n", "- Ranking probabilitas digit untuk rekomendasi berikutnya.\n")
+          replace_exact("docs/FEATURES.md", "- Consensus Ensemble.\n", "- Consensus Ensemble;\n- Walk-Forward Weighted Ensemble.\n")
+          replace_exact("docs/FEATURES.md", "Posisi / 3D / 4D = 88 kandidat\nTarget 2D        = 99 kandidat", "Posisi / 3D / 4D = 99 kandidat\nTarget 2D        = 110 kandidat")
+          replace_exact("docs/FEATURES.md", "Rekomendasi tidak diterbitkan jika kemenangan pemenang belum melewati batas baseline.", "Konfigurasi dengan ranking tertinggi selalu diterbitkan selama data minimum tersedia.")
+          replace_exact("docs/FEATURES.md", "8. Jika lolos baseline, salin rekomendasi yang diterbitkan.", "8. Salin hasil adaptif yang diterbitkan.")
+          replace_exact(
+              "docs/FEATURES.md",
+              "Progress tahap ditampilkan pada tombol proses. Pasaran yang tidak melewati release gate ditampilkan sebagai `BELUM LAYAK`, sedangkan riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.",
+              "Progress tahap ditampilkan pada tombol proses. Semua hasil dengan riwayat yang cukup diterbitkan; riwayat di bawah 28 result ditampilkan sebagai `DATA BELUM CUKUP`.",
+          )
+
+          replace_exact("docs/ENGINE.md", "- lift terhadap baseline;\n", "")
+          replace_exact("docs/ENGINE.md", "8. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.\n", "8. **Consensus Ensemble** — menggabungkan model-model umum berdasarkan tingkat informasi distribusinya.\n9. **Walk-Forward Weighted Ensemble** — memperbarui bobot metode dasar dari hasil walk-forward sebelumnya tanpa melihat target yang sedang diuji.\n")
+          replace_exact("docs/ENGINE.md", "9. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.", "10. **Joint Pair** — membentuk probabilitas pasangan 00–99 dari kemiripan state dan movement.")
+          replace_exact("docs/ENGINE.md", "Untuk target satu posisi, 3D, dan 4D, engine menguji 8 model umum. Untuk target 2D, Joint Pair ikut ditambahkan.", "Untuk target satu posisi, 3D, dan 4D, engine menguji 9 model umum. Untuk target 2D, Joint Pair ikut ditambahkan.")
+          replace_exact("docs/ENGINE.md", "Posisi / 3D / 4D = 8 metode × 11 window = 88 kandidat\nTarget 2D        = 9 metode × 11 window = 99 kandidat", "Posisi / 3D / 4D = 9 metode × 11 window = 99 kandidat\nTarget 2D        = 10 metode × 11 window = 110 kandidat")
+          replace_regex(
+              "docs/ENGINE.md",
+              r'## Baseline Teoretis\n.*?(?=## Pembentukan Output)',
+              "",
+          )
+          replace_exact(
+              "docs/ENGINE.md",
+              "Penambahan metode memperluas variasi pembacaan, tetapi juga memperbesar peluang satu kandidat terlihat unggul secara kebetulan. Karena itu release gate, L7, miss streak, dan stabilitas window tetangga tetap dipertahankan. Metode baru tidak otomatis dianggap lebih baik; semuanya harus menang pada walk-forward yang sama.",
+              "Penambahan metode memperluas variasi pembacaan, tetapi juga memperbesar peluang satu kandidat terlihat unggul secara kebetulan. Karena itu L7, miss streak, dan stabilitas window tetangga tetap dipertahankan. Metode baru tidak otomatis dianggap lebih baik; semuanya harus menang pada walk-forward yang sama.",
+          )
+
+          # Ensure removed concepts do not remain in tracked source or documentation.
+          forbidden = ("baseline", "minimumReleaseHits", "TIDAK_LAYAK", "BELUM LAYAK", ".released")
+          ignored = {Path(".github/workflows/remove-baseline.yml")}
+          leftovers = []
+          for path in Path(".").rglob("*"):
+              if not path.is_file() or path in ignored or ".git" in path.parts or "node_modules" in path.parts:
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              for token in forbidden:
+                  for number, line in enumerate(text.splitlines(), 1):
+                      if token.lower() in line.lower():
+                          leftovers.append(f"{path}:{number}: {line.strip()}")
+          if leftovers:
+              raise RuntimeError("Removed concepts still present:\n" + "\n".join(leftovers))
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Movement invariants
+        run: npm run test:movement
+
+      - name: Commit validated cleanup
+        shell: bash
+        run: |
+          rm .github/workflows/remove-baseline.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove baseline and always publish adaptive results"
+          git push
