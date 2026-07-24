@@ -11,9 +11,9 @@ const draws = Array.from({ length: 168 }, (_, index) => {
 });
 
 for (const config of [
-  { outputType: "position" as const, target: "K" as const, digitCount: 7, expected: 99 },
-  { outputType: "ai" as const, target: "2d_belakang" as const, digitCount: 4, expected: 110 },
-  { outputType: "bbfs" as const, target: "4d" as const, digitCount: 8, expected: 99 },
+  { outputType: "position" as const, target: "K" as const, digitCount: 7, expected: 121 },
+  { outputType: "ai" as const, target: "2d_belakang" as const, digitCount: 4, expected: 132 },
+  { outputType: "bbfs" as const, target: "4d" as const, digitCount: 8, expected: 121 },
 ]) {
   const result = runMovementEngine(draws, config);
   const shadows = buildMovementShadowPredictions(draws, result.config);
@@ -24,6 +24,8 @@ for (const config of [
   assert.ok(shadows.every((shadow) => shadow.digits.length === config.digitCount));
   assert.ok(shadows.every((shadow) => shadow.evaluation.total === 14));
   assert.ok(shadows.every((shadow) => shadow.probabilities.length === 10));
+  assert.ok(shadows.some((shadow) => shadow.method === "bayesian_change_point"));
+  assert.ok(shadows.some((shadow) => shadow.method === "adaptive_contextual_fusion"));
 
   const selected = shadows.find((shadow) =>
     shadow.method === result.selectedMethod && shadow.window === result.selectedWindow,
@@ -31,4 +33,4 @@ for (const config of [
   assert.ok(selected);
 }
 
-console.log("Adaptive shadow predictions cover every method-window candidate with unique live outputs.");
+console.log("Adaptive shadow predictions cover every method-window candidate, including the fresh adaptive methods, with unique live outputs.");
