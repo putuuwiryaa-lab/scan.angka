@@ -97,6 +97,7 @@ export function summarizeChanceBenchmark(
   observations: ChanceBenchmarkObservation[],
 ): ChanceBenchmarkSummary {
   const benchmarked = observations.flatMap((observation) => {
+    if (observation.chanceProbability === null || observation.chanceProbability === undefined) return [];
     const probability = Number(observation.chanceProbability);
     if (!Number.isFinite(probability) || probability < 0 || probability > 1) return [];
     return [{ isHit: observation.isHit, probability }];
