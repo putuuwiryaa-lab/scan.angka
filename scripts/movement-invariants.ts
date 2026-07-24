@@ -39,12 +39,16 @@ assert.equal(isCovered([0, 1, 2, 3, 4, 5, 7, 8], [5, 8, 8, 7], "bbfs"), true);
 
 assert.deepEqual(buildTrainingWindows(168), [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154]);
 assert.equal(TIE_BREAK_STEP, 7);
-assert.equal(BASE_POSITION_MOVEMENT_METHODS.length, 8);
-assert.equal(POSITION_MOVEMENT_METHODS.length, 9);
+assert.equal(BASE_POSITION_MOVEMENT_METHODS.length, 10);
+assert.equal(POSITION_MOVEMENT_METHODS.length, 11);
 assert.equal(PAIR_MOVEMENT_METHODS.length, 1);
-assert.equal(MOVEMENT_METHODS.length, 10);
+assert.equal(MOVEMENT_METHODS.length, 12);
 assert.equal(MOVEMENT_METHODS.includes("walk_forward_weighted"), true);
+assert.equal(MOVEMENT_METHODS.includes("bayesian_change_point"), true);
+assert.equal(MOVEMENT_METHODS.includes("adaptive_contextual_fusion"), true);
 assert.equal(MOVEMENT_METHOD_LABELS.walk_forward_weighted, "Walk-Forward Weighted Ensemble");
+assert.equal(MOVEMENT_METHOD_LABELS.bayesian_change_point, "Bayesian Adaptive Memory");
+assert.equal(MOVEMENT_METHOD_LABELS.adaptive_contextual_fusion, "Adaptive Contextual Fusion");
 assert.ok(MOVEMENT_METHODS.every((method) => !method.includes("markov")));
 
 assert.equal(ADAPTIVE_BATCH_MODES.length, 7);
@@ -99,7 +103,7 @@ const position = runMovementEngine(draws, {
   digitCount: 7,
 });
 assert.equal(position.config.walkForwardSize, 14);
-assert.equal(position.config.candidateCount, 99);
+assert.equal(position.config.candidateCount, 121);
 assert.equal(position.rows.length, position.selectionValidation.total);
 assert.equal(position.selectedWindow % 14, 0);
 assert.equal(position.digits.length, 7);
@@ -110,7 +114,7 @@ const ai = runMovementEngine(draws, {
   target: "2d_belakang",
   digitCount: 4,
 });
-assert.equal(ai.config.candidateCount, 110);
+assert.equal(ai.config.candidateCount, 132);
 assert.equal(ai.evaluation.l14.total, 14);
 assert.equal(ai.digits.length, 4);
 
@@ -119,7 +123,7 @@ const bbfs = runMovementEngine(draws, {
   target: "4d",
   digitCount: 8,
 });
-assert.equal(bbfs.config.candidateCount, 99);
+assert.equal(bbfs.config.candidateCount, 121);
 assert.equal(bbfs.config.targetPositions.join(""), "ACKE");
 assert.equal(bbfs.digits.length, 8);
 assert.equal(bbfs.offDigits.length, 2);
@@ -148,8 +152,8 @@ const resetTrainingTie = runMovementEngine(resetTrainingDraws, {
   target: "K",
   digitCount: 7,
 });
-assert.equal(resetTrainingTie.config.candidateCount, 18);
-assert.equal(resetTrainingTie.tieBreakInitialCandidateCount, 18);
+assert.equal(resetTrainingTie.config.candidateCount, 22);
+assert.equal(resetTrainingTie.tieBreakInitialCandidateCount, 22);
 assert.equal(resetTrainingTie.tieBreakStatus, "history_limit");
 assert.equal(resetTrainingTie.tieBreakRounds.length, 2);
 assert.equal(resetTrainingTie.selectionValidation.total, 28);
@@ -160,25 +164,29 @@ assert.equal(resetTrainingTie.digits.length, 7);
 
 const forcedL21 = resetTrainingTie.tieBreakRounds[0];
 assert.equal(forcedL21.size, 21);
-assert.equal(forcedL21.candidateCount, 18);
-assert.equal(forcedL21.remainingCandidateCount, 18);
+assert.equal(forcedL21.candidateCount, 22);
+assert.equal(forcedL21.remainingCandidateCount, 22);
 assert.equal(forcedL21.bestHit, 21);
-assert.equal(forcedL21.candidates.length, 18);
+assert.equal(forcedL21.candidates.length, 22);
 assert.ok(forcedL21.candidates.some((candidate) => candidate.window === 28));
 assert.ok(forcedL21.candidates.some((candidate) => candidate.method === "walk_forward_weighted"));
+assert.ok(forcedL21.candidates.some((candidate) => candidate.method === "bayesian_change_point"));
+assert.ok(forcedL21.candidates.some((candidate) => candidate.method === "adaptive_contextual_fusion"));
 assert.ok(forcedL21.candidates.every((candidate) =>
   candidate.evaluation.total === 21 && candidate.evaluation.hit === 21,
 ));
 
 const forcedL28 = resetTrainingTie.tieBreakRounds[1];
 assert.equal(forcedL28.size, 28);
-assert.equal(forcedL28.candidateCount, 18);
-assert.equal(forcedL28.remainingCandidateCount, 18);
+assert.equal(forcedL28.candidateCount, 22);
+assert.equal(forcedL28.remainingCandidateCount, 22);
 assert.equal(forcedL28.bestHit, 28);
 assert.ok(forcedL28.candidates.some((candidate) => candidate.window === 28));
 assert.ok(forcedL28.candidates.some((candidate) => candidate.method === "walk_forward_weighted"));
+assert.ok(forcedL28.candidates.some((candidate) => candidate.method === "bayesian_change_point"));
+assert.ok(forcedL28.candidates.some((candidate) => candidate.method === "adaptive_contextual_fusion"));
 assert.ok(forcedL28.candidates.every((candidate) =>
   candidate.evaluation.total === 28 && candidate.evaluation.hit === 28,
 ));
 
-console.log("Movement adaptive tournament, always-publish output, walk-forward weighted ensemble, reset training tie-break, and 35-market Batch invariants passed.");
+console.log("Movement adaptive tournament, Bayesian Adaptive Memory, Adaptive Contextual Fusion, persistent weighting compatibility, reset training tie-break, and 35-market Batch invariants passed.");
