@@ -32,6 +32,10 @@ type SummaryBucket = {
   chance: ReturnType<typeof summarizeChanceBenchmark>;
 };
 
+function hasChanceBenchmark(row: SettledPredictionRow): boolean {
+  return row.chance_probability !== null && Number.isFinite(Number(row.chance_probability));
+}
+
 function summarize(rows: SettledPredictionRow[]): SummaryBucket {
   const hit = rows.filter((row) => row.is_hit).length;
   const total = rows.length;
@@ -120,6 +124,7 @@ export async function GET(request: Request) {
     if (invalidatedResponse.error) throw invalidatedResponse.error;
 
     const rows = (settledResponse.data ?? []) as SettledPredictionRow[];
+    const benchmarkedSettledRows = rows.filter(hasChanceBenchmark).length;
     return NextResponse.json({
       scope: marketId ? { marketId } : { marketId: null },
       sampledSettledRows: rows.length,
@@ -129,8 +134,8 @@ export async function GET(request: Request) {
       chanceBenchmark: {
         modelVersion: ADAPTIVE_CHANCE_MODEL_VERSION,
         publicationGate: false,
-        benchmarkedSettledRows: rows.filter((row) => Number.isFinite(Number(row.chance_probability))).length,
-        unbenchmarkedSettledRows: rows.filter((row) => !Number.isFinite(Number(row.chance_probability))).length,
+        benchmarkedSettledRows,
+        unbenchmarkedSettledRows: rows.length - benchmarkedSettledRows,
       },
       overall: {
         ...summarize(rows),
