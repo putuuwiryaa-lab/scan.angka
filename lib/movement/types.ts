@@ -18,6 +18,8 @@ export type MovementMethod =
   | "joint_pair"
   | "momentum_decay"
   | "transition_matrix"
+  | "bayesian_change_point"
+  | "adaptive_contextual_fusion"
   | "regime_adaptive"
   | "consensus"
   | "walk_forward_weighted";
@@ -132,6 +134,8 @@ export const BASE_POSITION_MOVEMENT_METHODS: BasePositionMovementMethod[] = [
   "cross",
   "momentum_decay",
   "transition_matrix",
+  "bayesian_change_point",
+  "adaptive_contextual_fusion",
   "regime_adaptive",
   "consensus",
 ];
@@ -155,6 +159,8 @@ export const MOVEMENT_METHOD_LABELS: Record<MovementMethod, string> = {
   joint_pair: "Joint Pair",
   momentum_decay: "Momentum Decay",
   transition_matrix: "Transition Matrix",
+  bayesian_change_point: "Bayesian Adaptive Memory",
+  adaptive_contextual_fusion: "Adaptive Contextual Fusion",
   regime_adaptive: "Regime Adaptive",
   consensus: "Consensus Ensemble",
   walk_forward_weighted: "Walk-Forward Weighted Ensemble",
