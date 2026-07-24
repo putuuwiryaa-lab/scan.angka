@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  ADAPTIVE_CHANCE_MODEL_VERSION,
+  summarizeChanceBenchmark,
+} from "@/lib/movement/chance-benchmark";
 import { requireActiveAccess } from "@/lib/server/access";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 
@@ -16,6 +20,8 @@ type SettledPredictionRow = {
   selected_window: number;
   is_hit: boolean;
   settled_at: string;
+  chance_probability: number | null;
+  chance_model_version: string | null;
 };
 
 type SummaryBucket = {
@@ -23,6 +29,7 @@ type SummaryBucket = {
   hit: number;
   miss: number;
   hitRate: number;
+  chance: ReturnType<typeof summarizeChanceBenchmark>;
 };
 
 function summarize(rows: SettledPredictionRow[]): SummaryBucket {
@@ -33,6 +40,10 @@ function summarize(rows: SettledPredictionRow[]): SummaryBucket {
     hit,
     miss: total - hit,
     hitRate: total ? Number(((hit / total) * 100).toFixed(2)) : 0,
+    chance: summarizeChanceBenchmark(rows.map((row) => ({
+      isHit: row.is_hit,
+      chanceProbability: row.chance_probability,
+    }))),
   };
 }
 
@@ -77,7 +88,7 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
     let settledQuery = supabase
       .from("adaptive_predictions")
-      .select("market_id, output_type, target, digit_count, selected_method, selected_window, is_hit, settled_at")
+      .select("market_id, output_type, target, digit_count, selected_method, selected_window, is_hit, settled_at, chance_probability, chance_model_version")
       .eq("status", "settled")
       .order("settled_at", { ascending: false })
       .limit(limit);
@@ -115,6 +126,12 @@ export async function GET(request: Request) {
       truncated: rows.length === limit,
       pending: pendingResponse.count ?? 0,
       invalidated: invalidatedResponse.count ?? 0,
+      chanceBenchmark: {
+        modelVersion: ADAPTIVE_CHANCE_MODEL_VERSION,
+        publicationGate: false,
+        benchmarkedSettledRows: rows.filter((row) => Number.isFinite(Number(row.chance_probability))).length,
+        unbenchmarkedSettledRows: rows.filter((row) => !Number.isFinite(Number(row.chance_probability))).length,
+      },
       overall: {
         ...summarize(rows),
         currentMissStreak: currentMissStreak(rows),
