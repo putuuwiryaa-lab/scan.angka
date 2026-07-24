@@ -7,11 +7,15 @@ import {
   normalizeDistribution,
   signedDelta,
 } from "./helpers";
+import {
+  adaptiveContextualFusionDistribution,
+  bayesianChangePointDistribution,
+} from "./fresh-adaptive";
 import type {
+  BasePositionMovementMethod,
   DigitDistribution,
   MovementRegime,
   PositionDistributions,
-  PositionMovementMethod,
 } from "./types";
 
 export type JointPairDistribution = number[];
@@ -376,7 +380,7 @@ function consensusDistribution(draws: Draw[], position: Posisi): DigitDistributi
 
 export function buildMethodDistributions(
   draws: Draw[],
-  method: PositionMovementMethod,
+  method: BasePositionMovementMethod,
 ): PositionDistributions {
   const result = {} as PositionDistributions;
   for (const position of POSITIONS) {
@@ -386,6 +390,8 @@ export function buildMethodDistributions(
     else if (method === "cross") result[position] = crossDistribution(draws, position);
     else if (method === "momentum_decay") result[position] = momentumDecayDistribution(draws, position);
     else if (method === "transition_matrix") result[position] = transitionMatrixDistribution(draws, position);
+    else if (method === "bayesian_change_point") result[position] = bayesianChangePointDistribution(draws, position);
+    else if (method === "adaptive_contextual_fusion") result[position] = adaptiveContextualFusionDistribution(draws, position);
     else if (method === "regime_adaptive") result[position] = regimeAdaptiveDistribution(draws, position);
     else result[position] = consensusDistribution(draws, position);
   }
